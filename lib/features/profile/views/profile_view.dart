@@ -8,6 +8,8 @@ import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/navigation/glass_chrome.dart';
 import '../../quests/controllers/quest_list_controller.dart';
+import '../../social/controllers/social_controller.dart';
+import '../../social/models/ally_invitation.dart';
 
 /// "Profile" tab — identity/security settings plus real quest stats.
 class ProfileView extends StatefulWidget {
@@ -186,6 +188,81 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                 ),
                 const SizedBox(height: 40),
+                Builder(
+                  builder: (context) {
+                    final social = Get.find<SocialController>();
+                    return Obx(() {
+                      final pendingInvitations = social.pendingInvitations;
+                      if (pendingInvitations.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'INVITATIONS REÇUES',
+                            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLow,
+                              borderRadius: AppRadii.structuralRadius,
+                              border: Border.all(color: AppColors.outlineVariant15),
+                            ),
+                            child: Column(
+                              children: [
+                                for (final invitation in pendingInvitations) ...[
+                                  _InvitationRow(
+                                    invitation: invitation,
+                                    onTap: () => Get.toNamed(
+                                      AppRoutes.invitationAlly,
+                                      arguments: invitation,
+                                    ),
+                                  ),
+                                  if (invitation != pendingInvitations.last)
+                                    Divider(height: 1, color: AppColors.outlineVariant15),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      );
+                    });
+                  },
+                ),
+                Builder(
+                  builder: (context) {
+                    final social = Get.find<SocialController>();
+                    return Obx(() {
+                      final pendingValidations = social.pendingValidations;
+                      if (pendingValidations.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'VALIDATIONS DES ALLIÉS',
+                            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLow,
+                              borderRadius: AppRadii.structuralRadius,
+                              border: Border.all(color: AppColors.outlineVariant15),
+                            ),
+                            child: _SettingsRow(
+                              icon: Icons.fact_check_outlined,
+                              label: '${pendingValidations.length} validation'
+                                  '${pendingValidations.length > 1 ? 's' : ''} en attente',
+                              onTap: () => Get.toNamed(AppRoutes.allyValidations),
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      );
+                    });
+                  },
+                ),
                 Text(
                   'STATISTIQUES',
                   style: AppTypography.labelMd.copyWith(color: AppColors.outline),
@@ -332,6 +409,56 @@ class _SettingsRow extends StatelessWidget {
               ),
               const SizedBox(width: 4),
             ],
+            const Icon(Icons.chevron_right, color: AppColors.outlineVariant, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InvitationRow extends StatelessWidget {
+  const _InvitationRow({required this.invitation, required this.onTap});
+
+  final AllyInvitation invitation;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.surfaceContainerHighest,
+              child: Text(
+                invitation.inviterName[0].toUpperCase(),
+                style: AppTypography.labelMd.copyWith(color: AppColors.primary),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Invitation de ${invitation.inviterName}',
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    invitation.questTitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                  ),
+                ],
+              ),
+            ),
             const Icon(Icons.chevron_right, color: AppColors.outlineVariant, size: 20),
           ],
         ),
