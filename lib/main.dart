@@ -3,16 +3,25 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'core/bindings/initial_binding.dart';
 import 'core/routes/app_pages.dart';
+import 'core/routes/app_routes.dart';
+import 'core/services/onboarding_service.dart';
 import 'core/theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const AxiomApp());
+  final hasOnboarded = await OnboardingService().hasCompletedOnboarding();
+  runApp(
+    AxiomApp(
+      initialRoute: hasOnboarded ? AppRoutes.home : AppRoutes.onboarding,
+    ),
+  );
 }
 
 class AxiomApp extends StatelessWidget {
-  const AxiomApp({super.key});
+  const AxiomApp({super.key, required this.initialRoute});
+
+  final String initialRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +30,7 @@ class AxiomApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       initialBinding: InitialBinding(),
-      initialRoute: AppPages.initial,
+      initialRoute: initialRoute,
       getPages: AppPages.pages,
     );
   }
