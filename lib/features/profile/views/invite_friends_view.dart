@@ -321,6 +321,7 @@ class _ContactRow extends StatelessWidget {
           OutlinedButton(
             onPressed: invited ? null : onInvite,
             style: OutlinedButton.styleFrom(
+              minimumSize: const Size(64, 36),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               foregroundColor: invited ? AppColors.outline : AppColors.primaryFixedDim,
               side: BorderSide(
