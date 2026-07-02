@@ -1,3 +1,10 @@
+let's avoid to to test on simple UI, like buttons and components, only logic. and heavy features logics
+App language is french
+we are using mock data just to make it work for now. we will add backend later
+money is in XOF
+Don't run simulator for verifications, just test passes it's okay
+this is a flutter app don't make ios native assumptions
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
