@@ -34,11 +34,25 @@ class QuestListController extends GetxController {
     }
   }
 
+  Future<void> createQuest(QuestModel quest) async {
+    final created = await _repository.createQuest(quest);
+    quests.add(created);
+  }
+
   QuestModel? findById(String id) {
     try {
       return quests.firstWhere((q) => q.id == id);
     } catch (_) {
       return null;
     }
+  }
+
+  double get totalStakeAmount =>
+      quests.fold(0, (sum, quest) => sum + (quest.stakeAmount ?? 0));
+
+  String get riskLevel {
+    if (totalStakeAmount >= 500) return 'ÉLEVÉ';
+    if (totalStakeAmount >= 200) return 'MODÉRÉ';
+    return 'FAIBLE';
   }
 }
