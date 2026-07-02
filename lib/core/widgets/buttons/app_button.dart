@@ -103,7 +103,9 @@ class AppButton extends StatelessWidget {
           Icon(leadingIcon, size: 18),
           const SizedBox(width: 8),
         ],
-        text,
+        Flexible(
+          child: Text(label, style: AppTypography.labelMd, overflow: TextOverflow.ellipsis),
+        ),
         if (trailingIcon != null) ...[
           const SizedBox(width: 8),
           Icon(trailingIcon, size: 18),
@@ -175,10 +177,13 @@ class _LustreButton extends StatelessWidget {
                             Icon(leadingIcon, size: 18, color: AppColors.primary),
                             const SizedBox(width: 8),
                           ],
-                          Text(
-                            label,
-                            style: AppTypography.labelMd.copyWith(
-                              color: AppColors.primary,
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: AppTypography.labelMd.copyWith(
+                                color: AppColors.primary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (trailingIcon != null) ...[

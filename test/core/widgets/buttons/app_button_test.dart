@@ -93,5 +93,47 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Create Quest'), findsNothing);
     });
+
+    testWidgets('icon + long label does not overflow at narrow width', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 150,
+              child: AppButton(
+                label: 'Continuer avec Google',
+                leadingIcon: Icons.g_mobiledata,
+                onPressed: () {},
+                variant: AppButtonVariant.secondary,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('lustre variant with trailingIcon + long label does not overflow', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 150,
+              child: AppButton(
+                label: 'CONTINUER VERS LE PAIEMENT',
+                trailingIcon: Icons.arrow_forward,
+                onPressed: () {},
+                variant: AppButtonVariant.lustre,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
   });
 }
