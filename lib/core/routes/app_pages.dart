@@ -1,20 +1,33 @@
 import 'package:get/get.dart';
-import '../../features/auth/views/auth_view.dart';
-import '../../features/profile/views/profile_view.dart';
-import '../../features/quests/bindings/quest_binding.dart';
+import '../../features/auth/views/login_view.dart';
+import '../../features/auth/views/register_view.dart';
+import '../../features/onboarding/views/onboarding_view.dart';
+import '../../features/quests/controllers/quest_create_controller.dart';
+import '../../features/quests/views/quest_create_view.dart';
 import '../../features/quests/views/quest_detail_view.dart';
-import '../../features/quests/views/quest_list_view.dart';
+import '../../features/quests/views/quest_payment_view.dart';
+import '../../features/profile/views/invite_friends_view.dart';
+import '../../features/social/views/ally_validations_view.dart';
+import '../../features/social/views/invitation_ally_view.dart';
+import '../../features/quests/views/quest_checkin_status_view.dart';
+import '../../features/quests/views/quest_validation_view.dart';
 import '../../features/shell/bindings/shell_binding.dart';
 import '../../features/shell/views/main_shell_view.dart';
 import 'app_routes.dart';
 
 class AppPages {
-  static const initial = AppRoutes.auth;
-
   static final pages = [
     GetPage(
-      name: AppRoutes.auth,
-      page: () => const AuthView(),
+      name: AppRoutes.onboarding,
+      page: () => const OnboardingView(),
+    ),
+    GetPage(
+      name: AppRoutes.login,
+      page: () => const LoginView(),
+    ),
+    GetPage(
+      name: AppRoutes.register,
+      page: () => const RegisterView(),
     ),
     GetPage(
       name: AppRoutes.home,
@@ -22,18 +35,39 @@ class AppPages {
       binding: ShellBinding(),
     ),
     GetPage(
-      name: AppRoutes.quests,
-      page: () => const QuestListView(),
-      binding: QuestBinding(),
-    ),
-    GetPage(
       name: AppRoutes.questDetail,
       page: () => const QuestDetailView(),
-      binding: QuestBinding(),
     ),
     GetPage(
-      name: AppRoutes.profile,
-      page: () => const ProfileView(),
+      name: AppRoutes.questValidation,
+      page: () => const QuestValidationView(),
+    ),
+    GetPage(
+      name: AppRoutes.questCheckinStatus,
+      page: () => const QuestCheckinStatusView(),
+    ),
+    GetPage(
+      name: AppRoutes.inviteFriends,
+      page: () => const InviteFriendsView(),
+    ),
+    GetPage(
+      name: AppRoutes.questCreate,
+      page: () => const QuestCreateView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<QuestCreateController>(() => QuestCreateController());
+      }),
+    ),
+    GetPage(
+      name: AppRoutes.questPayment,
+      page: () => const QuestPaymentView(),
+    ),
+    GetPage(
+      name: AppRoutes.invitationAlly,
+      page: () => const InvitationAllyView(),
+    ),
+    GetPage(
+      name: AppRoutes.allyValidations,
+      page: () => const AllyValidationsView(),
     ),
   ];
 }
