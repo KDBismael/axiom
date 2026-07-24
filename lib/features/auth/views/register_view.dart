@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../core/services/onboarding_service.dart';
+import '../../../core/services/pending_invite_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../profile/models/country.dart';
+import '../../profile/widgets/phone_input_field.dart';
+import '../controllers/auth_controller.dart';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -20,10 +23,13 @@ class _RegisterViewState extends State<RegisterView> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _country = Rx<Country>(xofZoneCountries.first);
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _termsAccepted = false;
+
+  final _authController = Get.find<AuthController>();
 
   @override
   void dispose() {
@@ -36,12 +42,32 @@ class _RegisterViewState extends State<RegisterView> {
     super.dispose();
   }
 
+  void _navigateAfterAuth() {
+    final target = Get.find<PendingInviteService>().consumeRedirectTarget();
+    Get.offAllNamed(target.route, arguments: target.arguments);
+  }
+
   Future<void> _register() async {
-    // No real auth backend yet — creating an account just marks onboarding
-    // complete and enters the app, matching the rest of the app's
-    // mock-data-now stance.
-    await OnboardingService().markCompleted();
-    Get.offAllNamed(AppRoutes.home);
+    await _authController.register(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty
+          ? null
+          : '${_country.value.dialCode}${_phoneController.text.trim()}',
+    );
+    if (_authController.isAuthenticated) _navigateAfterAuth();
+  }
+
+  Future<void> _registerWithGoogle() async {
+    await _authController.loginWithGoogle();
+    if (_authController.isAuthenticated) _navigateAfterAuth();
+  }
+
+  Future<void> _registerWithApple() async {
+    await _authController.loginWithApple();
+    if (_authController.isAuthenticated) _navigateAfterAuth();
   }
 
   @override
@@ -122,12 +148,7 @@ class _RegisterViewState extends State<RegisterView> {
                       keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 24),
-                    _UnderlineField(
-                      label: 'NUMÉRO DE TÉLÉPHONE',
-                      hint: '+225 07 00 00 00 00',
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                    ),
+                    PhoneInputField(country: _country, controller: _phoneController),
                     const SizedBox(height: 24),
                     _UnderlineField(
                       label: 'MOT DE PASSE',
@@ -147,44 +168,17 @@ class _RegisterViewState extends State<RegisterView> {
                         () => _obscureConfirmPassword = !_obscureConfirmPassword,
                       ),
                     ),
-                    const SizedBox(height: 40),
-                    AppButton(
-                      label: 'CRÉER MON COMPTE',
-                      variant: AppButtonVariant.lustre,
-                      trailingIcon: Icons.arrow_forward,
-                      onPressed: _termsAccepted ? _register : null,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: AppColors.outlineVariant15)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'OU',
-                            style: AppTypography.labelMd.copyWith(
-                              color: AppColors.outline,
-                              fontSize: 10,
-                            ),
-                          ),
+                    Obx(() {
+                      final error = _authController.errorMessage.value;
+                      if (error == null) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          error,
+                          style: AppTypography.labelMd.copyWith(color: AppColors.error),
                         ),
-                        Expanded(child: Divider(color: AppColors.outlineVariant15)),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    AppButton(
-                      label: "S'inscrire avec Google",
-                      variant: AppButtonVariant.secondary,
-                      leadingIcon: Icons.g_mobiledata,
-                      onPressed: _register,
-                    ),
-                    const SizedBox(height: 12),
-                    AppButton(
-                      label: "S'inscrire avec Apple",
-                      variant: AppButtonVariant.secondary,
-                      leadingIcon: Icons.apple,
-                      onPressed: _register,
-                    ),
+                      );
+                    }),
                     const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -224,6 +218,55 @@ class _RegisterViewState extends State<RegisterView> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    Obx(
+                      () => AppButton(
+                        label: 'CRÉER MON COMPTE',
+                        variant: AppButtonVariant.lustre,
+                        trailingIcon: Icons.arrow_forward,
+                        loading: _authController.activeAction.value == AuthAction.register,
+                        onPressed: (_termsAccepted && !_authController.isLoading.value)
+                            ? _register
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: AppColors.outlineVariant15)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'OU',
+                            style: AppTypography.labelMd.copyWith(
+                              color: AppColors.outline,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: AppColors.outlineVariant15)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Obx(
+                      () => AppButton(
+                        label: "S'inscrire avec Google",
+                        variant: AppButtonVariant.secondary,
+                        leadingIcon: Icons.g_mobiledata,
+                        loading: _authController.activeAction.value == AuthAction.google,
+                        onPressed: _authController.isLoading.value ? null : _registerWithGoogle,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Obx(
+                      () => AppButton(
+                        label: "S'inscrire avec Apple",
+                        variant: AppButtonVariant.secondary,
+                        leadingIcon: Icons.apple,
+                        loading: _authController.activeAction.value == AuthAction.apple,
+                        onPressed: _authController.isLoading.value ? null : _registerWithApple,
+                      ),
                     ),
                     const SizedBox(height: 40),
                     Center(

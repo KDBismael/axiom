@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../core/services/onboarding_service.dart';
+import '../../../core/services/pending_invite_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../controllers/auth_controller.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -19,6 +20,8 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
+  final _authController = Get.find<AuthController>();
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -26,11 +29,27 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
+  void _navigateAfterAuth() {
+    final target = Get.find<PendingInviteService>().consumeRedirectTarget();
+    Get.offAllNamed(target.route, arguments: target.arguments);
+  }
+
   Future<void> _signIn() async {
-    // No real auth backend yet — any tap just marks onboarding complete and
-    // enters the app, matching the rest of the app's mock-data-now stance.
-    await OnboardingService().markCompleted();
-    Get.offAllNamed(AppRoutes.home);
+    await _authController.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+    if (_authController.isAuthenticated) _navigateAfterAuth();
+  }
+
+  Future<void> _signInWithGoogle() async {
+    await _authController.loginWithGoogle();
+    if (_authController.isAuthenticated) _navigateAfterAuth();
+  }
+
+  Future<void> _signInWithApple() async {
+    await _authController.loginWithApple();
+    if (_authController.isAuthenticated) _navigateAfterAuth();
   }
 
   @override
@@ -100,8 +119,25 @@ class _LoginViewState extends State<LoginView> {
                   ),
                 ),
               ),
+              Obx(() {
+                final error = _authController.errorMessage.value;
+                if (error == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    error,
+                    style: AppTypography.labelMd.copyWith(color: AppColors.error),
+                  ),
+                );
+              }),
               const SizedBox(height: 32),
-              AppButton(label: 'SE CONNECTER', onPressed: _signIn),
+              Obx(
+                () => AppButton(
+                  label: 'SE CONNECTER',
+                  loading: _authController.activeAction.value == AuthAction.login,
+                  onPressed: _authController.isLoading.value ? null : _signIn,
+                ),
+              ),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -120,25 +156,24 @@ class _LoginViewState extends State<LoginView> {
                 ],
               ),
               const SizedBox(height: 24),
-              AppButton(
-                label: 'Continuer avec Google',
-                variant: AppButtonVariant.secondary,
-                leadingIcon: Icons.g_mobiledata,
-                onPressed: _signIn,
+              Obx(
+                () => AppButton(
+                  label: 'Continuer avec Google',
+                  variant: AppButtonVariant.secondary,
+                  leadingIcon: Icons.g_mobiledata,
+                  loading: _authController.activeAction.value == AuthAction.google,
+                  onPressed: _authController.isLoading.value ? null : _signInWithGoogle,
+                ),
               ),
               const SizedBox(height: 12),
-              AppButton(
-                label: 'Continuer avec Apple',
-                variant: AppButtonVariant.secondary,
-                leadingIcon: Icons.apple,
-                onPressed: _signIn,
-              ),
-              const SizedBox(height: 12),
-              AppButton(
-                label: 'Touch ID ou Face ID',
-                variant: AppButtonVariant.secondary,
-                leadingIcon: Icons.fingerprint,
-                onPressed: _signIn,
+              Obx(
+                () => AppButton(
+                  label: 'Continuer avec Apple',
+                  variant: AppButtonVariant.secondary,
+                  leadingIcon: Icons.apple,
+                  loading: _authController.activeAction.value == AuthAction.apple,
+                  onPressed: _authController.isLoading.value ? null : _signInWithApple,
+                ),
               ),
               const SizedBox(height: 24),
               Center(
