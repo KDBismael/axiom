@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/navigation/glass_chrome.dart';
+import '../../social/controllers/allies_controller.dart';
 import '../controllers/quest_create_controller.dart';
 import '../models/quest_model.dart';
 
@@ -18,37 +18,23 @@ class QuestCreateView extends GetView<QuestCreateController> {
     return Scaffold(
       body: Column(
         children: [
-          SizedBox(
-            height: 64,
-            child: GlassChrome(
-              safeAreaTop: true,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: Get.back,
-                      icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-                    ),
-                    Text(
-                      'AXIOM',
-                      style: AppTypography.titleLg.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.02 * 20,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: Get.back,
-                      child: Text(
-                        'QUITTER',
-                        style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                      ),
-                    ),
-                  ],
+          SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back, color: AppColors.primary),
                 ),
-              ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'QUITTER',
+                    style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -57,7 +43,7 @@ class QuestCreateView extends GetView<QuestCreateController> {
               return Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -90,6 +76,17 @@ class QuestCreateView extends GetView<QuestCreateController> {
                       child: _stepBody(step),
                     ),
                   ),
+                  Obx(() {
+                    final error = controller.errorMessage.value;
+                    if (error == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                      child: Text(
+                        error,
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+                      ),
+                    );
+                  }),
                 ],
               );
             }),
@@ -105,7 +102,7 @@ class QuestCreateView extends GetView<QuestCreateController> {
       case 0:
         return _TitleStep(controller: controller);
       case 1:
-        return _DurationFrequencyStep(controller: controller);
+        return _ScheduleRulesStep(controller: controller);
       case 2:
         return _AlliesStep(controller: controller);
       case 3:
@@ -130,13 +127,7 @@ class _Footer extends StatelessWidget {
         child: Obx(() {
           final step = controller.currentStep.value;
           final isLastStep = step == QuestCreateController.stepCount - 1;
-          final isStakeStep = step == QuestCreateController.stakeStepIndex;
-          final goToPayment = isStakeStep && controller.hasStakeAmount;
-          final label = isLastStep
-              ? 'LANCER LA QUÊTE'
-              : goToPayment
-                  ? 'CONTINUER VERS LE PAIEMENT'
-                  : 'SUIVANT';
+          final label = isLastStep ? 'LANCER LA QUÊTE' : 'SUIVANT';
           return Row(
             children: [
               TextButton(
@@ -150,15 +141,14 @@ class _Footer extends StatelessWidget {
               Expanded(
                 child: AppButton(
                   label: label,
-                  trailingIcon: goToPayment ? Icons.arrow_forward : null,
-                  onPressed: step == 0 && !controller.canProceedFromTitle
+                  loading: controller.isSubmitting.value,
+                  onPressed: (step == 0 && !controller.canProceedFromTitle) ||
+                          controller.isSubmitting.value
                       ? null
                       : () async {
                           if (isLastStep) {
-                            await controller.submit();
-                            Get.back();
-                          } else if (goToPayment) {
-                            Get.toNamed(AppRoutes.questPayment);
+                            final ok = await controller.submit();
+                            if (ok) Get.back();
                           } else {
                             controller.nextStep();
                           }
@@ -211,15 +201,42 @@ class _TitleStep extends StatelessWidget {
               borderSide: BorderSide(color: AppColors.emerald),
             ),
           ),
-          onSubmitted: (_) => controller.nextStep(),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'DESCRIPTION',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller.descriptionController,
+          maxLines: 3,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          decoration: InputDecoration(
+            hintText: 'Pourquoi cette quête compte pour vous...',
+            hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.surfaceBright),
+            filled: true,
+            fillColor: AppColors.surfaceContainerLow,
+            border: OutlineInputBorder(
+              borderRadius: AppRadii.structuralRadius,
+              borderSide: BorderSide(color: AppColors.outlineVariant15),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadii.structuralRadius,
+              borderSide: BorderSide(color: AppColors.outlineVariant15),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.emerald),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _DurationFrequencyStep extends StatelessWidget {
-  const _DurationFrequencyStep({required this.controller});
+class _ScheduleRulesStep extends StatelessWidget {
+  const _ScheduleRulesStep({required this.controller});
 
   final QuestCreateController controller;
 
@@ -260,7 +277,7 @@ class _DurationFrequencyStep extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 32),
         Text(
           'FRÉQUENCE',
           style: AppTypography.labelMd.copyWith(color: AppColors.outline),
@@ -269,13 +286,13 @@ class _DurationFrequencyStep extends StatelessWidget {
         Obx(
           () => Column(
             children: [
-              _FrequencyOption(
+              _SelectOption(
                 label: 'Quotidien',
                 selected: controller.frequency.value == QuestFrequency.daily,
                 onTap: () => controller.frequency.value = QuestFrequency.daily,
               ),
               const SizedBox(height: 8),
-              _FrequencyOption(
+              _SelectOption(
                 label: 'Hebdomadaire',
                 selected: controller.frequency.value == QuestFrequency.weekly,
                 onTap: () => controller.frequency.value = QuestFrequency.weekly,
@@ -283,13 +300,138 @@ class _DurationFrequencyStep extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 32),
+        Text(
+          'OBJECTIF PAR PÉRIODE',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            SizedBox(
+              width: 100,
+              child: TextField(
+                controller: controller.targetPerPeriodController,
+                keyboardType: TextInputType.number,
+                style: AppTypography.displayLg.copyWith(
+                  color: AppColors.primary,
+                  fontSize: 48,
+                ),
+                decoration: const InputDecoration(border: InputBorder.none),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, left: 8),
+              child: Obx(
+                () => Text(
+                  controller.frequency.value == QuestFrequency.daily
+                      ? 'FOIS / JOUR'
+                      : 'FOIS / SEMAINE',
+                  style: AppTypography.titleLg.copyWith(
+                    color: AppColors.surfaceBright,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Text(
+          'NIVEAU DE RISQUE',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 12),
+        Obx(
+          () => Row(
+            children: [
+              for (final level in QuestRiskLevel.values) ...[
+                Expanded(
+                  child: _SelectOption(
+                    label: switch (level) {
+                      QuestRiskLevel.low => 'Faible',
+                      QuestRiskLevel.medium => 'Modéré',
+                      QuestRiskLevel.high => 'Élevé',
+                    },
+                    selected: controller.riskLevel.value == level,
+                    onTap: () => controller.riskLevel.value = level,
+                  ),
+                ),
+                if (level != QuestRiskLevel.values.last) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        Obx(
+          () => _ToggleRow(
+            label: 'Preuve requise à chaque validation',
+            value: controller.requiresProof.value,
+            onChanged: (value) => controller.requiresProof.value = value,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'SEUIL DE RÉUSSITE (%)',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller.successThresholdController,
+          keyboardType: TextInputType.number,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppColors.surfaceContainerLow,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: AppRadii.interactiveRadius,
+              borderSide: BorderSide(color: AppColors.outlineVariant15),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadii.interactiveRadius,
+              borderSide: BorderSide(color: AppColors.outlineVariant15),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.emerald),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'PÉRIODE DE GRÂCE (JOURS)',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller.gracePeriodController,
+          keyboardType: TextInputType.number,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppColors.surfaceContainerLow,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: AppRadii.interactiveRadius,
+              borderSide: BorderSide(color: AppColors.outlineVariant15),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadii.interactiveRadius,
+              borderSide: BorderSide(color: AppColors.outlineVariant15),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.emerald),
+            ),
+          ),
+        ),
       ],
     );
   }
 }
 
-class _FrequencyOption extends StatelessWidget {
-  const _FrequencyOption({
+class _SelectOption extends StatelessWidget {
+  const _SelectOption({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -313,11 +455,35 @@ class _FrequencyOption extends StatelessWidget {
         ),
         child: Text(
           label.toUpperCase(),
+          textAlign: TextAlign.center,
           style: AppTypography.labelMd.copyWith(
             color: selected ? AppColors.primary : AppColors.outline,
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({required this.label, required this.value, required this.onChanged});
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          ),
+        ),
+        Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.primaryFixed),
+      ],
     );
   }
 }
@@ -329,146 +495,45 @@ class _AlliesStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allies = Get.find<AlliesController>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'INVITER DES ALLIÉS',
-                    style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Ces alliés devront valider votre succès final.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-                  ),
-                ],
-              ),
-            ),
-            Obx(
-              () => Text(
-                '${controller.selectedAllyIds.length} SÉLECTIONNÉ',
-                style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-              ),
-            ),
-          ],
+        Text(
+          'ALLIÉS DE LA QUÊTE',
+          style: AppTypography.displayLg.copyWith(color: AppColors.primary, fontSize: 32),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Invitez des amis à devenir alliés de cette quête : ils devront valider vos preuves, "
+          "approuver une éventuelle suppression, et pourraient recevoir votre mise si vous échouez. "
+          "Ils doivent accepter avant de compter comme alliés.",
+          style: AppTypography.bodyMd.copyWith(color: AppColors.outline, height: 1.5),
         ),
         const SizedBox(height: 24),
-        TextField(
-          style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-          decoration: InputDecoration(
-            hintText: 'Rechercher par nom ou @pseudo',
-            hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.surfaceBright),
-            filled: true,
-            fillColor: AppColors.surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: AppRadii.structuralRadius,
-              borderSide: BorderSide(color: AppColors.outlineVariant15),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: AppRadii.structuralRadius,
-              borderSide: BorderSide(color: AppColors.outlineVariant15),
-            ),
-            focusedBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: AppColors.emerald),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Obx(
-          () => Column(
+        Obx(() {
+          if (allies.allies.isEmpty) {
+            return Text(
+              "Vous n'avez pas encore d'alliés. Vous pourrez en inviter plus tard depuis la quête.",
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            );
+          }
+          return Column(
             children: [
-              for (final candidate in QuestCreateController.mockCandidates) ...[
-                _CandidateRow(
-                  candidate: candidate,
-                  selected: controller.selectedAllyIds.contains(candidate.id),
-                  onTap: () => controller.toggleAlly(candidate.id),
+              for (final ally in allies.allies) ...[
+                Obx(
+                  () => _SelectOption(
+                    label: '${ally.firstName} ${ally.lastName}',
+                    selected: controller.selectedAllyIds.contains(ally.id),
+                    onTap: () => controller.toggleAlly(ally.id),
+                  ),
                 ),
-                if (candidate != QuestCreateController.mockCandidates.last)
-                  const SizedBox(height: 8),
+                const SizedBox(height: 8),
               ],
             ],
-          ),
-        ),
+          );
+        }),
       ],
-    );
-  }
-}
-
-class _CandidateRow extends StatelessWidget {
-  const _CandidateRow({
-    required this.candidate,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final QuestCandidateAlly candidate;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: AppRadii.interactiveRadius,
-          border: Border.all(color: AppColors.outlineVariant15),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.surfaceContainerHighest,
-              child: Text(
-                candidate.name[0].toUpperCase(),
-                style: AppTypography.labelMd.copyWith(color: AppColors.primary),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    candidate.name,
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    candidate.handle,
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.emerald : Colors.transparent,
-                border: Border.all(
-                  color: selected ? AppColors.emerald : AppColors.outlineVariant,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: selected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : null,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -509,108 +574,108 @@ class _StakeStep extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.emerald.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'SÉCURISÉ',
-                  style: AppTypography.labelMd.copyWith(
-                    color: AppColors.emerald,
-                    fontSize: 10,
-                  ),
+              Obx(
+                () => Switch(
+                  value: controller.hasStake.value,
+                  onChanged: (value) => controller.hasStake.value = value,
+                  activeThumbColor: AppColors.primaryFixed,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 32),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller.stakeController,
-                  keyboardType: TextInputType.number,
-                  style: AppTypography.displayLg.copyWith(
-                    color: AppColors.primary,
-                    fontSize: 40,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '0',
-                    hintStyle: AppTypography.displayLg.copyWith(
-                      color: AppColors.surfaceContainerHighest,
-                      fontSize: 40,
-                    ),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text(
-                  'XOF',
-                  style: AppTypography.titleLg.copyWith(color: AppColors.surfaceBright),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainer,
-              borderRadius: AppRadii.interactiveRadius,
-              border: Border.all(color: AppColors.outlineVariant15),
-            ),
-            child: Row(
+          Obx(() {
+            if (!controller.hasStake.value) return const SizedBox.shrink();
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, color: AppColors.primaryFixedDim, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    "En cas d'échec validé par vos alliés, ce montant sera débité.",
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                const SizedBox(height: 24),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller.stakeController,
+                        keyboardType: TextInputType.number,
+                        style: AppTypography.displayLg.copyWith(
+                          color: AppColors.primary,
+                          fontSize: 40,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '0',
+                          hintStyle: AppTypography.displayLg.copyWith(
+                            color: AppColors.surfaceContainerHighest,
+                            fontSize: 40,
+                          ),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        'XOF',
+                        style: AppTypography.titleLg.copyWith(color: AppColors.surfaceBright),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: AppRadii.interactiveRadius,
+                    border: Border.all(color: AppColors.outlineVariant15),
                   ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline, color: AppColors.primaryFixedDim, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Le paiement de cet enjeu sera demandé après la création de la quête.',
+                          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'DISTRIBUTION DES FONDS',
+                  style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DistributionOption(
+                        icon: Icons.groups,
+                        label: 'Partager entre mes alliés',
+                        description: 'Les fonds seront divisés équitablement entre vos garants.',
+                        selected: controller.fundsDistribution.value == FundsDistribution.allies,
+                        onTap: () =>
+                            controller.fundsDistribution.value = FundsDistribution.allies,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _DistributionOption(
+                        icon: Icons.volunteer_activism,
+                        label: 'Donner à une association',
+                        description: 'Un impact social positif en cas de non-respect.',
+                        selected:
+                            controller.fundsDistribution.value == FundsDistribution.charity,
+                        onTap: () =>
+                            controller.fundsDistribution.value = FundsDistribution.charity,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'DISTRIBUTION DES FONDS',
-            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-          ),
-          const SizedBox(height: 12),
-          Obx(
-            () => Row(
-              children: [
-                Expanded(
-                  child: _DistributionOption(
-                    icon: Icons.groups,
-                    label: 'Partager entre mes alliés',
-                    description: 'Les fonds seront divisés équitablement entre vos garants.',
-                    selected: controller.fundsDistribution.value == FundsDistribution.allies,
-                    onTap: () =>
-                        controller.fundsDistribution.value = FundsDistribution.allies,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _DistributionOption(
-                    icon: Icons.volunteer_activism,
-                    label: 'Donner à une association',
-                    description: 'Un impact social positif en cas de non-respect.',
-                    selected: controller.fundsDistribution.value == FundsDistribution.charity,
-                    onTap: () =>
-                        controller.fundsDistribution.value = FundsDistribution.charity,
-                  ),
-                ),
-              ],
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -686,11 +751,9 @@ class _ReviewStep extends StatelessWidget {
         ),
         const SizedBox(height: 32),
         Obx(() {
-          final stake = double.tryParse(controller.stakeController.text);
-          final allies = QuestCreateController.mockCandidates
-              .where((c) => controller.selectedAllyIds.contains(c.id))
-              .map((c) => c.name)
-              .join(', ');
+          final stake = controller.hasStake.value
+              ? double.tryParse(controller.stakeController.text)
+              : null;
           return Column(
             children: [
               _ReviewRow(
@@ -712,12 +775,22 @@ class _ReviewStep extends StatelessWidget {
                     : 'Hebdomadaire',
               ),
               const SizedBox(height: 8),
-              _ReviewRow(label: 'Alliés', value: allies.isEmpty ? 'Aucun' : allies),
+              _ReviewRow(
+                label: 'Preuve requise',
+                value: controller.requiresProof.value ? 'Oui' : 'Non',
+              ),
               const SizedBox(height: 8),
               _ReviewRow(
                 label: 'Enjeu',
                 value: stake == null ? 'Aucun' : formatXof(stake),
                 valueColor: stake == null ? null : AppColors.emerald,
+              ),
+              const SizedBox(height: 8),
+              _ReviewRow(
+                label: 'Alliés invités',
+                value: controller.selectedAllyIds.isEmpty
+                    ? 'Aucun'
+                    : '${controller.selectedAllyIds.length} (invitation en attente)',
               ),
             ],
           );

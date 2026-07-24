@@ -1,80 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/progress/segmented_progress.dart';
-import '../controllers/social_controller.dart';
-import '../models/ally_invitation.dart';
+import '../controllers/allies_controller.dart';
 
-/// "Rejoindre la mission" — shown when responding to an ally-invite. Since
-/// this app has no session distinguishing a logged-in vs. new user,
-/// ACCEPTER always routes through the real Register screen (mock account
-/// creation), keeping a single consistent path.
+/// Confirmation screen for redeeming an ally-invitation token — reached
+/// from the "paste invitation code" flow (no deep-link handling this
+/// batch, per plan).
 class InvitationAllyView extends StatelessWidget {
   const InvitationAllyView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<SocialController>();
-    final passedInvitation = Get.arguments as AllyInvitation?;
-    return Obx(() {
-      final pending = controller.pendingInvitations;
-      final invitation = passedInvitation ?? (pending.isEmpty ? null : pending.first);
+    final token = Get.arguments as String;
+    final controller = Get.find<AlliesController>();
 
-      if (invitation == null) {
-        return Scaffold(
-          body: Center(
-            child: Text(
-              'Aucune invitation en attente.',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-            ),
-          ),
-        );
-      }
-
-      return _InvitationScaffold(controller: controller, invitation: invitation);
-    });
-  }
-}
-
-class _InvitationScaffold extends StatelessWidget {
-  const _InvitationScaffold({required this.controller, required this.invitation});
-
-  final SocialController controller;
-  final AllyInvitation invitation;
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
-          SizedBox(
-            height: 64,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Text(
-                    'AXIOM',
-                    style: AppTypography.titleLg.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.02 * 20,
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.settings, color: AppColors.primary),
-                ],
-              ),
+          SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                ),
+                const Spacer(),
+              ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -84,41 +44,10 @@ class _InvitationScaffold extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'REJOINDRE LA MISSION',
+                    'DEVENIR ALLIÉ',
                     style: AppTypography.displayLg.copyWith(color: AppColors.primary),
                   ),
                   const SizedBox(height: 24),
-                  Text.rich(
-                    TextSpan(
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.outline,
-                        height: 1.6,
-                      ),
-                      children: [
-                        const TextSpan(text: 'Vous avez été invité par '),
-                        TextSpan(
-                          text: invitation.inviterName,
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const TextSpan(
-                          text: ' pour être son allié de responsabilité pour la quête ',
-                        ),
-                        TextSpan(
-                          text: '"${invitation.questTitle}"',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                        const TextSpan(text: '.'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -129,65 +58,35 @@ class _InvitationScaffold extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      invitation.roleQuote,
+                      'En acceptant, vous devenez allié de responsabilité : vous pourrez être '
+                      'sollicité pour valider les preuves de réussite de vos quêtes partagées.',
                       style: AppTypography.bodyMd.copyWith(
                         color: AppColors.primary,
-                        fontStyle: FontStyle.italic,
                         height: 1.6,
                       ),
                     ),
                   ),
                   const SizedBox(height: 32),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: AppRadii.structuralRadius,
-                      border: Border.all(color: AppColors.outlineVariant15),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'PROTOCOL_STATUS',
-                          style: AppTypography.labelMd.copyWith(
-                            color: AppColors.outline,
-                            fontSize: 10,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const SegmentedProgress(ratio: 0.5, segments: 4, height: 6),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _IconChip(
-                          icon: Icons.shield,
-                          label: 'VIGILANCE',
-                        ),
+                  Obx(() {
+                    final error = controller.errorMessage.value;
+                    if (error == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        error,
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.error),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _IconChip(
-                          icon: Icons.payments,
-                          label: 'RÉTRIBUTION',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
+                    );
+                  }),
                   Row(
                     children: [
                       Expanded(
                         child: AppButton(
                           label: 'ACCEPTER LE PACTE',
                           trailingIcon: Icons.gavel,
-                          onPressed: () {
-                            controller.respondToInvitation(invitation.id, accepted: true);
-                            Get.toNamed(AppRoutes.register);
+                          onPressed: () async {
+                            await controller.redeemInvitation(token);
+                            if (controller.errorMessage.value == null) Get.back();
                           },
                         ),
                       ),
@@ -200,20 +99,8 @@ class _InvitationScaffold extends StatelessWidget {
                         child: AppButton(
                           label: 'REFUSER',
                           variant: AppButtonVariant.secondary,
-                          onPressed: () {
-                            controller.respondToInvitation(invitation.id, accepted: false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Invitation refusée.',
-                                  style: AppTypography.bodyMd.copyWith(
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                backgroundColor: AppColors.surfaceContainerHigh,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
+                          onPressed: () async {
+                            await controller.declineInvitation(token);
                             Get.back();
                           },
                         ),
@@ -221,57 +108,6 @@ class _InvitationScaffold extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 40),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: AppColors.outlineVariant15),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'ENJEU ACTUEL',
-                                style: AppTypography.labelMd.copyWith(
-                                  color: AppColors.outline,
-                                  fontSize: 10,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                formatXof(invitation.stakeAmount),
-                                style: AppTypography.titleLg.copyWith(color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'DURÉE DU PACTE',
-                                style: AppTypography.labelMd.copyWith(
-                                  color: AppColors.outline,
-                                  fontSize: 10,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${invitation.durationDays} JOURS',
-                                style: AppTypography.titleLg.copyWith(color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -289,35 +125,6 @@ class _InvitationScaffold extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _IconChip extends StatelessWidget {
-  const _IconChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: AppRadii.structuralRadius,
-        border: Border.all(color: AppColors.outlineVariant15),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: AppColors.emerald, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: AppTypography.labelMd.copyWith(color: AppColors.outline, fontSize: 9),
           ),
         ],
       ),

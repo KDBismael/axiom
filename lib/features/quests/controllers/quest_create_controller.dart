@@ -1,61 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../models/quest_ally.dart';
 import '../models/quest_model.dart';
 import 'quest_list_controller.dart';
 
-/// A selectable candidate shown on the "Alliés" step — distinct from
-/// [QuestAlly], which represents an ally already attached to a quest.
-class QuestCandidateAlly {
-  final String id;
-  final String name;
-  final String handle;
-
-  const QuestCandidateAlly({
-    required this.id,
-    required this.name,
-    required this.handle,
-  });
-}
-
-enum FundsDistribution { allies, charity }
-
-enum MobileMoneyProvider { orangeMoney, mtnMoney, moovMoney, wave }
-
 class QuestCreateController extends GetxController {
+  QuestCreateController(this._listController) {
+    titleController.addListener(() => titleText.value = titleController.text);
+    stakeController.addListener(() => stakeText.value = stakeController.text);
+  }
+
+  final QuestListController _listController;
+
+  /// Title/Description → Schedule & Rules → Allies (optional) → Stake
+  /// (optional) → Review.
   static const stepCount = 5;
-  static const stakeStepIndex = 3;
 
   final currentStep = 0.obs;
+
   final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
   final durationController = TextEditingController(text: '30');
+  final targetPerPeriodController = TextEditingController(text: '1');
+  final gracePeriodController = TextEditingController(text: '0');
+  final successThresholdController = TextEditingController(text: '80');
   final stakeController = TextEditingController();
+
   final frequency = QuestFrequency.daily.obs;
-  final selectedAllyIds = <String>{}.obs;
+  final startDate = Rx<DateTime>(DateTime.now());
+  final deadline = Rx<DateTime>(DateTime.now().add(const Duration(days: 30)));
+  final riskLevel = QuestRiskLevel.medium.obs;
+  final requiresProof = false.obs;
+  final hasStake = false.obs;
   final fundsDistribution = FundsDistribution.allies.obs;
-  final paymentConfirmed = false.obs;
-  final mobileMoneyProvider = MobileMoneyProvider.wave.obs;
-  final phoneController = TextEditingController();
+
+  /// Friends selected to be invited as this quest's accountability allies —
+  /// a real invitation each must accept, not an automatic attachment.
+  final selectedAllyIds = <String>{}.obs;
+
+  void toggleAlly(String userId) {
+    if (!selectedAllyIds.remove(userId)) selectedAllyIds.add(userId);
+  }
+
+  final isSubmitting = false.obs;
+  final errorMessage = RxnString();
 
   /// Mirrors [titleController]'s text reactively — `TextEditingController`
   /// changes aren't observed by `Obx` on their own, so the footer's
   /// "SUIVANT" enabled-state reads this instead of the raw controller.
   final titleText = ''.obs;
 
-  /// Same mirroring as [titleText], for the stake amount — used to decide
-  /// whether the stake step's CTA reads "SUIVANT" or "CONTINUER VERS LE
-  /// PAIEMENT" (only shown once a non-empty stake has been entered).
+  /// Same mirroring as [titleText], for the stake amount.
   final stakeText = ''.obs;
-
-  static const mockCandidates = [
-    QuestCandidateAlly(id: 'c1', name: 'Marcus Thorne', handle: '@mthorne'),
-    QuestCandidateAlly(id: 'c2', name: 'Elena Vance', handle: '@evance_performance'),
-  ];
-
-  QuestCreateController() {
-    titleController.addListener(() => titleText.value = titleController.text);
-    stakeController.addListener(() => stakeText.value = stakeController.text);
-  }
 
   bool get canProceedFromTitle => titleText.value.trim().isNotEmpty;
 
@@ -70,51 +65,51 @@ class QuestCreateController extends GetxController {
     if (currentStep.value > 0) currentStep.value--;
   }
 
-  /// Confirms the mobile money payment and finalizes quest creation right
-  /// there — the payment step is the terminal step of the staked-quest
-  /// flow, it doesn't return to the review step.
-  Future<void> submitFromPayment() async {
-    paymentConfirmed.value = true;
-    await submit();
-  }
+  /// Submits the quest to the backend. Returns true on success; on
+  /// failure, [errorMessage] carries the backend's French message.
+  Future<bool> submit() async {
+    isSubmitting.value = true;
+    errorMessage.value = null;
+    try {
+      final payload = <String, dynamic>{
+        'title': titleController.text.trim(),
+        'description': descriptionController.text.trim(),
+        'frequency': frequency.value.toJson(),
+        'durationDays': int.tryParse(durationController.text) ?? 30,
+        'targetPerPeriod': int.tryParse(targetPerPeriodController.text) ?? 1,
+        'startDate': startDate.value.toIso8601String(),
+        'deadline': deadline.value.toIso8601String(),
+        'gracePeriodDays': int.tryParse(gracePeriodController.text) ?? 0,
+        'riskLevel': riskLevel.value.toJson(),
+        'requiresProof': requiresProof.value,
+        'successThresholdPercent': int.tryParse(successThresholdController.text) ?? 80,
+        'hasStake': hasStake.value,
+        if (hasStake.value)
+          'stakeAmountXof': double.tryParse(stakeController.text) ?? 0,
+        if (hasStake.value) 'fundsDistribution': fundsDistribution.value.toJson(),
+        if (selectedAllyIds.isNotEmpty) 'allyUserIds': selectedAllyIds.toList(),
+      };
 
-  void toggleAlly(String id) {
-    if (selectedAllyIds.contains(id)) {
-      selectedAllyIds.remove(id);
-    } else {
-      selectedAllyIds.add(id);
+      await _listController.createQuest(payload);
+      if (_listController.errorMessage.value != null) {
+        errorMessage.value = _listController.errorMessage.value;
+        return false;
+      }
+      return true;
+    } finally {
+      isSubmitting.value = false;
     }
-  }
-
-  Future<void> submit() async {
-    final duration = int.tryParse(durationController.text) ?? 30;
-    final stake = double.tryParse(stakeController.text);
-    final allies = mockCandidates
-        .where((c) => selectedAllyIds.contains(c.id))
-        .map((c) => QuestAlly(name: c.name, approved: false))
-        .toList();
-
-    final quest = QuestModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: titleController.text.trim(),
-      durationDays: duration,
-      frequency: frequency.value,
-      progress: 0,
-      total: frequency.value == QuestFrequency.daily ? duration : (duration / 7).ceil(),
-      hasStake: stake != null,
-      stakeAmount: stake,
-      allies: allies,
-    );
-
-    await Get.find<QuestListController>().createQuest(quest);
   }
 
   @override
   void onClose() {
     titleController.dispose();
+    descriptionController.dispose();
     durationController.dispose();
+    targetPerPeriodController.dispose();
+    gracePeriodController.dispose();
+    successThresholdController.dispose();
     stakeController.dispose();
-    phoneController.dispose();
     super.onClose();
   }
 }

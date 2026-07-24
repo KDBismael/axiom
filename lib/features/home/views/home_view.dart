@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/currency.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/navigation/glass_chrome.dart';
-import '../../../core/widgets/progress/segmented_progress.dart';
+import '../../notifications/controllers/notification_controller.dart';
 import '../../quests/controllers/quest_list_controller.dart';
-import '../../quests/models/quest_model.dart';
-import '../../shell/controllers/shell_controller.dart';
+import '../../quests/models/quest_ally_invitation_summary.dart';
+import '../../quests/widgets/quest_summary_card.dart';
 
 /// L'onglet "Tableau de bord" — rendu à l'intérieur du shell à navigation
 /// persistante de l'app (voir `MainShellView`), il possède donc son propre
@@ -18,41 +19,27 @@ import '../../shell/controllers/shell_controller.dart';
 class HomeView extends GetView<QuestListController> {
   const HomeView({super.key});
 
+  static const _headerHeight = 30.0;
+
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final topInset = MediaQuery.of(context).padding.top;
+    return Stack(
       children: [
-        SizedBox(
-          height: 64,
+        // Translucent header bar, painted first (behind) so the scroll
+        // content below passes in front of / over it visually.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
           child: GlassChrome(
             safeAreaTop: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'AXIOM',
-                    style: AppTypography.titleLg.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.02 * 20,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Get.find<ShellController>().changeTab(2),
-                    child: const CircleAvatar(
-                      radius: 20,
-                      backgroundColor: AppColors.surfaceContainerHighest,
-                      child: Icon(Icons.person, color: AppColors.outline),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: SizedBox(height: _headerHeight),
           ),
         ),
-        Expanded(
+        // Full-bleed scroll content, painted second (in front of the bar) —
+        // it visibly scrolls up and over the header bar.
+        Positioned.fill(
           child: Obx(() {
             if (controller.isLoading.value) {
               return const Center(
@@ -60,7 +47,12 @@ class HomeView extends GetView<QuestListController> {
               );
             }
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                topInset + _headerHeight,
+                24,
+                24,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -80,6 +72,21 @@ class HomeView extends GetView<QuestListController> {
                   const SizedBox(height: 48),
                   _StatsRow(controller: controller),
                   const SizedBox(height: 48),
+                  if (controller.pendingAllyInvitations.isNotEmpty) ...[
+                    Text(
+                      'INVITATIONS EN ATTENTE',
+                      style: AppTypography.titleLg.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    for (final invitation
+                        in controller.pendingAllyInvitations) ...[
+                      _PendingAllyInvitationCard(invitation: invitation),
+                      const SizedBox(height: 16),
+                    ],
+                    const SizedBox(height: 32),
+                  ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -91,7 +98,7 @@ class HomeView extends GetView<QuestListController> {
                         ),
                       ),
                       Text(
-                        '${controller.quests.length} EN COURS',
+                        '${controller.activeQuests.length} EN COURS',
                         style: AppTypography.labelMd.copyWith(
                           color: AppColors.outline,
                         ),
@@ -99,8 +106,8 @@ class HomeView extends GetView<QuestListController> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  for (final quest in controller.quests) ...[
-                    _QuestDashboardCard(quest: quest),
+                  for (final quest in controller.activeQuests) ...[
+                    QuestSummaryCard(quest: quest),
                     const SizedBox(height: 16),
                   ],
                   const SizedBox(height: 32),
@@ -113,7 +120,123 @@ class HomeView extends GetView<QuestListController> {
             );
           }),
         ),
+        // Notification icon, painted last (always on top) so it stays
+        // reachable regardless of what the scroll content is doing.
+        Positioned(
+          top: topInset,
+          right: 24,
+          child: Builder(
+            builder: (context) {
+              final notifications = Get.find<NotificationController>();
+              return Obx(() {
+                final unread = notifications.unreadCount;
+                return InkWell(
+                  onTap: () => Get.toNamed(AppRoutes.notifications),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(
+                            Icons.notifications_none,
+                            color: AppColors.primary,
+                          ),
+                          if (unread > 0)
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.emerald,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              });
+            },
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _PendingAllyInvitationCard extends StatelessWidget {
+  const _PendingAllyInvitationCard({required this.invitation});
+
+  final QuestAllyInvitationSummary invitation;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Get.toNamed(
+        AppRoutes.questAllyInvitation,
+        arguments: invitation.questId,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(color: AppColors.emerald.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'INVITATION EN TANT QU\'ALLIÉ',
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    invitation.questTitle,
+                    style: AppTypography.headlineMd.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => Get.toNamed(
+                AppRoutes.questAllyInvitation,
+                arguments: invitation.questId,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(64, 36),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                foregroundColor: AppColors.emerald,
+                side: const BorderSide(color: AppColors.emerald),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadii.interactiveRadius,
+                ),
+              ),
+              child: Text(
+                'RÉPONDRE',
+                style: AppTypography.labelMd.copyWith(fontSize: 10),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -191,135 +314,6 @@ class _StatCard extends StatelessWidget {
             value,
             style: AppTypography.headlineMd.copyWith(color: valueColor),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuestDashboardCard extends StatelessWidget {
-  const _QuestDashboardCard({required this.quest});
-
-  final QuestModel quest;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Get.toNamed(AppRoutes.questDetail, arguments: quest.id),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: AppRadii.interactiveRadius,
-              border: Border.all(
-                color: quest.pendingValidation
-                    ? AppColors.emerald.withValues(alpha: 0.2)
-                    : AppColors.outlineVariant15,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            quest.title,
-                            style: AppTypography.headlineMd.copyWith(
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          if (quest.description.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              quest.description,
-                              style: AppTypography.bodyMd.copyWith(
-                                color: AppColors.outline,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (quest.stakeAmount != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.outlineVariant),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          'ENJEU ${formatXof(quest.stakeAmount!)}',
-                          style: AppTypography.labelMd.copyWith(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'PROGRESSION',
-                      style: AppTypography.labelMd.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    Text(
-                      '${quest.progress} / ${quest.total}',
-                      style: AppTypography.labelMd.copyWith(
-                        color: AppColors.outline,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SegmentedProgress(ratio: quest.progressRatio),
-              ],
-            ),
-          ),
-          if (quest.pendingValidation)
-            Positioned(
-              top: -12,
-              left: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.hourglass_top,
-                      size: 12,
-                      color: Colors.black,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'VALIDATION EN ATTENTE',
-                      style: AppTypography.labelMd.copyWith(
-                        color: Colors.black,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );

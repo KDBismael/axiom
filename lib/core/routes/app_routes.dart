@@ -2,7 +2,6 @@ abstract class AppRoutes {
   static const home = '/home';
   static const questDetail = '/quest-detail';
   static const questCreate = '/quest-create';
-  static const questPayment = '/quest-payment';
   static const onboarding = '/onboarding';
   static const login = '/login';
   static const register = '/register';
@@ -11,4 +10,10 @@ abstract class AppRoutes {
   static const inviteFriends = '/invite-friends';
   static const invitationAlly = '/invitation-allie';
   static const allyValidations = '/ally-validations';
+  static const validationDetail = '/validation-detail';
+  static const validationHistory = '/validation-history';
+  static const notifications = '/notifications';
+  static const questAllyInvitation = '/quest-ally-invitation';
+  static const questDeletionVote = '/quest-deletion-vote';
+  static const questPayment = '/quest-payment';
 }

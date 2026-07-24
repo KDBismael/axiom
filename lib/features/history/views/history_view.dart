@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/navigation/glass_chrome.dart';
+import '../../quests/controllers/quest_list_controller.dart';
+import '../../quests/widgets/quest_summary_card.dart';
 
-/// "History" tab — placeholder pending a real check-in history feature.
-class HistoryView extends StatelessWidget {
+/// "History" tab — completed, failed, and cancelled quests.
+class HistoryView extends GetView<QuestListController> {
   const HistoryView({super.key});
 
   @override
@@ -28,16 +31,37 @@ class HistoryView extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'Aucun historique pour l\'instant. Les quêtes complétées et échouées apparaîtront ici.',
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+          child: Obx(() {
+            if (controller.isLoading.value) {
+              return const Center(
+                child: CircularProgressIndicator(strokeWidth: 1),
+              );
+            }
+            final historyQuests = controller.historyQuests;
+            if (historyQuests.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'Aucun historique pour l\'instant. Les quêtes complétées et échouées apparaîtront ici.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                  ),
+                ),
+              );
+            }
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: Column(
+                children: [
+                  for (final quest in historyQuests) ...[
+                    QuestSummaryCard(quest: quest),
+                    const SizedBox(height: 16),
+                  ],
+                ],
               ),
-            ),
-          ),
+            );
+          }),
         ),
       ],
     );

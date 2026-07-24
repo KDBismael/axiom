@@ -1,32 +1,52 @@
-enum ValidationRequestStatus { pending, approved, rejected }
+import '../../quests/models/check_in_model.dart' show ProofType;
 
-enum ProofType { photo, text }
+enum ValidationDecisionStatus {
+  pending,
+  approved,
+  rejected,
+  cancelled;
 
+  factory ValidationDecisionStatus.fromJson(String value) =>
+      ValidationDecisionStatus.values.firstWhere((v) => v.name == value);
+}
+
+/// A validation request I (the ally) am asked to judge — `GET /validations`.
 class AllyValidationRequest {
-  final String id;
-  final String friendName;
-  final String questTitle;
-  final ProofType proofType;
-  final String evidence;
-  final ValidationRequestStatus status;
-
   const AllyValidationRequest({
     required this.id,
-    required this.friendName,
+    required this.questId,
     required this.questTitle,
+    required this.evidenceId,
     required this.proofType,
-    required this.evidence,
-    this.status = ValidationRequestStatus.pending,
+    required this.status,
+    this.textContent,
+    this.fileId,
   });
 
-  AllyValidationRequest copyWith({ValidationRequestStatus? status}) {
+  final String id;
+  final String questId;
+  final String questTitle;
+  final String evidenceId;
+  final ProofType proofType;
+  final String? textContent;
+  final String? fileId;
+  final ValidationDecisionStatus status;
+
+  /// `GET /validations` returns the request row flattened together with a
+  /// nested `evidence` object (which itself nests `quest: { title }`) —
+  /// see `validations.service.ts`'s `{ ...request, evidence }`.
+  factory AllyValidationRequest.fromJson(Map<String, dynamic> json) {
+    final evidence = json['evidence'] as Map<String, dynamic>;
+    final quest = evidence['quest'] as Map<String, dynamic>?;
     return AllyValidationRequest(
-      id: id,
-      friendName: friendName,
-      questTitle: questTitle,
-      proofType: proofType,
-      evidence: evidence,
-      status: status ?? this.status,
+      id: json['id'] as String,
+      questId: evidence['questId'] as String,
+      questTitle: quest?['title'] as String? ?? '',
+      evidenceId: json['evidenceId'] as String,
+      proofType: ProofType.fromJson(evidence['proofType'] as String),
+      textContent: evidence['textContent'] as String?,
+      fileId: evidence['fileId'] as String?,
+      status: ValidationDecisionStatus.fromJson(json['status'] as String),
     );
   }
 }

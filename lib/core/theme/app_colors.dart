@@ -24,6 +24,9 @@ class AppColors {
   // Engagement / success
   static const emerald = Color(0xFF064E3B);
 
+  // Errors
+  static const error = Color(0xFFE55B5B);
+
   // Outline
   static const outline = Color(0xFF919191);
   static const outlineVariant = Color(0xFF474747);

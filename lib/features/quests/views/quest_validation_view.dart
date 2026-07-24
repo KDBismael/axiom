@@ -5,11 +5,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/navigation/glass_chrome.dart';
 import '../controllers/quest_list_controller.dart';
+import '../models/check_in_model.dart';
 import '../models/quest_model.dart';
-
-enum _EvidenceType { photo, video, file }
+import '../repositories/quest_repository.dart';
+import '../services/evidence_picker_service.dart';
+import '../utils/period_progress.dart';
 
 class QuestValidationView extends GetView<QuestListController> {
   const QuestValidationView({super.key});
@@ -21,36 +22,16 @@ class QuestValidationView extends GetView<QuestListController> {
     return Scaffold(
       body: Column(
         children: [
-          SizedBox(
-            height: 64,
-            child: GlassChrome(
-              safeAreaTop: true,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AppColors.surfaceContainerHighest,
-                      child: Icon(Icons.person, size: 18, color: AppColors.outline),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'AXIOM',
-                      style: AppTypography.titleLg.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.02 * 20,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: Get.back,
-                      icon: const Icon(Icons.close, color: AppColors.primary),
-                    ),
-                  ],
+          SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back, color: AppColors.primary),
                 ),
-              ),
+                const Spacer(),
+              ],
             ),
           ),
           Expanded(
@@ -73,6 +54,8 @@ class QuestValidationView extends GetView<QuestListController> {
   }
 }
 
+enum _EvidenceType { photo, video, text }
+
 class _ValidationBody extends StatefulWidget {
   const _ValidationBody({required this.quest});
 
@@ -85,7 +68,32 @@ class _ValidationBody extends StatefulWidget {
 class _ValidationBodyState extends State<_ValidationBody> {
   final _descriptionController = TextEditingController();
   _EvidenceType _evidenceType = _EvidenceType.photo;
+  PickedEvidence? _pickedFile;
   bool _submitting = false;
+  bool _loadingHistory = true;
+  int _currentPeriodCount = 0;
+  String? _error;
+
+  bool get _periodComplete => _currentPeriodCount >= widget.quest.targetPerPeriod;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final checkIns = await Get.find<QuestListController>().fetchCheckIns(widget.quest.id);
+    final count = countCheckInsInCurrentPeriod(
+      checkIns,
+      widget.quest.frequency,
+      DateTime.now(),
+    );
+    setState(() {
+      _loadingHistory = false;
+      _currentPeriodCount = count;
+    });
+  }
 
   @override
   void dispose() {
@@ -93,17 +101,80 @@ class _ValidationBodyState extends State<_ValidationBody> {
     super.dispose();
   }
 
+  Future<void> _pickFile() async {
+    final service = Get.find<EvidencePickerService>();
+    final picked = _evidenceType == _EvidenceType.video
+        ? await service.pickVideo()
+        : await service.pickPhoto();
+    if (picked == null) return;
+    setState(() => _pickedFile = picked);
+  }
+
   Future<void> _submit() async {
-    setState(() => _submitting = true);
-    await Get.find<QuestListController>().checkIn(widget.quest.id);
-    Get.offNamed(AppRoutes.questCheckinStatus, arguments: widget.quest.id);
+    if (widget.quest.requiresProof &&
+        _evidenceType != _EvidenceType.text &&
+        _pickedFile == null) {
+      setState(() => _error = 'Une preuve est requise pour cette quête.');
+      return;
+    }
+    if (_evidenceType == _EvidenceType.text && _descriptionController.text.trim().isEmpty) {
+      setState(() => _error = 'Veuillez décrire votre exécution.');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final controller = Get.find<QuestListController>();
+    try {
+      String? fileId;
+      if (_evidenceType != _EvidenceType.text && _pickedFile != null) {
+        fileId = await controller.uploadEvidenceFile(_pickedFile!);
+      }
+
+      final proofType = switch (_evidenceType) {
+        _EvidenceType.photo => ProofType.photo,
+        _EvidenceType.video => ProofType.video,
+        _EvidenceType.text => ProofType.text,
+      };
+
+      await controller.checkIn(
+        widget.quest.id,
+        proofType: (fileId != null || _evidenceType == _EvidenceType.text) ? proofType : null,
+        fileId: fileId,
+        textContent: _evidenceType == _EvidenceType.text ? _descriptionController.text.trim() : null,
+        description: _evidenceType != _EvidenceType.text && _descriptionController.text.trim().isNotEmpty
+            ? _descriptionController.text.trim()
+            : null,
+      );
+
+      if (!mounted) return;
+      if (controller.errorMessage.value != null) {
+        setState(() => _error = controller.errorMessage.value);
+        return;
+      }
+
+      Get.offNamed(AppRoutes.questCheckinStatus, arguments: widget.quest.id);
+    } on QuestException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Une erreur est survenue. Veuillez réessayer.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final xp = 50 + widget.quest.total * 10;
+    final xp = 50 + widget.quest.durationDays;
+    final disabled = _submitting || _loadingHistory || _periodComplete;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -119,9 +190,25 @@ class _ValidationBodyState extends State<_ValidationBody> {
               fontSize: 40,
             ),
           ),
+          if (!_loadingHistory && _periodComplete) ...[
+            const SizedBox(height: 16),
+            Text(
+              widget.quest.frequency == QuestFrequency.daily
+                  ? "Vous avez déjà validé aujourd'hui."
+                  : 'Vous avez déjà validé cette semaine.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+            ),
+          ] else if (!_loadingHistory && widget.quest.targetPerPeriod > 1) ...[
+            const SizedBox(height: 16),
+            Text(
+              '$_currentPeriodCount/${widget.quest.targetPerPeriod} '
+              '${widget.quest.frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            ),
+          ],
           const SizedBox(height: 40),
           Text(
-            'PREUVE VISUELLE',
+            'PREUVE',
             style: AppTypography.labelMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: 16),
@@ -130,48 +217,57 @@ class _ValidationBodyState extends State<_ValidationBody> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  flex: 8,
                   child: _EvidenceCard(
                     icon: Icons.photo_camera,
-                    label: 'CAPTURES PHOTO',
-                    large: true,
+                    label: 'PHOTO',
                     selected: _evidenceType == _EvidenceType.photo,
-                    onTap: () => setState(() => _evidenceType = _EvidenceType.photo),
+                    onTap: () => setState(() {
+                      _evidenceType = _EvidenceType.photo;
+                      _pickedFile = null;
+                    }),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
-                  flex: 4,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: _EvidenceCard(
-                          icon: Icons.videocam,
-                          label: 'VIDÉO',
-                          selected: _evidenceType == _EvidenceType.video,
-                          onTap: () =>
-                              setState(() => _evidenceType = _EvidenceType.video),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: _EvidenceCard(
-                          icon: Icons.file_present,
-                          label: 'FICHIER',
-                          selected: _evidenceType == _EvidenceType.file,
-                          onTap: () =>
-                              setState(() => _evidenceType = _EvidenceType.file),
-                        ),
-                      ),
-                    ],
+                  child: _EvidenceCard(
+                    icon: Icons.videocam,
+                    label: 'VIDÉO',
+                    selected: _evidenceType == _EvidenceType.video,
+                    onTap: () => setState(() {
+                      _evidenceType = _EvidenceType.video;
+                      _pickedFile = null;
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _EvidenceCard(
+                    icon: Icons.text_snippet,
+                    label: 'TEXTE',
+                    selected: _evidenceType == _EvidenceType.text,
+                    onTap: () => setState(() {
+                      _evidenceType = _EvidenceType.text;
+                      _pickedFile = null;
+                    }),
                   ),
                 ),
               ],
             ),
           ),
+          if (_evidenceType != _EvidenceType.text) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _pickFile,
+              icon: const Icon(Icons.upload, color: AppColors.primary),
+              label: Text(
+                _pickedFile?.filename ?? 'Choisir un fichier',
+                style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+              ),
+            ),
+          ],
           const SizedBox(height: 32),
           Text(
-            'RÉCIT DE PERFORMANCE',
+            _evidenceType == _EvidenceType.text ? 'VOTRE PREUVE' : 'RÉCIT DE PERFORMANCE',
             style: AppTypography.labelMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: 12),
@@ -180,7 +276,9 @@ class _ValidationBodyState extends State<_ValidationBody> {
             maxLines: 4,
             style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
             decoration: InputDecoration(
-              hintText: 'Décrivez votre exécution ici...',
+              hintText: _evidenceType == _EvidenceType.text
+                  ? 'Décrivez ce que vous avez accompli...'
+                  : 'Décrivez votre exécution ici (optionnel)...',
               hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.outlineVariant),
               filled: true,
               fillColor: AppColors.surfaceContainerLowest,
@@ -199,6 +297,13 @@ class _ValidationBodyState extends State<_ValidationBody> {
               ),
             ),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+            ),
+          ],
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.all(16),
@@ -261,7 +366,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
             variant: AppButtonVariant.lustre,
             trailingIcon: Icons.verified,
             loading: _submitting,
-            onPressed: _submitting ? null : _submit,
+            onPressed: disabled ? null : _submit,
           ),
         ],
       ),
@@ -275,13 +380,11 @@ class _EvidenceCard extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.large = false,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
-  final bool large;
   final VoidCallback onTap;
 
   @override
@@ -289,6 +392,7 @@ class _EvidenceCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: selected ? AppColors.surfaceContainerHigh : AppColors.surfaceContainerLow,
           borderRadius: AppRadii.structuralRadius,
@@ -299,26 +403,13 @@ class _EvidenceCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (large)
-              Container(
-                width: 64,
-                height: 64,
-                alignment: Alignment.center,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: const BoxDecoration(
-                  color: AppColors.surfaceContainerHighest,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: AppColors.primary, size: 28),
-              )
-            else
-              Icon(icon, color: AppColors.outline, size: 22),
-            if (!large) const SizedBox(height: 8),
+            Icon(icon, color: selected ? AppColors.primary : AppColors.outline, size: 22),
+            const SizedBox(height: 8),
             Text(
               label,
               style: AppTypography.labelMd.copyWith(
                 color: selected ? AppColors.primary : AppColors.outline,
-                fontSize: large ? 12 : 10,
+                fontSize: 10,
               ),
             ),
           ],

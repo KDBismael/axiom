@@ -1,68 +1,140 @@
+import '../../../core/api/api_client.dart';
+import '../models/ally.dart';
 import '../models/ally_invitation.dart';
+import '../models/ally_request.dart';
 import '../models/ally_validation_request.dart';
+import '../models/user_search_result.dart';
+
+/// Thrown when the backend rejects an allies/invitations/validations
+/// request; [message] is the backend's own French-language message, ready
+/// to show directly in the UI.
+class SocialException implements Exception {
+  SocialException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class SocialRepository {
-  final List<AllyInvitation> _invitations = [
-    const AllyInvitation(
-      id: 'inv1',
-      inviterName: 'Thomas V.',
-      questTitle: '50 Jours de Code Sans Faille',
-      roleQuote:
-          'Votre rôle est de valider chaque jour l\'intégrité de leur exécution. Si ils '
-          'échouent, les fonds engagés vous seront redistribués.',
-      stakeAmount: 45000,
-      durationDays: 50,
-    ),
-  ];
+  SocialRepository(this._client);
 
-  final List<AllyValidationRequest> _validationRequests = [
-    const AllyValidationRequest(
-      id: 'val1',
-      friendName: 'Sophie Valand',
-      questTitle: '50 Pages par jour',
-      proofType: ProofType.photo,
-      evidence: 'Photo de la séance de lecture envoyée aujourd\'hui à 21h02.',
-    ),
-    const AllyValidationRequest(
-      id: 'val2',
-      friendName: 'Marc Lefebvre',
-      questTitle: 'Méditation Matinale',
-      proofType: ProofType.text,
-      evidence:
-          'Session de 20 minutes complétée à 06h15. Focus sur la respiration profonde. '
-          'Calme intérieur atteint avant le début de la journée de travail.',
-    ),
-  ];
+  final ApiClient _client;
+
+  Future<List<Ally>> fetchAllies() async {
+    final response = await _client.get('/allies');
+    if (!response.isOk || response.body == null) {
+      throw SocialException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list.map((e) => Ally.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<AllyInvitation> createInvitation({String? inviteeContact}) async {
+    final response = await _client.post('/allies/invitations', {
+      if (inviteeContact != null) 'inviteeContact': inviteeContact,
+    });
+    if (!response.isOk || response.body == null) {
+      throw SocialException(_extractMessage(response.body));
+    }
+    // The backend returns {invitation: {...}, token, deepLink} — the token
+    // and deep link are only ever handed back at creation time.
+    final body = response.body as Map<String, dynamic>;
+    final invitation = body['invitation'] as Map<String, dynamic>;
+    return AllyInvitation.fromJson({
+      ...invitation,
+      'token': body['token'],
+      'deepLink': body['deepLink'],
+    });
+  }
 
   Future<List<AllyInvitation>> fetchInvitations() async {
-    await Future.delayed(const Duration(milliseconds: 250));
-    return List.unmodifiable(_invitations);
+    final response = await _client.get('/allies/invitations');
+    if (!response.isOk || response.body == null) {
+      throw SocialException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list.map((e) => AllyInvitation.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<AllyInvitation> respondToInvitation(String id, {required bool accepted}) async {
-    await Future.delayed(const Duration(milliseconds: 150));
-    final index = _invitations.indexWhere((i) => i.id == id);
-    if (index == -1) throw Exception('Invitation not found');
-    final updated = _invitations[index].copyWith(
-      status: accepted ? InvitationStatus.accepted : InvitationStatus.declined,
+  Future<void> redeemInvitation(String token) async {
+    final response = await _client.post('/allies/invitations/redeem', {'token': token});
+    if (!response.isOk) {
+      throw SocialException(_extractMessage(response.body));
+    }
+  }
+
+  Future<void> declineInvitation(String token) async {
+    final response = await _client.post('/allies/invitations/decline', {'token': token});
+    if (!response.isOk) {
+      throw SocialException(_extractMessage(response.body));
+    }
+  }
+
+  Future<List<UserSearchResult>> searchUsers(String query) async {
+    final response = await _client.get('/users/search', query: {'q': query});
+    if (!response.isOk || response.body == null) {
+      throw SocialException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list.map((e) => UserSearchResult.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> sendAllyRequest(String recipientId) async {
+    final response = await _client.post('/allies/requests', {'recipientId': recipientId});
+    if (!response.isOk) {
+      throw SocialException(_extractMessage(response.body));
+    }
+  }
+
+  Future<List<AllyRequest>> fetchAllyRequests() async {
+    final response = await _client.get('/allies/requests');
+    if (!response.isOk || response.body == null) {
+      throw SocialException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list.map((e) => AllyRequest.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> respondToAllyRequest(String id, {required bool accept}) async {
+    final response = await _client.post(
+      '/allies/requests/$id/respond',
+      {'action': accept ? 'accept' : 'decline'},
     );
-    _invitations[index] = updated;
-    return updated;
+    if (!response.isOk) {
+      throw SocialException(_extractMessage(response.body));
+    }
   }
 
-  Future<List<AllyValidationRequest>> fetchValidationRequests() async {
-    await Future.delayed(const Duration(milliseconds: 250));
-    return List.unmodifiable(_validationRequests);
-  }
-
-  Future<AllyValidationRequest> respondToValidation(String id, {required bool approved}) async {
-    await Future.delayed(const Duration(milliseconds: 150));
-    final index = _validationRequests.indexWhere((v) => v.id == id);
-    if (index == -1) throw Exception('Validation request not found');
-    final updated = _validationRequests[index].copyWith(
-      status: approved ? ValidationRequestStatus.approved : ValidationRequestStatus.rejected,
+  Future<List<AllyValidationRequest>> fetchValidations({String? status}) async {
+    final response = await _client.get(
+      '/validations',
+      query: status == null ? null : {'status': status},
     );
-    _validationRequests[index] = updated;
-    return updated;
+    if (!response.isOk || response.body == null) {
+      throw SocialException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list.map((e) => AllyValidationRequest.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> decideValidation(String id, {required bool approved}) async {
+    final response = await _client.post(
+      '/validations/$id/decision',
+      {'decision': approved ? 'approved' : 'rejected'},
+    );
+    if (!response.isOk) {
+      throw SocialException(_extractMessage(response.body));
+    }
+  }
+
+  String _extractMessage(dynamic body) {
+    if (body is Map<String, dynamic>) {
+      final message = body['message'];
+      if (message is List) return message.join('\n');
+      if (message is String) return message;
+    }
+    return 'Une erreur est survenue. Veuillez réessayer.';
   }
 }

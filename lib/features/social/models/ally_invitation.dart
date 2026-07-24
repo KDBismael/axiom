@@ -1,33 +1,41 @@
-enum InvitationStatus { pending, accepted, declined }
+enum InvitationStatus {
+  pending,
+  accepted,
+  declined,
+  expired;
+
+  factory InvitationStatus.fromJson(String value) =>
+      InvitationStatus.values.firstWhere((v) => v.name == value);
+}
 
 class AllyInvitation {
-  final String id;
-  final String inviterName;
-  final String questTitle;
-  final String roleQuote;
-  final double stakeAmount;
-  final int durationDays;
-  final InvitationStatus status;
-
   const AllyInvitation({
     required this.id,
-    required this.inviterName,
-    required this.questTitle,
-    required this.roleQuote,
-    required this.stakeAmount,
-    required this.durationDays,
-    this.status = InvitationStatus.pending,
+    required this.status,
+    required this.expiresAt,
+    this.token,
+    this.deepLink,
   });
 
-  AllyInvitation copyWith({InvitationStatus? status}) {
+  final String id;
+
+  /// Only present in the response right after creation — the persisted row
+  /// only stores a hash, and the list endpoint never returns it.
+  final String? token;
+
+  /// Same as [token]: only present right after creation.
+  final String? deepLink;
+
+  final InvitationStatus status;
+  final DateTime expiresAt;
+
+  factory AllyInvitation.fromJson(Map<String, dynamic> json) {
     return AllyInvitation(
-      id: id,
-      inviterName: inviterName,
-      questTitle: questTitle,
-      roleQuote: roleQuote,
-      stakeAmount: stakeAmount,
-      durationDays: durationDays,
-      status: status ?? this.status,
+      id: json['id'] as String,
+      token: json['token'] as String?,
+      deepLink: json['deepLink'] as String?,
+      status: InvitationStatus.fromJson(json['status'] as String),
+      expiresAt: DateTime.parse(json['expiresAt'] as String),
     );
   }
 }
