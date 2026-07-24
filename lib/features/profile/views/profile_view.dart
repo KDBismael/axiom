@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/navigation/glass_chrome.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../../quests/controllers/quest_list_controller.dart';
-import '../../social/controllers/social_controller.dart';
-import '../../social/models/ally_invitation.dart';
+import '../../social/controllers/allies_controller.dart';
+import '../../social/controllers/validations_controller.dart';
+import '../../social/models/ally_request.dart';
+import '../controllers/profile_controller.dart';
+import '../models/profile_model.dart';
+import '../widgets/authenticated_avatar_image.dart';
+import '../widgets/phone_input_field.dart';
 
 /// "Profile" tab — identity/security settings plus real quest stats.
 class ProfileView extends StatefulWidget {
@@ -20,20 +26,14 @@ class ProfileView extends StatefulWidget {
 }
 
 class _ProfileViewState extends State<ProfileView> {
-  final _nameController = TextEditingController(text: 'Jean-Marc Vallet');
-  final _emailController = TextEditingController(text: 'jm.vallet@axiom.io');
-  final _passwordController = TextEditingController(text: 'axiom-secret');
-  bool _obscurePassword = true;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  Future<void> _logout() async {
+    await Get.find<AuthController>().logout();
+    Get.offAllNamed(AppRoutes.login);
   }
 
-  void _save() {
+  Future<void> _handleSave(ProfileController controller) async {
+    await controller.save();
+    if (!mounted || controller.errorMessage.value != null) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -46,264 +46,469 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 64,
-          child: GlassChrome(
-            safeAreaTop: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
+  Future<void> _pickLanguage(ProfileController controller) {
+    return _showOptionPicker(
+      title: 'LANGUE',
+      options: const {'fr': 'Français', 'en': 'English'},
+      current: controller.language.value,
+      onSelected: (value) => controller.language.value = value,
+    );
+  }
+
+  Future<void> _pickPrivacyLevel(ProfileController controller) {
+    return _showOptionPicker(
+      title: 'CONFIDENTIALITÉ',
+      options: const {'standard': 'Standard', 'private': 'Privé'},
+      current: controller.privacyLevel.value.toJson(),
+      onSelected: (value) =>
+          controller.privacyLevel.value = ProfilePrivacyLevel.fromJson(value),
+    );
+  }
+
+  Future<void> _showOptionPicker({
+    required String title,
+    required Map<String, String> options,
+    required String current,
+    required ValueChanged<String> onSelected,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: AppRadii.structuralRadius),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const CircleAvatar(
-                    radius: 14,
-                    backgroundColor: AppColors.surfaceContainerHighest,
-                    child: Icon(Icons.person, size: 16, color: AppColors.outline),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'AXIOM',
-                    style: AppTypography.titleLg.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.02 * 20,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: Text(
+                      title,
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.outline,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  const Icon(Icons.settings, color: AppColors.primary),
+                  for (final entry in options.entries)
+                    ListTile(
+                      title: Text(
+                        entry.value,
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      trailing: entry.key == current
+                          ? const Icon(Icons.check, color: AppColors.emerald)
+                          : null,
+                      onTap: () {
+                        onSelected(entry.key);
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
           ),
-        ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<ProfileController>();
+
+    return Column(
+      children: [
+        SizedBox(height: 64),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Column(
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 112,
-                            height: 112,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerLow,
-                              borderRadius: AppRadii.structuralRadius,
-                              border: Border.all(color: AppColors.outlineVariant15),
-                            ),
-                            child: const Icon(
-                              Icons.person,
-                              size: 48,
-                              color: AppColors.outline,
-                            ),
-                          ),
-                          Positioned(
-                            bottom: -8,
-                            right: -8,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
+          child: Obx(() {
+            if (controller.isLoading.value &&
+                controller.profile.value == null) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.emerald),
+              );
+            }
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: controller.pickAndUploadAvatar,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              AuthenticatedAvatarImage(
+                                avatarUrl: controller.profile.value?.avatarUrl,
+                                size: 112,
                               ),
-                              child: const Icon(
-                                Icons.edit,
-                                size: 16,
-                                color: AppColors.onPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Profil Utilisateur',
-                        style: AppTypography.displayLg.copyWith(
-                          color: AppColors.primary,
-                          fontSize: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'IDENTITÉ ET SÉCURITÉ',
-                        style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-                _ProfileField(label: 'NOM', controller: _nameController),
-                const SizedBox(height: 20),
-                _ProfileField(
-                  label: 'EMAIL',
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 20),
-                _ProfileField(
-                  label: 'MOT DE PASSE',
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  onToggleObscure: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                ),
-                const SizedBox(height: 40),
-                Text(
-                  'PARAMÈTRES DU COMPTE',
-                  style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLow,
-                    borderRadius: AppRadii.structuralRadius,
-                    border: Border.all(color: AppColors.outlineVariant15),
-                  ),
-                  child: Column(
-                    children: [
-                      _SettingsRow(
-                        icon: Icons.person_add_alt,
-                        label: 'Inviter des amis',
-                        onTap: () => Get.toNamed(AppRoutes.inviteFriends),
-                      ),
-                      Divider(height: 1, color: AppColors.outlineVariant15),
-                      const _SettingsRow(icon: Icons.notifications, label: 'Notifications'),
-                      Divider(height: 1, color: AppColors.outlineVariant15),
-                      const _SettingsRow(icon: Icons.security, label: 'Confidentialité'),
-                      Divider(height: 1, color: AppColors.outlineVariant15),
-                      const _SettingsRow(
-                        icon: Icons.language,
-                        label: 'Langue',
-                        trailingText: 'FR',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Builder(
-                  builder: (context) {
-                    final social = Get.find<SocialController>();
-                    return Obx(() {
-                      final pendingInvitations = social.pendingInvitations;
-                      if (pendingInvitations.isEmpty) return const SizedBox.shrink();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'INVITATIONS REÇUES',
-                            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerLow,
-                              borderRadius: AppRadii.structuralRadius,
-                              border: Border.all(color: AppColors.outlineVariant15),
-                            ),
-                            child: Column(
-                              children: [
-                                for (final invitation in pendingInvitations) ...[
-                                  _InvitationRow(
-                                    invitation: invitation,
-                                    onTap: () => Get.toNamed(
-                                      AppRoutes.invitationAlly,
-                                      arguments: invitation,
-                                    ),
+                              Positioned(
+                                bottom: -8,
+                                right: -8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
                                   ),
-                                  if (invitation != pendingInvitations.last)
-                                    Divider(height: 1, color: AppColors.outlineVariant15),
-                                ],
-                              ],
-                            ),
+                                  child: const Icon(
+                                    Icons.edit,
+                                    size: 16,
+                                    color: AppColors.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 40),
-                        ],
-                      );
-                    });
-                  },
-                ),
-                Builder(
-                  builder: (context) {
-                    final social = Get.find<SocialController>();
-                    return Obx(() {
-                      final pendingValidations = social.pendingValidations;
-                      if (pendingValidations.isEmpty) return const SizedBox.shrink();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'VALIDATIONS DES ALLIÉS',
-                            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerLow,
-                              borderRadius: AppRadii.structuralRadius,
-                              border: Border.all(color: AppColors.outlineVariant15),
-                            ),
-                            child: _SettingsRow(
-                              icon: Icons.fact_check_outlined,
-                              label: '${pendingValidations.length} validation'
-                                  '${pendingValidations.length > 1 ? 's' : ''} en attente',
-                              onTap: () => Get.toNamed(AppRoutes.allyValidations),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
-                      );
-                    });
-                  },
-                ),
-                Text(
-                  'STATISTIQUES',
-                  style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLow,
-                    borderRadius: AppRadii.structuralRadius,
-                    border: Border.all(color: AppColors.outlineVariant15),
-                  ),
-                  child: Builder(
-                    builder: (context) {
-                      final controller = Get.find<QuestListController>();
-                      return Obx(
-                        () => Column(
-                          children: [
-                            _StatRow(
-                              label: 'Quêtes actives',
-                              value: '${controller.quests.length}',
-                            ),
-                            _StatRow(
-                              label: 'Total misé',
-                              value: formatXof(controller.totalStakeAmount),
-                            ),
-                            _StatRow(
-                              label: 'Niveau de risque',
-                              value: controller.riskLevel,
-                            ),
-                          ],
                         ),
-                      );
+                        const SizedBox(height: 24),
+                        Obx(
+                          () => Text(
+                            controller.profile.value == null
+                                ? ''
+                                : '${controller.profile.value!.firstName} '
+                                      '${controller.profile.value!.lastName}',
+                            style: AppTypography.displayLg.copyWith(
+                              color: AppColors.primary,
+                              fontSize: 32,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'IDENTITÉ ET SÉCURITÉ',
+                          style: AppTypography.labelMd.copyWith(
+                            color: AppColors.outline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ProfileField(
+                          label: 'PRÉNOM',
+                          controller: controller.firstNameController,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _ProfileField(
+                          label: 'NOM',
+                          controller: controller.lastNameController,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _ReadOnlyField(
+                    label: 'EMAIL',
+                    value: controller.profile.value?.email ?? '',
+                  ),
+                  const SizedBox(height: 20),
+                  PhoneInputField(
+                    country: controller.country,
+                    controller: controller.phoneController,
+                  ),
+                  Obx(() {
+                    final error = controller.errorMessage.value;
+                    if (error == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        error,
+                        style: AppTypography.labelMd.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 40),
+                  Text(
+                    'PARAMÈTRES DU COMPTE',
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: AppRadii.structuralRadius,
+                      border: Border.all(color: AppColors.outlineVariant15),
+                    ),
+                    child: Column(
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.person_add_alt,
+                          label: 'Inviter des amis',
+                          onTap: () => Get.toNamed(AppRoutes.inviteFriends),
+                        ),
+                        Divider(height: 1, color: AppColors.outlineVariant15),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.notifications,
+                                color: AppColors.outline,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  'Notifications',
+                                  style: AppTypography.bodyMd.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Obx(
+                                () => Switch(
+                                  value: controller.notificationsEnabled.value,
+                                  onChanged: (value) =>
+                                      controller.notificationsEnabled.value =
+                                          value,
+                                  activeThumbColor: AppColors.primaryFixed,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(height: 1, color: AppColors.outlineVariant15),
+                        Obx(
+                          () => _SettingsRow(
+                            icon: Icons.security,
+                            label: 'Confidentialité',
+                            trailingText:
+                                controller.privacyLevel.value ==
+                                    ProfilePrivacyLevel.private
+                                ? 'Privé'
+                                : 'Standard',
+                            onTap: () => _pickPrivacyLevel(controller),
+                          ),
+                        ),
+                        Divider(height: 1, color: AppColors.outlineVariant15),
+                        Obx(
+                          () => _SettingsRow(
+                            icon: Icons.language,
+                            label: 'Langue',
+                            trailingText: controller.language.value
+                                .toUpperCase(),
+                            onTap: () => _pickLanguage(controller),
+                          ),
+                        ),
+                        Divider(height: 1, color: AppColors.outlineVariant15),
+                        _SettingsRow(
+                          icon: Icons.logout,
+                          label: 'Déconnexion',
+                          onTap: _logout,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Builder(
+                    builder: (context) {
+                      final allies = Get.find<AlliesController>();
+                      return Obx(() {
+                        final incoming = allies.incomingRequests;
+                        if (incoming.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DEMANDES REÇUES',
+                              style: AppTypography.labelMd.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainerLow,
+                                borderRadius: AppRadii.structuralRadius,
+                                border: Border.all(
+                                  color: AppColors.outlineVariant15,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  for (final request in incoming) ...[
+                                    _AllyRequestRow(
+                                      request: request,
+                                      onTap: () =>
+                                          Get.toNamed(AppRoutes.inviteFriends),
+                                    ),
+                                    if (request != incoming.last)
+                                      Divider(
+                                        height: 1,
+                                        color: AppColors.outlineVariant15,
+                                      ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                          ],
+                        );
+                      });
                     },
                   ),
-                ),
-                const SizedBox(height: 40),
-                AppButton(label: 'ENREGISTRER LES MODIFICATIONS', onPressed: _save),
-              ],
-            ),
-          ),
+                  Builder(
+                    builder: (context) {
+                      final validations = Get.find<ValidationsController>();
+                      return Obx(() {
+                        final pendingValidations =
+                            validations.pendingValidations;
+                        if (pendingValidations.isEmpty)
+                          return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'VALIDATIONS DES ALLIÉS',
+                              style: AppTypography.labelMd.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainerLow,
+                                borderRadius: AppRadii.structuralRadius,
+                                border: Border.all(
+                                  color: AppColors.outlineVariant15,
+                                ),
+                              ),
+                              child: _SettingsRow(
+                                icon: Icons.fact_check_outlined,
+                                label:
+                                    '${pendingValidations.length} validation'
+                                    '${pendingValidations.length > 1 ? 's' : ''} en attente',
+                                onTap: () =>
+                                    Get.toNamed(AppRoutes.allyValidations),
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                          ],
+                        );
+                      });
+                    },
+                  ),
+                  Builder(
+                    builder: (context) {
+                      final validations = Get.find<ValidationsController>();
+                      return Obx(() {
+                        final decidedValidations =
+                            validations.decidedValidations;
+                        if (decidedValidations.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'HISTORIQUE DES VALIDATIONS',
+                              style: AppTypography.labelMd.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainerLow,
+                                borderRadius: AppRadii.structuralRadius,
+                                border: Border.all(
+                                  color: AppColors.outlineVariant15,
+                                ),
+                              ),
+                              child: _SettingsRow(
+                                icon: Icons.history,
+                                label:
+                                    '${decidedValidations.length} quête'
+                                    '${decidedValidations.length > 1 ? 's' : ''} '
+                                    'approuvée${decidedValidations.length > 1 ? 's' : ''}'
+                                    ' ou rejetée${decidedValidations.length > 1 ? 's' : ''}',
+                                onTap: () =>
+                                    Get.toNamed(AppRoutes.validationHistory),
+                              ),
+                            ),
+                            const SizedBox(height: 40),
+                          ],
+                        );
+                      });
+                    },
+                  ),
+                  Text(
+                    'STATISTIQUES',
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: AppRadii.structuralRadius,
+                      border: Border.all(color: AppColors.outlineVariant15),
+                    ),
+                    child: Builder(
+                      builder: (context) {
+                        final questController = Get.find<QuestListController>();
+                        return Obx(
+                          () => Column(
+                            children: [
+                              _StatRow(
+                                label: 'Quêtes actives',
+                                value: '${questController.quests.length}',
+                              ),
+                              _StatRow(
+                                label: 'Total misé',
+                                value: formatXof(
+                                  questController.totalStakeAmount,
+                                ),
+                              ),
+                              _StatRow(
+                                label: 'Niveau de risque',
+                                value: questController.riskLevel,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Obx(
+                    () => AppButton(
+                      label: 'ENREGISTRER LES MODIFICATIONS',
+                      loading: controller.isSaving.value,
+                      onPressed: controller.isSaving.value
+                          ? null
+                          : () => _handleSave(controller),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ),
       ],
     );
@@ -311,36 +516,31 @@ class _ProfileViewState extends State<ProfileView> {
 }
 
 class _ProfileField extends StatelessWidget {
-  const _ProfileField({
-    required this.label,
-    required this.controller,
-    this.keyboardType,
-    this.obscureText = false,
-    this.onToggleObscure,
-  });
+  const _ProfileField({required this.label, required this.controller});
 
   final String label;
   final TextEditingController controller;
-  final TextInputType? keyboardType;
-  final bool obscureText;
-  final VoidCallback? onToggleObscure;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.labelMd.copyWith(color: AppColors.outline)),
+        Text(
+          label,
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          keyboardType: keyboardType,
-          obscureText: obscureText,
           style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
           decoration: InputDecoration(
             filled: true,
             fillColor: AppColors.surfaceContainerLowest,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: AppRadii.interactiveRadius,
               borderSide: BorderSide(color: AppColors.outlineVariant15),
@@ -353,16 +553,42 @@ class _ProfileField extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(8)),
               borderSide: BorderSide(color: AppColors.emerald),
             ),
-            suffixIcon: onToggleObscure == null
-                ? null
-                : IconButton(
-                    icon: Icon(
-                      obscureText ? Icons.visibility : Icons.visibility_off,
-                      color: AppColors.outline,
-                      size: 20,
-                    ),
-                    onPressed: onToggleObscure,
-                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Non-editable identity field — used for email, which the backend doesn't
+/// allow changing via PATCH /profile/me.
+class _ReadOnlyField extends StatelessWidget {
+  const _ReadOnlyField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: AppRadii.interactiveRadius,
+            border: Border.all(color: AppColors.outlineVariant15),
+          ),
+          child: Text(
+            value,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           ),
         ),
       ],
@@ -409,7 +635,11 @@ class _SettingsRow extends StatelessWidget {
               ),
               const SizedBox(width: 4),
             ],
-            const Icon(Icons.chevron_right, color: AppColors.outlineVariant, size: 20),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.outlineVariant,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -417,10 +647,10 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
-class _InvitationRow extends StatelessWidget {
-  const _InvitationRow({required this.invitation, required this.onTap});
+class _AllyRequestRow extends StatelessWidget {
+  const _AllyRequestRow({required this.request, required this.onTap});
 
-  final AllyInvitation invitation;
+  final AllyRequest request;
   final VoidCallback onTap;
 
   @override
@@ -435,31 +665,28 @@ class _InvitationRow extends StatelessWidget {
               radius: 18,
               backgroundColor: AppColors.surfaceContainerHighest,
               child: Text(
-                invitation.inviterName[0].toUpperCase(),
+                request.otherUser.firstName.isNotEmpty
+                    ? request.otherUser.firstName[0].toUpperCase()
+                    : '?',
                 style: AppTypography.labelMd.copyWith(color: AppColors.primary),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Invitation de ${invitation.inviterName}',
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    invitation.questTitle,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                  ),
-                ],
+              child: Text(
+                'Demande de ${request.otherUser.firstName} ${request.otherUser.lastName}',
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.outlineVariant, size: 20),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.outlineVariant,
+              size: 20,
+            ),
           ],
         ),
       ),
