@@ -9,6 +9,15 @@
                 "--dart-define=API_BASE_URL=http://localhost:3000",
                 "--dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com"
             ]
+        },
+        {
+            "name": "axiom (prod server)",
+            "request": "launch",
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define=API_BASE_URL=http://2.24.138.223",
+                "--dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com"
+            ]
         }
     ]
 }
