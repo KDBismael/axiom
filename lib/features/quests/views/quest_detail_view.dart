@@ -507,7 +507,7 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
             const SizedBox(height: 16),
             if (!widget.hasAnyAllies) ...[
               Text(
-                "Vous n'avez pas encore d'alliés. Invitez d'abord des amis sur Axiom, "
+                "Vous n'avez pas encore d'alliés. Invitez d'abord des amis sur Ndeli, "
                 "puis revenez ici pour les ajouter à cette quête.",
                 style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
               ),

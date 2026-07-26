@@ -82,7 +82,7 @@ class _RegisterViewState extends State<RegisterView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'AXIOM',
+                    'NDELI',
                     style: AppTypography.titleLg.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
@@ -271,7 +271,7 @@ class _RegisterViewState extends State<RegisterView> {
                     const SizedBox(height: 40),
                     Center(
                       child: Text(
-                        'PROTÉGÉ PAR AXIOM ENCRYPT',
+                        'PROTÉGÉ PAR NDELI ENCRYPT',
                         style: AppTypography.labelMd.copyWith(
                           color: AppColors.outline.withValues(alpha: 0.4),
                           fontSize: 10,

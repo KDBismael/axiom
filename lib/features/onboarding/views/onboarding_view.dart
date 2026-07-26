@@ -62,7 +62,7 @@ class _Hero extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'AXIOM',
+          'NDELI',
           style: AppTypography.displayLg.copyWith(color: AppColors.primary),
         ),
         const SizedBox(height: 32),

@@ -36,7 +36,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                 child: Row(
                   children: [
                     Text(
-                      'AXIOM',
+                      'NDELI',
                       style: AppTypography.titleLg.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,

@@ -87,7 +87,7 @@ class _AxiomAppState extends State<AxiomApp> {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Axiom',
+      title: 'Ndeli',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       initialBinding: InitialBinding(),

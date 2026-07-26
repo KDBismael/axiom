@@ -114,7 +114,7 @@ class InvitationAllyView extends StatelessWidget {
                       const Icon(Icons.lock, size: 14, color: AppColors.outline),
                       const SizedBox(width: 8),
                       Text(
-                        'SÉCURISÉ PAR PROTOCOLE AXIOM',
+                        'SÉCURISÉ PAR PROTOCOLE NDELI',
                         style: AppTypography.labelMd.copyWith(
                           color: AppColors.outline,
                           fontSize: 10,
