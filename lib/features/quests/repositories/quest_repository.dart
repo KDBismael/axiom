@@ -135,6 +135,7 @@ class QuestRepository {
     DateTime? date,
     ProofType? proofType,
     String? fileId,
+    List<String>? fileIds,
     String? textContent,
     String? description,
   }) async {
@@ -142,6 +143,7 @@ class QuestRepository {
       if (date != null) 'date': date.toIso8601String(),
       if (proofType != null) 'proofType': proofType.toJson(),
       if (fileId != null) 'fileId': fileId,
+      if (fileIds != null && fileIds.isNotEmpty) 'fileIds': fileIds,
       if (textContent != null) 'textContent': textContent,
       if (description != null) 'description': description,
     });
@@ -165,12 +167,14 @@ class QuestRepository {
     String checkInId, {
     required ProofType proofType,
     String? fileId,
+    List<String>? fileIds,
     String? textContent,
     String? description,
   }) async {
     final response = await _client.post('/quests/$questId/check-ins/$checkInId/proofs', {
       'proofType': proofType.toJson(),
       if (fileId != null) 'fileId': fileId,
+      if (fileIds != null && fileIds.isNotEmpty) 'fileIds': fileIds,
       if (textContent != null) 'textContent': textContent,
       if (description != null) 'description': description,
     });

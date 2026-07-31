@@ -51,25 +51,36 @@ class Evidence {
     required this.proofType,
     required this.status,
     this.fileId,
+    this.fileIds = const [],
     this.textContent,
     this.description,
+    this.reviewComment,
   });
 
   final String id;
   final ProofType proofType;
   final String? fileId;
+
+  /// Up to 3 files for a photo proof; single-file video/legacy proofs use
+  /// [fileId] instead.
+  final List<String> fileIds;
   final String? textContent;
   final String? description;
   final EvidenceStatus status;
+
+  /// The ally's comment left when approving/rejecting this evidence, if any.
+  final String? reviewComment;
 
   factory Evidence.fromJson(Map<String, dynamic> json) {
     return Evidence(
       id: json['id'] as String,
       proofType: ProofType.fromJson(json['proofType'] as String),
       fileId: json['fileId'] as String?,
+      fileIds: (json['fileIds'] as List<dynamic>?)?.cast<String>() ?? const [],
       textContent: json['textContent'] as String?,
       description: json['description'] as String?,
       status: EvidenceStatus.fromJson(json['status'] as String),
+      reviewComment: json['reviewComment'] as String?,
     );
   }
 }

@@ -39,10 +39,10 @@ class ValidationsController extends GetxController {
     }
   }
 
-  Future<void> decide(String id, {required bool approved}) async {
+  Future<void> decide(String id, {required bool approved, String? comment}) async {
     errorMessage.value = null;
     try {
-      await _repository.decideValidation(id, approved: approved);
+      await _repository.decideValidation(id, approved: approved, comment: comment);
       await loadValidations();
     } on SocialException catch (e) {
       errorMessage.value = e.message;

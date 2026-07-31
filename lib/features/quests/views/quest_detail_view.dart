@@ -633,6 +633,8 @@ class _CheckInRow extends StatelessWidget {
     final latestEvidence = checkIn.evidence.isNotEmpty
         ? checkIn.evidence.last
         : null;
+    final reviewComment = latestEvidence?.reviewComment;
+    final hasComment = reviewComment != null && reviewComment.isNotEmpty;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -640,46 +642,62 @@ class _CheckInRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.outlineVariant15),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            latestEvidence == null
-                ? Icons.check_circle
-                : switch (latestEvidence.status) {
-                    EvidenceStatus.approved => Icons.check_circle,
-                    EvidenceStatus.rejected => Icons.cancel,
-                    EvidenceStatus.pending => Icons.schedule,
+          Row(
+            children: [
+              Icon(
+                latestEvidence == null
+                    ? Icons.check_circle
+                    : switch (latestEvidence.status) {
+                        EvidenceStatus.approved => Icons.check_circle,
+                        EvidenceStatus.rejected => Icons.cancel,
+                        EvidenceStatus.pending => Icons.schedule,
+                      },
+                size: 16,
+                color: latestEvidence == null
+                    ? AppColors.emerald
+                    : switch (latestEvidence.status) {
+                        EvidenceStatus.approved => AppColors.emerald,
+                        EvidenceStatus.rejected => AppColors.error,
+                        EvidenceStatus.pending => AppColors.outline,
+                      },
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '${checkIn.date.day.toString().padLeft(2, '0')}/${checkIn.date.month.toString().padLeft(2, '0')}/${checkIn.date.year}',
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                ),
+              ),
+              if (latestEvidence != null)
+                Text(
+                  switch (latestEvidence.status) {
+                    EvidenceStatus.approved => 'PREUVE APPROUVÉE',
+                    EvidenceStatus.rejected => 'PREUVE REJETÉE',
+                    EvidenceStatus.pending => 'PREUVE EN ATTENTE',
                   },
-            size: 16,
-            color: latestEvidence == null
-                ? AppColors.emerald
-                : switch (latestEvidence.status) {
-                    EvidenceStatus.approved => AppColors.emerald,
-                    EvidenceStatus.rejected => AppColors.error,
-                    EvidenceStatus.pending => AppColors.outline,
-                  },
+                  style: AppTypography.labelMd.copyWith(
+                    color: switch (latestEvidence.status) {
+                      EvidenceStatus.approved => AppColors.emerald,
+                      EvidenceStatus.rejected => AppColors.error,
+                      EvidenceStatus.pending => AppColors.outline,
+                    },
+                    fontSize: 10,
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '${checkIn.date.day.toString().padLeft(2, '0')}/${checkIn.date.month.toString().padLeft(2, '0')}/${checkIn.date.year}',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-            ),
-          ),
-          if (latestEvidence != null)
-            Text(
-              switch (latestEvidence.status) {
-                EvidenceStatus.approved => 'PREUVE APPROUVÉE',
-                EvidenceStatus.rejected => 'PREUVE REJETÉE',
-                EvidenceStatus.pending => 'PREUVE EN ATTENTE',
-              },
-              style: AppTypography.labelMd.copyWith(
-                color: switch (latestEvidence.status) {
-                  EvidenceStatus.approved => AppColors.emerald,
-                  EvidenceStatus.rejected => AppColors.error,
-                  EvidenceStatus.pending => AppColors.outline,
-                },
-                fontSize: 10,
+          if (hasComment)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 28),
+              child: Text(
+                'Commentaire de l\'allié : $reviewComment',
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.outline,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
         ],

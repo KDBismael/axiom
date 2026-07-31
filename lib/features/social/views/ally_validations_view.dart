@@ -54,8 +54,10 @@ class AllyValidationsView extends StatelessWidget {
                         for (final request in pending) ...[
                           ValidationCard(
                             request: request,
-                            onApprove: () => controller.decide(request.id, approved: true),
-                            onReject: () => controller.decide(request.id, approved: false),
+                            onApprove: (comment) =>
+                                controller.decide(request.id, approved: true, comment: comment),
+                            onReject: (comment) =>
+                                controller.decide(request.id, approved: false, comment: comment),
                           ),
                           const SizedBox(height: 24),
                         ],

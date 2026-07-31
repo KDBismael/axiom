@@ -75,12 +75,12 @@ class ValidationDetailView extends StatelessWidget {
 
                     return ValidationCard(
                       request: request,
-                      onApprove: () async {
-                        await controller.decide(request.id, approved: true);
+                      onApprove: (comment) async {
+                        await controller.decide(request.id, approved: true, comment: comment);
                         if (context.mounted) Navigator.of(context).pop();
                       },
-                      onReject: () async {
-                        await controller.decide(request.id, approved: false);
+                      onReject: (comment) async {
+                        await controller.decide(request.id, approved: false, comment: comment);
                         if (context.mounted) Navigator.of(context).pop();
                       },
                     );

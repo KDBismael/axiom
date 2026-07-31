@@ -67,6 +67,7 @@ class QuestListController extends GetxController {
     DateTime? date,
     ProofType? proofType,
     String? fileId,
+    List<String>? fileIds,
     String? textContent,
     String? description,
   }) async {
@@ -77,6 +78,7 @@ class QuestListController extends GetxController {
         date: date,
         proofType: proofType,
         fileId: fileId,
+        fileIds: fileIds,
         textContent: textContent,
         description: description,
       );
@@ -100,6 +102,7 @@ class QuestListController extends GetxController {
     String checkInId, {
     required ProofType proofType,
     String? fileId,
+    List<String>? fileIds,
     String? textContent,
     String? description,
   }) async {
@@ -110,6 +113,7 @@ class QuestListController extends GetxController {
         checkInId,
         proofType: proofType,
         fileId: fileId,
+        fileIds: fileIds,
         textContent: textContent,
         description: description,
       );

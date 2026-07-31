@@ -75,7 +75,13 @@ void main() {
     when(() => mockRepository.fetchValidations(status: any(named: 'status'))).thenAnswer(
       (_) async => approved ? [request2] : [request1, request2],
     );
-    when(() => mockRepository.decideValidation('val1', approved: true)).thenAnswer((_) async {
+    when(
+      () => mockRepository.decideValidation(
+        'val1',
+        approved: true,
+        comment: any(named: 'comment'),
+      ),
+    ).thenAnswer((_) async {
       approved = true;
     });
     final controller = Get.put<ValidationsController>(ValidationsController(mockRepository));
@@ -88,6 +94,8 @@ void main() {
 
     expect(controller.pendingValidations.length, 2);
 
+    await tester.ensureVisible(find.text('APPROUVER').first);
+    await tester.pump();
     await tester.tap(find.text('APPROUVER').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));

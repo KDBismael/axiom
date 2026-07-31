@@ -3,7 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../profile/widgets/authenticated_avatar_image.dart';
+import '../../../core/widgets/media/evidence_thumbnail.dart';
 import '../../quests/models/check_in_model.dart';
 import '../models/ally_validation_request.dart';
 
@@ -45,14 +45,20 @@ class DecidedValidationCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
                   borderRadius: AppRadii.interactiveRadius,
                 ),
                 child: Text(
                   label,
-                  style: AppTypography.labelMd.copyWith(color: color, fontSize: 10),
+                  style: AppTypography.labelMd.copyWith(
+                    color: color,
+                    fontSize: 10,
+                  ),
                 ),
               ),
             ],
@@ -61,17 +67,35 @@ class DecidedValidationCard extends StatelessWidget {
           if (request.proofType == ProofType.text)
             TextProof(quote: request.textContent ?? '')
           else
-            FileProof(validationId: request.id, proofType: request.proofType),
+            FileProof(
+              validationId: request.id,
+              proofType: request.proofType,
+              photoCount: request.fileIds.isEmpty ? 1 : request.fileIds.length,
+            ),
         ],
       ),
     );
   }
 }
 
+/// Validates the comment attached to an approve/reject decision: optional
+/// when approving, but required (non-blank) when rejecting, so a rejection
+/// always comes with a reason for the quest owner. Returns the French error
+/// message to show, or null when the comment is acceptable.
+String? validateDecisionComment({
+  required bool approved,
+  required String comment,
+}) {
+  if (approved) return null;
+  return comment.trim().isEmpty
+      ? 'Un commentaire est requis pour justifier un rejet.'
+      : null;
+}
+
 /// A single ally's submitted proof (photo, video, or text) with
 /// Approve/Reject actions — shared by the full validations list and the
 /// single-item notification deep-link screen.
-class ValidationCard extends StatelessWidget {
+class ValidationCard extends StatefulWidget {
   const ValidationCard({
     super.key,
     required this.request,
@@ -80,11 +104,41 @@ class ValidationCard extends StatelessWidget {
   });
 
   final AllyValidationRequest request;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
+  final void Function(String? comment) onApprove;
+  final void Function(String comment) onReject;
+
+  @override
+  State<ValidationCard> createState() => _ValidationCardState();
+}
+
+class _ValidationCardState extends State<ValidationCard> {
+  final _commentController = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  void _handleApprove() {
+    final comment = _commentController.text.trim();
+    widget.onApprove(comment.isEmpty ? null : comment);
+  }
+
+  void _handleReject() {
+    final comment = _commentController.text.trim();
+    final error = validateDecisionComment(approved: false, comment: comment);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    widget.onReject(comment);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final request = widget.request;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -106,19 +160,62 @@ class ValidationCard extends StatelessWidget {
           if (request.proofType == ProofType.text)
             TextProof(quote: request.textContent ?? '')
           else
-            FileProof(validationId: request.id, proofType: request.proofType),
+            FileProof(
+              validationId: request.id,
+              proofType: request.proofType,
+              photoCount: request.fileIds.isEmpty ? 1 : request.fileIds.length,
+            ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _commentController,
+            maxLines: 4,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+            decoration: InputDecoration(
+              hintText:
+                  'Commentaire (optionnel pour approuver, requis pour rejeter)...',
+              hintStyle: AppTypography.bodyMd.copyWith(
+                color: AppColors.outlineVariant,
+              ),
+              filled: true,
+              fillColor: AppColors.surfaceContainerLowest,
+              contentPadding: const EdgeInsets.all(16),
+              border: OutlineInputBorder(
+                borderRadius: AppRadii.structuralRadius,
+                borderSide: BorderSide(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadii.structuralRadius,
+                borderSide: BorderSide(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+                borderSide: BorderSide(color: AppColors.primaryFixed),
+              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+            ),
+          ],
           const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
-                child: AppButton(label: 'APPROUVER', onPressed: onApprove),
+                child: AppButton(label: 'APPROUVER', onPressed: _handleApprove),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: AppButton(
                   label: 'REJETER',
                   variant: AppButtonVariant.secondary,
-                  onPressed: onReject,
+                  onPressed: _handleReject,
                 ),
               ),
             ],
@@ -130,10 +227,19 @@ class ValidationCard extends StatelessWidget {
 }
 
 class FileProof extends StatelessWidget {
-  const FileProof({super.key, required this.validationId, required this.proofType});
+  const FileProof({
+    super.key,
+    required this.validationId,
+    required this.proofType,
+    this.photoCount = 1,
+  });
 
   final String validationId;
   final ProofType proofType;
+
+  /// Number of photos to render for a photo proof (up to 3); ignored for
+  /// video, which is always a single file.
+  final int photoCount;
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +256,9 @@ class FileProof extends StatelessWidget {
           Row(
             children: [
               Icon(
-                proofType == ProofType.video ? Icons.videocam_outlined : Icons.image_outlined,
+                proofType == ProofType.video
+                    ? Icons.videocam_outlined
+                    : Icons.image_outlined,
                 color: AppColors.outline,
                 size: 18,
               ),
@@ -165,13 +273,24 @@ class FileProof extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: AppRadii.interactiveRadius,
-            child: AuthenticatedAvatarImage(
-              avatarUrl: '/validations/$validationId/evidence-file',
-              size: 160,
+          if (proofType == ProofType.video)
+            EvidenceVideoThumbnail(path: '/validations/$validationId/evidence-file')
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (var i = 0; i < photoCount; i++)
+                  EvidencePhotoThumbnail(
+                    path: '/validations/$validationId/evidence-file?index=$i',
+                    allPaths: [
+                      for (var j = 0; j < photoCount; j++)
+                        '/validations/$validationId/evidence-file?index=$j',
+                    ],
+                    index: i,
+                  ),
+              ],
             ),
-          ),
         ],
       ),
     );

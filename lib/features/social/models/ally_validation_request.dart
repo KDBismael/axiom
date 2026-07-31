@@ -21,6 +21,7 @@ class AllyValidationRequest {
     required this.status,
     this.textContent,
     this.fileId,
+    this.fileIds = const [],
   });
 
   final String id;
@@ -30,6 +31,9 @@ class AllyValidationRequest {
   final ProofType proofType;
   final String? textContent;
   final String? fileId;
+
+  /// Up to 3 files for a photo proof; single-file video proofs use [fileId].
+  final List<String> fileIds;
   final ValidationDecisionStatus status;
 
   /// `GET /validations` returns the request row flattened together with a
@@ -46,6 +50,7 @@ class AllyValidationRequest {
       proofType: ProofType.fromJson(evidence['proofType'] as String),
       textContent: evidence['textContent'] as String?,
       fileId: evidence['fileId'] as String?,
+      fileIds: (evidence['fileIds'] as List<dynamic>?)?.cast<String>() ?? const [],
       status: ValidationDecisionStatus.fromJson(json['status'] as String),
     );
   }

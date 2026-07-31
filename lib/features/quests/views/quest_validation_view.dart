@@ -65,10 +65,13 @@ class _ValidationBody extends StatefulWidget {
   State<_ValidationBody> createState() => _ValidationBodyState();
 }
 
+const _maxPhotos = 3;
+
 class _ValidationBodyState extends State<_ValidationBody> {
   final _descriptionController = TextEditingController();
   _EvidenceType _evidenceType = _EvidenceType.photo;
-  PickedEvidence? _pickedFile;
+  PickedEvidence? _pickedVideo;
+  final List<PickedEvidence> _pickedPhotos = [];
   bool _submitting = false;
   bool _loadingHistory = true;
   int _currentPeriodCount = 0;
@@ -101,19 +104,30 @@ class _ValidationBodyState extends State<_ValidationBody> {
     super.dispose();
   }
 
-  Future<void> _pickFile() async {
+  Future<void> _pickVideo() async {
     final service = Get.find<EvidencePickerService>();
-    final picked = _evidenceType == _EvidenceType.video
-        ? await service.pickVideo()
-        : await service.pickPhoto();
+    final picked = await service.pickVideo();
     if (picked == null) return;
-    setState(() => _pickedFile = picked);
+    setState(() => _pickedVideo = picked);
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_pickedPhotos.length >= _maxPhotos) return;
+    final service = Get.find<EvidencePickerService>();
+    final picked = await service.pickPhoto();
+    if (picked == null) return;
+    setState(() => _pickedPhotos.add(picked));
+  }
+
+  void _removePhoto(int index) {
+    setState(() => _pickedPhotos.removeAt(index));
   }
 
   Future<void> _submit() async {
-    if (widget.quest.requiresProof &&
-        _evidenceType != _EvidenceType.text &&
-        _pickedFile == null) {
+    final hasProof = _evidenceType == _EvidenceType.video
+        ? _pickedVideo != null
+        : _pickedPhotos.isNotEmpty;
+    if (widget.quest.requiresProof && _evidenceType != _EvidenceType.text && !hasProof) {
       setState(() => _error = 'Une preuve est requise pour cette quête.');
       return;
     }
@@ -130,8 +144,13 @@ class _ValidationBodyState extends State<_ValidationBody> {
     final controller = Get.find<QuestListController>();
     try {
       String? fileId;
-      if (_evidenceType != _EvidenceType.text && _pickedFile != null) {
-        fileId = await controller.uploadEvidenceFile(_pickedFile!);
+      List<String>? fileIds;
+      if (_evidenceType == _EvidenceType.video && _pickedVideo != null) {
+        fileId = await controller.uploadEvidenceFile(_pickedVideo!);
+      } else if (_evidenceType == _EvidenceType.photo && _pickedPhotos.isNotEmpty) {
+        fileIds = [
+          for (final photo in _pickedPhotos) await controller.uploadEvidenceFile(photo),
+        ];
       }
 
       final proofType = switch (_evidenceType) {
@@ -142,8 +161,11 @@ class _ValidationBodyState extends State<_ValidationBody> {
 
       await controller.checkIn(
         widget.quest.id,
-        proofType: (fileId != null || _evidenceType == _EvidenceType.text) ? proofType : null,
+        proofType: (fileId != null || fileIds != null || _evidenceType == _EvidenceType.text)
+            ? proofType
+            : null,
         fileId: fileId,
+        fileIds: fileIds,
         textContent: _evidenceType == _EvidenceType.text ? _descriptionController.text.trim() : null,
         description: _evidenceType != _EvidenceType.text && _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
@@ -223,7 +245,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
                     selected: _evidenceType == _EvidenceType.photo,
                     onTap: () => setState(() {
                       _evidenceType = _EvidenceType.photo;
-                      _pickedFile = null;
+                      _pickedVideo = null;
                     }),
                   ),
                 ),
@@ -235,7 +257,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
                     selected: _evidenceType == _EvidenceType.video,
                     onTap: () => setState(() {
                       _evidenceType = _EvidenceType.video;
-                      _pickedFile = null;
+                      _pickedPhotos.clear();
                     }),
                   ),
                 ),
@@ -247,23 +269,42 @@ class _ValidationBodyState extends State<_ValidationBody> {
                     selected: _evidenceType == _EvidenceType.text,
                     onTap: () => setState(() {
                       _evidenceType = _EvidenceType.text;
-                      _pickedFile = null;
+                      _pickedVideo = null;
+                      _pickedPhotos.clear();
                     }),
                   ),
                 ),
               ],
             ),
           ),
-          if (_evidenceType != _EvidenceType.text) ...[
+          if (_evidenceType == _EvidenceType.photo) ...[
             const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _pickFile,
-              icon: const Icon(Icons.upload, color: AppColors.primary),
-              label: Text(
-                _pickedFile?.filename ?? 'Choisir un fichier',
-                style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-              ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (var i = 0; i < _pickedPhotos.length; i++)
+                  _PhotoThumbnail(photo: _pickedPhotos[i], onRemove: () => _removePhoto(i)),
+                if (_pickedPhotos.length < _maxPhotos)
+                  _AddPhotoTile(onTap: _pickPhoto),
+              ],
             ),
+          ] else if (_evidenceType == _EvidenceType.video) ...[
+            const SizedBox(height: 16),
+            if (_pickedVideo == null)
+              OutlinedButton.icon(
+                onPressed: _pickVideo,
+                icon: const Icon(Icons.upload, color: AppColors.primary),
+                label: Text(
+                  'Choisir un fichier',
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                ),
+              )
+            else
+              _VideoSelectedCard(
+                video: _pickedVideo!,
+                onRemove: () => setState(() => _pickedVideo = null),
+              ),
           ],
           const SizedBox(height: 32),
           Text(
@@ -414,6 +455,116 @@ class _EvidenceCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+const _thumbnailSize = 88.0;
+
+/// A locally-picked photo, shown before upload — actual bytes, not a
+/// filename or remote URL, with a remove button in the corner.
+class _PhotoThumbnail extends StatelessWidget {
+  const _PhotoThumbnail({required this.photo, required this.onRemove});
+
+  final PickedEvidence photo;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _thumbnailSize,
+      height: _thumbnailSize,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: AppRadii.interactiveRadius,
+            child: Image.memory(
+              photo.bytes,
+              width: _thumbnailSize,
+              height: _thumbnailSize,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddPhotoTile extends StatelessWidget {
+  const _AddPhotoTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: _thumbnailSize,
+        height: _thumbnailSize,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(color: AppColors.outlineVariant15),
+        ),
+        child: const Icon(Icons.add, color: AppColors.primary),
+      ),
+    );
+  }
+}
+
+/// A locally-picked video, shown before upload. No real thumbnail frame
+/// (would require a native thumbnail-generation dependency) — an icon card
+/// with the filename stands in as the "selected" visual instead of a bare
+/// filename text.
+class _VideoSelectedCard extends StatelessWidget {
+  const _VideoSelectedCard({required this.video, required this.onRemove});
+
+  final PickedEvidence video;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadii.interactiveRadius,
+        border: Border.all(color: AppColors.outlineVariant15),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.videocam, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              video.filename,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+            ),
+          ),
+          GestureDetector(
+            onTap: onRemove,
+            child: const Icon(Icons.close, color: AppColors.outline, size: 20),
+          ),
+        ],
       ),
     );
   }

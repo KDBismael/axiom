@@ -119,10 +119,13 @@ class SocialRepository {
     return list.map((e) => AllyValidationRequest.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<void> decideValidation(String id, {required bool approved}) async {
+  Future<void> decideValidation(String id, {required bool approved, String? comment}) async {
     final response = await _client.post(
       '/validations/$id/decision',
-      {'decision': approved ? 'approved' : 'rejected'},
+      {
+        'decision': approved ? 'approved' : 'rejected',
+        if (comment != null && comment.isNotEmpty) 'comment': comment,
+      },
     );
     if (!response.isOk) {
       throw SocialException(_extractMessage(response.body));
