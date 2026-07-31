@@ -276,19 +276,21 @@ class FileProof extends StatelessWidget {
           if (proofType == ProofType.video)
             EvidenceVideoThumbnail(path: '/validations/$validationId/evidence-file')
           else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+            Row(
               children: [
-                for (var i = 0; i < photoCount; i++)
-                  EvidencePhotoThumbnail(
-                    path: '/validations/$validationId/evidence-file?index=$i',
-                    allPaths: [
-                      for (var j = 0; j < photoCount; j++)
-                        '/validations/$validationId/evidence-file?index=$j',
-                    ],
-                    index: i,
+                for (var i = 0; i < photoCount; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(
+                    child: EvidencePhotoThumbnail(
+                      path: '/validations/$validationId/evidence-file?index=$i',
+                      allPaths: [
+                        for (var j = 0; j < photoCount; j++)
+                          '/validations/$validationId/evidence-file?index=$j',
+                      ],
+                      index: i,
+                    ),
                   ),
+                ],
               ],
             ),
         ],

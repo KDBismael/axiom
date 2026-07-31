@@ -13,13 +13,13 @@ class EvidencePhotoThumbnail extends StatelessWidget {
     required this.path,
     required this.allPaths,
     required this.index,
-    this.size = 160,
+    this.height = 200,
   });
 
   final String path;
   final List<String> allPaths;
   final int index;
-  final double size;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +32,22 @@ class EvidencePhotoThumbnail extends StatelessWidget {
           return ClipRRect(
             borderRadius: AppRadii.interactiveRadius,
             child: data == null
-                ? Container(width: size, height: size, color: AppColors.surfaceContainerHigh)
+                ? Container(
+                    width: double.infinity,
+                    height: height,
+                    color: AppColors.surfaceContainerHigh,
+                  )
                 : Image.network(
                     data.$1,
                     headers: data.$2,
-                    width: size,
-                    height: size,
+                    width: double.infinity,
+                    height: height,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(width: size, height: size, color: AppColors.surfaceContainerHigh),
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: double.infinity,
+                      height: height,
+                      color: AppColors.surfaceContainerHigh,
+                    ),
                   ),
           );
         },
@@ -52,18 +59,18 @@ class EvidencePhotoThumbnail extends StatelessWidget {
 /// A rectangular tile representing an evidence video — tapping opens a
 /// full-screen player instead of just a filename/URL.
 class EvidenceVideoThumbnail extends StatelessWidget {
-  const EvidenceVideoThumbnail({super.key, required this.path, this.size = 160});
+  const EvidenceVideoThumbnail({super.key, required this.path, this.height = 200});
 
   final String path;
-  final double size;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => showEvidenceVideoViewer(context, videoPath: path),
       child: Container(
-        width: size,
-        height: size,
+        width: double.infinity,
+        height: height,
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerHigh,
           borderRadius: AppRadii.interactiveRadius,
