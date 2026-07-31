@@ -27,6 +27,8 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
   final _codeController = TextEditingController();
   final _emailController = TextEditingController();
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  final _searchResultsKey = GlobalKey();
   final _sentRequestIds = <String>{};
 
   late final AlliesController _controller;
@@ -42,6 +44,7 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
     _codeController.dispose();
     _emailController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -86,6 +89,20 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
         ? extractInviteToken(Uri.parse(input)) ?? input
         : input;
     Get.toNamed(AppRoutes.invitationAlly, arguments: token);
+  }
+
+  Future<void> _onSearchChanged(String query) async {
+    await _controller.search(query);
+    if (!mounted || !_searchFocusNode.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = _searchResultsKey.currentContext;
+      if (context == null) return;
+      Scrollable.ensureVisible(
+        context,
+        alignment: 1,
+        duration: const Duration(milliseconds: 200),
+      );
+    });
   }
 
   Future<void> _sendRequest(UserSearchResult user) async {
@@ -296,7 +313,8 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _searchController,
-                    onChanged: _controller.search,
+                    focusNode: _searchFocusNode,
+                    onChanged: _onSearchChanged,
                     style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
                     decoration: InputDecoration(
                       hintText: 'Rechercher par nom, email ou téléphone...',
@@ -343,6 +361,7 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
                         .toList();
                     if (results.isEmpty) return const SizedBox.shrink();
                     return Column(
+                      key: _searchResultsKey,
                       children: [
                         for (final user in results) ...[
                           _SearchResultRow(
