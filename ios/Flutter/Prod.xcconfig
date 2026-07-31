@@ -1,0 +1,12 @@
+// Overrides DART_DEFINES from Generated.xcconfig with the production
+// backend URL, so archiving with the "Release-Prod" configuration in
+// Xcode always ships pointed at prod, regardless of what --dart-define
+// values a local `flutter run`/`flutter build` last wrote into
+// Generated.xcconfig.
+//
+// If GOOGLE_SERVER_CLIENT_ID ever changes, or you add more --dart-define
+// values, regenerate this line with:
+//   printf 'KEY=VALUE' | base64
+// for each pair and join them with commas below.
+#include "Release.xcconfig"
+DART_DEFINES=QVBJX0JBU0VfVVJMPWh0dHA6Ly8yLjI0LjEzOC4yMjM=,R09PR0xFX1NFUlZFUl9DTElFTlRfSUQ9NTM1ODEzNzY1NDIwLXVlczhsMnUwM2hzNzM4NXFoY3ZwOTN0ZXU0ZmNlcTlhLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t
