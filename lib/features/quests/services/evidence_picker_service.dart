@@ -22,7 +22,11 @@ class PickedEvidence {
 /// unit-tested without touching native code — tests fake this interface
 /// instead of the plugin itself.
 class EvidencePickerService {
-  Future<PickedEvidence?> pickPhoto() => _pick(() => ImagePicker().pickImage(source: ImageSource.gallery));
+  /// imageQuality forces the plugin to re-encode the picked image as JPEG on
+  /// both iOS and Android — without it, iOS gallery photos are frequently
+  /// HEIC, which the backend's upload allowlist rejects (only png/jpeg/webp/gif).
+  Future<PickedEvidence?> pickPhoto() =>
+      _pick(() => ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85));
 
   Future<PickedEvidence?> pickVideo() => _pick(() => ImagePicker().pickVideo(source: ImageSource.gallery));
 
