@@ -4,12 +4,19 @@
 # whatever --dart-define values were last written to
 # ios/Flutter/Generated.xcconfig, which is almost always your local dev
 # config, not prod.
+#
+# Also bumps pubspec.yaml's build number on every run (App Store rejects a
+# re-upload of a build number it's already seen). Pass a version name to
+# also update it, e.g.: ./scripts/build_prod_ipa.sh 1.0.1
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+new_version=$("$(dirname "$0")/bump_version.sh" "${1:-}")
+echo "Building version ${new_version}..."
+
 flutter build ipa \
-  --dart-define=API_BASE_URL=http://2.24.138.223 \
+  --dart-define=API_BASE_URL=https://server.ndeli.tech \
   --dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com
 
 echo ""

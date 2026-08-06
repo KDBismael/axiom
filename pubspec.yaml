@@ -1,5 +1,5 @@
 name: axiom
-description: "A new Flutter project."
+description: "Ndeli — quêtes personnelles avec mise en jeu et validation par des alliés."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+5
 
 environment:
   sdk: ^3.9.2
@@ -44,6 +44,12 @@ dependencies:
   app_links: ^6.3.2
   url_launcher: ^6.3.1
   video_player: ^2.10.1
+  # Declares an Android/iOS runtime plugin (net.jonhanson.flutter_native_splash)
+  # even though we only use its CLI (`dart run flutter_native_splash:create`)
+  # to generate splash assets — as a dev_dependency, Gradle's release build
+  # variant excludes it from the compile classpath and bundleRelease fails
+  # with "package net.jonhanson.flutter_native_splash does not exist".
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
@@ -57,7 +63,6 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   mocktail: ^1.0.4
   flutter_launcher_icons: ^0.14.4
-  flutter_native_splash: ^2.4.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
