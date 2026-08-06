@@ -22,6 +22,8 @@ class AllyValidationRequest {
     this.textContent,
     this.fileId,
     this.fileIds = const [],
+    this.comment,
+    this.description,
   });
 
   final String id;
@@ -35,6 +37,12 @@ class AllyValidationRequest {
   /// Up to 3 files for a photo proof; single-file video proofs use [fileId].
   final List<String> fileIds;
   final ValidationDecisionStatus status;
+
+  /// The ally's decision comment, left when approving/rejecting.
+  final String? comment;
+
+  /// The submitter's own note, left at check-in time.
+  final String? description;
 
   /// `GET /validations` returns the request row flattened together with a
   /// nested `evidence` object (which itself nests `quest: { title }`) —
@@ -52,6 +60,8 @@ class AllyValidationRequest {
       fileId: evidence['fileId'] as String?,
       fileIds: (evidence['fileIds'] as List<dynamic>?)?.cast<String>() ?? const [],
       status: ValidationDecisionStatus.fromJson(json['status'] as String),
+      comment: json['comment'] as String?,
+      description: evidence['description'] as String?,
     );
   }
 }

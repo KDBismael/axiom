@@ -634,7 +634,9 @@ class _CheckInRow extends StatelessWidget {
         ? checkIn.evidence.last
         : null;
     final reviewComment = latestEvidence?.reviewComment;
-    final hasComment = reviewComment != null && reviewComment.isNotEmpty;
+    final hasReviewComment = reviewComment != null && reviewComment.isNotEmpty;
+    final submitterComment = latestEvidence?.description;
+    final hasSubmitterComment = submitterComment != null && submitterComment.isNotEmpty;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -689,7 +691,18 @@ class _CheckInRow extends StatelessWidget {
                 ),
             ],
           ),
-          if (hasComment)
+          if (hasSubmitterComment)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 28),
+              child: Text(
+                'Votre commentaire : $submitterComment',
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.outline,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          if (hasReviewComment)
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 28),
               child: Text(

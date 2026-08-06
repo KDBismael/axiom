@@ -11,6 +11,10 @@ import 'core/services/onboarding_service.dart';
 import 'core/services/pending_invite_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/controllers/auth_controller.dart';
+import 'features/notifications/controllers/notification_controller.dart';
+import 'features/quests/controllers/quest_list_controller.dart';
+import 'features/social/controllers/allies_controller.dart';
+import 'features/social/controllers/validations_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,13 +51,40 @@ class AxiomApp extends StatefulWidget {
   State<AxiomApp> createState() => _AxiomAppState();
 }
 
-class _AxiomAppState extends State<AxiomApp> {
+class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
   StreamSubscription<String>? _inviteLinkSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initDeepLinks());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshLiveData();
+  }
+
+  /// Every data-bearing controller fetches once in `onInit` and never
+  /// again, so returning from the background (e.g. after a push
+  /// notification or an ally's decision) would otherwise show stale data
+  /// until the app is force-closed and reopened.
+  void _refreshLiveData() {
+    if (Get.isRegistered<NotificationController>()) {
+      Get.find<NotificationController>().loadNotifications();
+    }
+    if (Get.isRegistered<ValidationsController>()) {
+      Get.find<ValidationsController>().loadValidations();
+    }
+    if (Get.isRegistered<AlliesController>()) {
+      Get.find<AlliesController>().loadAllyRequests();
+    }
+    if (Get.isRegistered<QuestListController>()) {
+      Get.find<QuestListController>()
+        ..loadQuests()
+        ..loadPendingAllyInvitations();
+    }
   }
 
   Future<void> _initDeepLinks() async {
@@ -80,6 +111,7 @@ class _AxiomAppState extends State<AxiomApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inviteLinkSubscription?.cancel();
     super.dispose();
   }

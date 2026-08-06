@@ -72,6 +72,26 @@ class DecidedValidationCard extends StatelessWidget {
               proofType: request.proofType,
               photoCount: request.fileIds.isEmpty ? 1 : request.fileIds.length,
             ),
+          if (request.description != null && request.description!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Commentaire du soumetteur : ${request.description}',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.outline,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+          if (request.comment != null && request.comment!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Votre commentaire : ${request.comment}',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.outline,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ],
       ),
     );
