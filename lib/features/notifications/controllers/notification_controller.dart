@@ -22,7 +22,9 @@ class NotificationController extends GetxController {
   Future<void> loadNotifications({bool? unread}) async {
     isLoading.value = true;
     try {
-      notifications.assignAll(await _repository.fetchNotifications(unread: unread));
+      notifications.assignAll(
+        await _repository.fetchNotifications(unread: unread),
+      );
     } on NotificationException catch (e) {
       errorMessage.value = e.message;
     } finally {

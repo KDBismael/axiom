@@ -25,45 +25,99 @@ void main() {
 
   group('NotificationRepository.fetchNotifications', () {
     test('GETs /notifications without a filter', () async {
-      when(() => mockClient.get<dynamic>('/notifications', query: any(named: 'query')))
-          .thenAnswer((_) async => Response(statusCode: 200, body: [notificationJson]));
+      when(
+        () => mockClient.get<dynamic>(
+          '/notifications',
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(statusCode: 200, body: [notificationJson]),
+      );
 
       final notifications = await repository.fetchNotifications();
 
-      verify(() => mockClient.get<dynamic>('/notifications', query: null)).called(1);
+      verify(
+        () => mockClient.get<dynamic>('/notifications', query: null),
+      ).called(1);
       expect(notifications, hasLength(1));
     });
 
     test('GETs /notifications?unread=true when filtered', () async {
-      when(() => mockClient.get<dynamic>('/notifications', query: any(named: 'query')))
-          .thenAnswer((_) async => const Response(statusCode: 200, body: []));
+      when(
+        () => mockClient.get<dynamic>(
+          '/notifications',
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer((_) async => const Response(statusCode: 200, body: []));
 
       await repository.fetchNotifications(unread: true);
 
-      verify(() => mockClient.get<dynamic>('/notifications', query: {'unread': 'true'}))
-          .called(1);
+      verify(
+        () => mockClient.get<dynamic>(
+          '/notifications',
+          query: {'unread': 'true'},
+        ),
+      ).called(1);
     });
   });
 
   group('NotificationRepository.markRead', () {
     test('PATCHes /notifications/:id/read', () async {
-      when(() => mockClient.patch<dynamic>('/notifications/n-1/read', any()))
-          .thenAnswer((_) async => const Response(statusCode: 200, body: {}));
+      when(
+        () => mockClient.patch<dynamic>('/notifications/n-1/read', any()),
+      ).thenAnswer((_) async => const Response(statusCode: 200, body: {}));
 
       await repository.markRead('n-1');
 
-      verify(() => mockClient.patch<dynamic>('/notifications/n-1/read', any())).called(1);
+      verify(
+        () => mockClient.patch<dynamic>('/notifications/n-1/read', any()),
+      ).called(1);
     });
   });
 
   group('NotificationRepository.markAllRead', () {
     test('POSTs /notifications/read-all', () async {
-      when(() => mockClient.post<dynamic>('/notifications/read-all', any()))
-          .thenAnswer((_) async => const Response(statusCode: 200, body: {}));
+      when(
+        () => mockClient.post<dynamic>('/notifications/read-all', any()),
+      ).thenAnswer((_) async => const Response(statusCode: 200, body: {}));
 
       await repository.markAllRead();
 
-      verify(() => mockClient.post<dynamic>('/notifications/read-all', any())).called(1);
+      verify(
+        () => mockClient.post<dynamic>('/notifications/read-all', any()),
+      ).called(1);
+    });
+  });
+
+  group('NotificationRepository device token', () {
+    test('registers the FCM token and platform', () async {
+      when(
+        () => mockClient.put<dynamic>('/notifications/device-token', any()),
+      ).thenAnswer((_) async => const Response(statusCode: 200, body: {}));
+
+      await repository.registerDeviceToken(
+        token: 'fcm-token',
+        platform: 'android',
+      );
+
+      verify(
+        () => mockClient.put<dynamic>('/notifications/device-token', {
+          'token': 'fcm-token',
+          'platform': 'android',
+        }),
+      ).called(1);
+    });
+
+    test('removes the encoded FCM token', () async {
+      when(
+        () => mockClient.delete<dynamic>('/notifications/device-token/a%2Fb'),
+      ).thenAnswer((_) async => const Response(statusCode: 200, body: {}));
+
+      await repository.removeDeviceToken('a/b');
+
+      verify(
+        () => mockClient.delete<dynamic>('/notifications/device-token/a%2Fb'),
+      ).called(1);
     });
   });
 }

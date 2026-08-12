@@ -4,7 +4,8 @@ import 'package:axiom/features/notifications/controllers/notification_controller
 import 'package:axiom/features/notifications/models/notification_model.dart';
 import 'package:axiom/features/notifications/repositories/notification_repository.dart';
 
-class MockNotificationRepository extends Mock implements NotificationRepository {}
+class MockNotificationRepository extends Mock
+    implements NotificationRepository {}
 
 void main() {
   late MockNotificationRepository mockRepository;
@@ -27,7 +28,9 @@ void main() {
 
   group('NotificationController.loadNotifications', () {
     test('populates notifications and computes unreadCount', () async {
-      when(() => mockRepository.fetchNotifications(unread: any(named: 'unread'))).thenAnswer(
+      when(
+        () => mockRepository.fetchNotifications(unread: any(named: 'unread')),
+      ).thenAnswer(
         (_) async => [
           notification(id: 'n-1'),
           notification(id: 'n-2', readAt: DateTime(2026, 1, 6)),
@@ -43,8 +46,9 @@ void main() {
 
   group('NotificationController.markRead', () {
     test('marks the notification read locally without a full reload', () async {
-      when(() => mockRepository.fetchNotifications(unread: any(named: 'unread')))
-          .thenAnswer((_) async => [notification(id: 'n-1')]);
+      when(
+        () => mockRepository.fetchNotifications(unread: any(named: 'unread')),
+      ).thenAnswer((_) async => [notification(id: 'n-1')]);
       await controller.loadNotifications();
 
       when(() => mockRepository.markRead('n-1')).thenAnswer((_) async {});
@@ -58,8 +62,11 @@ void main() {
 
   group('NotificationController.markAllRead', () {
     test('marks every notification read locally', () async {
-      when(() => mockRepository.fetchNotifications(unread: any(named: 'unread')))
-          .thenAnswer((_) async => [notification(id: 'n-1'), notification(id: 'n-2')]);
+      when(
+        () => mockRepository.fetchNotifications(unread: any(named: 'unread')),
+      ).thenAnswer(
+        (_) async => [notification(id: 'n-1'), notification(id: 'n-2')],
+      );
       await controller.loadNotifications();
 
       when(() => mockRepository.markAllRead()).thenAnswer((_) async {});

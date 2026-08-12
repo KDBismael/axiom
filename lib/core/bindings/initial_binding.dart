@@ -7,6 +7,7 @@ import '../api/api_client.dart';
 import '../api/token_storage.dart';
 import '../services/deep_link_service.dart';
 import '../services/pending_invite_service.dart';
+import '../../features/notifications/services/notification_navigation_service.dart';
 
 class InitialBinding extends Bindings {
   @override
@@ -36,5 +37,9 @@ class InitialBinding extends Bindings {
       permanent: true,
     );
     Get.put<PendingInviteService>(PendingInviteService(), permanent: true);
+    Get.put<NotificationNavigationService>(
+      NotificationNavigationService(),
+      permanent: true,
+    );
   }
 }

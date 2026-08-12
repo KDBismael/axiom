@@ -17,7 +17,10 @@ void main() {
       expect(notification.payload['questId'], 'q-1');
       expect(notification.readAt, isNull);
       expect(notification.isUnread, isTrue);
-      expect(notification.createdAt, DateTime.parse('2026-01-05T00:00:00.000Z'));
+      expect(
+        notification.createdAt,
+        DateTime.parse('2026-01-05T00:00:00.000Z'),
+      );
     });
 
     test('parses a read notification', () {

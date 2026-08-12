@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "129422690786",
+    "project_id": "ndeli-1e847",
+    "storage_bucket": "ndeli-1e847.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129422690786:android:cc14e2929a2744b60751bb",
+        "android_client_info": {
+          "package_name": "com.axiom.deli"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5mVBuiaAzwrHF0TXaYPo8uCHipugf35M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

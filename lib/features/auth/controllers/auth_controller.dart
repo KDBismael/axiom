@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../services/apple_auth_service.dart';
 import '../services/google_auth_service.dart';
+import '../../notifications/services/push_notification_service.dart';
 
 /// Which auth request is currently in flight, if any — lets each button in
 /// the UI show its own spinner instead of every button reacting to one
@@ -19,10 +20,10 @@ class AuthController extends GetxService {
     required TokenStorage tokenStorage,
     required GoogleAuthService googleAuthService,
     required AppleAuthService appleAuthService,
-  })  : _authRepository = authRepository,
-        _tokenStorage = tokenStorage,
-        _googleAuthService = googleAuthService,
-        _appleAuthService = appleAuthService;
+  }) : _authRepository = authRepository,
+       _tokenStorage = tokenStorage,
+       _googleAuthService = googleAuthService,
+       _appleAuthService = appleAuthService;
 
   final AuthRepository _authRepository;
   final TokenStorage _tokenStorage;
@@ -102,6 +103,9 @@ class AuthController extends GetxService {
   }
 
   Future<void> logout() async {
+    if (Get.isRegistered<PushNotificationService>()) {
+      await Get.find<PushNotificationService>().unregisterCurrentDevice();
+    }
     final refreshToken = await _tokenStorage.readRefreshToken();
     if (refreshToken != null) {
       try {
@@ -114,13 +118,19 @@ class AuthController extends GetxService {
     user.value = null;
   }
 
-  Future<void> _runAuthAction(AuthAction action, Future<AuthResult> Function() request) async {
+  Future<void> _runAuthAction(
+    AuthAction action,
+    Future<AuthResult> Function() request,
+  ) async {
     isLoading.value = true;
     activeAction.value = action;
     errorMessage.value = null;
     try {
       final result = await request();
-      await _tokenStorage.saveTokenPair(access: result.accessToken, refresh: result.refreshToken);
+      await _tokenStorage.saveTokenPair(
+        access: result.accessToken,
+        refresh: result.refreshToken,
+      );
       user.value = result.user;
     } on AuthException catch (e) {
       errorMessage.value = e.message;

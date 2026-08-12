@@ -375,8 +375,9 @@ class _ProfileViewState extends State<ProfileView> {
                         return Obx(() {
                           final pendingValidations =
                               validations.pendingValidations;
-                          if (pendingValidations.isEmpty)
+                          if (pendingValidations.isEmpty) {
                             return const SizedBox.shrink();
+                          }
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

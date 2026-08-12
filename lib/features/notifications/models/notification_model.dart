@@ -1,7 +1,10 @@
 /// `GET /notifications` item. `type` is one of: ally_invite_accepted,
 /// ally_request_received, ally_request_accepted, validation_requested,
 /// validation_decided, quest_completed, quest_failed,
-/// quest_deadline_reminder, payment_succeeded, payment_failed.
+/// quest_deadline_reminder, payment_succeeded, payment_failed, payout_sent,
+/// refund_sent, quest_ally_invite_received, quest_ally_invite_accepted,
+/// quest_deletion_requested, quest_deletion_approved,
+/// quest_deletion_rejected.
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -26,7 +29,9 @@ class AppNotification {
       payload: json['payload'] == null
           ? const {}
           : Map<String, dynamic>.from(json['payload'] as Map),
-      readAt: json['readAt'] == null ? null : DateTime.parse(json['readAt'] as String),
+      readAt: json['readAt'] == null
+          ? null
+          : DateTime.parse(json['readAt'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

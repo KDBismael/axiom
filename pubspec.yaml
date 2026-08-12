@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+5
+version: 1.0.0+8
 
 environment:
   sdk: ^3.9.2
@@ -44,6 +44,9 @@ dependencies:
   app_links: ^6.3.2
   url_launcher: ^6.3.1
   video_player: ^2.10.1
+  firebase_core: ^4.13.0
+  firebase_messaging: ^16.4.3
+  flutter_local_notifications: ^20.1.0
   # Declares an Android/iOS runtime plugin (net.jonhanson.flutter_native_splash)
   # even though we only use its CLI (`dart run flutter_native_splash:create`)
   # to generate splash assets — as a dev_dependency, Gradle's release build

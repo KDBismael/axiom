@@ -24,18 +24,48 @@ class NotificationRepository {
       throw NotificationException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> markRead(String id) async {
-    final response = await _client.patch('/notifications/$id/read', <String, dynamic>{});
+    final response = await _client.patch(
+      '/notifications/$id/read',
+      <String, dynamic>{},
+    );
     if (!response.isOk) {
       throw NotificationException(_extractMessage(response.body));
     }
   }
 
   Future<void> markAllRead() async {
-    final response = await _client.post('/notifications/read-all', <String, dynamic>{});
+    final response = await _client.post(
+      '/notifications/read-all',
+      <String, dynamic>{},
+    );
+    if (!response.isOk) {
+      throw NotificationException(_extractMessage(response.body));
+    }
+  }
+
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+  }) async {
+    final response = await _client.put('/notifications/device-token', {
+      'token': token,
+      'platform': platform,
+    });
+    if (!response.isOk) {
+      throw NotificationException(_extractMessage(response.body));
+    }
+  }
+
+  Future<void> removeDeviceToken(String token) async {
+    final response = await _client.delete(
+      '/notifications/device-token/${Uri.encodeComponent(token)}',
+    );
     if (!response.isOk) {
       throw NotificationException(_extractMessage(response.body));
     }

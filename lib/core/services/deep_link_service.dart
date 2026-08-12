@@ -1,16 +1,19 @@
 import 'package:app_links/app_links.dart';
 
-/// Extracts the invite token from an `axiom://invite/<token>` deep link, or
-/// null if the URI doesn't match that shape.
+/// Extracts an invite token from the verified HTTPS link or the legacy
+/// `axiom://` custom scheme.
 String? extractInviteToken(Uri uri) {
-  if (uri.scheme != 'axiom' || uri.host != 'invite') return null;
-  if (uri.pathSegments.isEmpty) return null;
-  return uri.pathSegments.first;
+  if (uri.scheme == 'axiom' && uri.host == 'invite') {
+    return uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
+  }
+  if (uri.scheme != 'https' || uri.host != 'links.ndeli.tech') return null;
+  if (uri.pathSegments.length != 2 || uri.pathSegments.first != 'invite') {
+    return null;
+  }
+  return uri.pathSegments[1].isEmpty ? null : uri.pathSegments[1];
 }
 
-/// Thin wrapper around [AppLinks] — only handles the custom `axiom://`
-/// scheme (no Universal Links/App Links, no deferred deep linking: the link
-/// only opens the app if it's already installed, per the current plan).
+/// Thin wrapper around [AppLinks] for verified links and legacy scheme links.
 class DeepLinkService {
   DeepLinkService([AppLinks? appLinks]) : _appLinks = appLinks ?? AppLinks();
 

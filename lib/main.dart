@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get/get.dart';
 import 'core/bindings/initial_binding.dart';
 import 'core/routes/app_pages.dart';
@@ -12,13 +14,30 @@ import 'core/services/pending_invite_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/controllers/auth_controller.dart';
 import 'features/notifications/controllers/notification_controller.dart';
+import 'features/notifications/repositories/notification_repository.dart';
+import 'features/notifications/services/push_notification_service.dart';
 import 'features/quests/controllers/quest_list_controller.dart';
 import 'features/social/controllers/allies_controller.dart';
 import 'features/social/controllers/validations_controller.dart';
 
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+  var firebaseReady = false;
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    firebaseReady = true;
+  } catch (_) {
+    // Firebase configuration is supplied per platform at release time. The
+    // rest of the app remains usable in local builds that omit it.
+  }
 
   // Registered manually (not via GetMaterialApp's initialBinding) so the
   // session can be restored before the first frame/route is chosen.
@@ -28,6 +47,17 @@ void main() async {
   final authController = Get.find<AuthController>();
   if (hasOnboarded) {
     await authController.restoreSession();
+  }
+
+  if (firebaseReady) {
+    final push = Get.put<PushNotificationService>(
+      PushNotificationService(
+        repository: NotificationRepository(Get.find()),
+        authController: authController,
+      ),
+      permanent: true,
+    );
+    await push.initialize();
   }
 
   final String initialRoute;
@@ -59,6 +89,11 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initDeepLinks());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.isRegistered<PushNotificationService>()) {
+        Get.find<PushNotificationService>().openInitialMessage();
+      }
+    });
   }
 
   @override
@@ -94,8 +129,10 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
       final deepLinkService = Get.find<DeepLinkService>();
       final initialToken = await deepLinkService.getInitialInviteToken();
       if (initialToken != null) _handleInviteToken(initialToken);
-      _inviteLinkSubscription = deepLinkService.inviteTokenStream
-          .listen(_handleInviteToken, onError: (_) {});
+      _inviteLinkSubscription = deepLinkService.inviteTokenStream.listen(
+        _handleInviteToken,
+        onError: (_) {},
+      );
     } catch (_) {
       // No-op: deep linking simply isn't available in this environment.
     }

@@ -1,4 +1,4 @@
-package com.example.axiom
+package com.axiom.deli
 
 import io.flutter.embedding.android.FlutterActivity
 

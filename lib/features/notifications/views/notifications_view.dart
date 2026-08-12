@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency.dart';
 import '../controllers/notification_controller.dart';
 import '../models/notification_model.dart';
+import '../services/notification_navigation_service.dart';
 
 const _typeLabels = {
   'ally_invite_accepted': 'Invitation acceptée',
@@ -30,56 +30,7 @@ class NotificationsView extends GetView<NotificationController> {
 
   void _open(AppNotification notification) {
     controller.markRead(notification.id);
-    switch (notification.type) {
-      case 'validation_requested':
-        final evidenceId = notification.payload['evidenceId'];
-        if (evidenceId is String) {
-          Get.toNamed(AppRoutes.validationDetail, arguments: evidenceId);
-        } else {
-          Get.toNamed(AppRoutes.allyValidations);
-        }
-        break;
-      case 'validation_decided':
-        Get.toNamed(AppRoutes.allyValidations);
-        break;
-      case 'quest_completed':
-      case 'quest_failed':
-      case 'quest_deadline_reminder':
-        final questId = notification.payload['questId'];
-        if (questId is String) {
-          Get.toNamed(AppRoutes.questDetail, arguments: questId);
-        }
-        break;
-      case 'ally_request_received':
-      case 'ally_request_accepted':
-      case 'ally_invite_accepted':
-        Get.toNamed(AppRoutes.inviteFriends);
-        break;
-      case 'quest_ally_invite_received':
-        final questId = notification.payload['questId'];
-        if (questId is String) {
-          Get.toNamed(AppRoutes.questAllyInvitation, arguments: questId);
-        }
-        break;
-      case 'quest_ally_invite_accepted':
-      case 'quest_deletion_approved':
-      case 'quest_deletion_rejected':
-        final questId = notification.payload['questId'];
-        if (questId is String) {
-          Get.toNamed(AppRoutes.questDetail, arguments: questId);
-        }
-        break;
-      case 'quest_deletion_requested':
-        final questId = notification.payload['questId'];
-        final requestId = notification.payload['requestId'];
-        if (questId is String && requestId is String) {
-          Get.toNamed(
-            AppRoutes.questDeletionVote,
-            arguments: {'questId': questId, 'requestId': requestId},
-          );
-        }
-        break;
-    }
+    Get.find<NotificationNavigationService>().open(notification);
   }
 
   @override
@@ -100,7 +51,9 @@ class NotificationsView extends GetView<NotificationController> {
                   onPressed: controller.markAllRead,
                   child: Text(
                     'TOUT LIRE',
-                    style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                    ),
                   ),
                 ),
               ],
@@ -108,7 +61,8 @@ class NotificationsView extends GetView<NotificationController> {
           ),
           Expanded(
             child: Obx(() {
-              if (controller.isLoading.value && controller.notifications.isEmpty) {
+              if (controller.isLoading.value &&
+                  controller.notifications.isEmpty) {
                 return const Center(
                   child: CircularProgressIndicator(color: AppColors.emerald),
                 );
@@ -117,7 +71,9 @@ class NotificationsView extends GetView<NotificationController> {
                 return Center(
                   child: Text(
                     'Aucune notification.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.outline,
+                    ),
                   ),
                 );
               }
@@ -153,13 +109,17 @@ class _NotificationRow extends StatelessWidget {
   /// on what that notification type's payload actually carries.
   String? get _detail {
     final payload = notification.payload;
-    final questTitle = payload['questTitle'] as String? ?? payload['title'] as String?;
+    final questTitle =
+        payload['questTitle'] as String? ?? payload['title'] as String?;
     if (questTitle != null && questTitle.isNotEmpty) return questTitle;
 
     final firstName = payload['firstName'] as String?;
     final lastName = payload['lastName'] as String?;
     if (firstName != null && firstName.isNotEmpty) {
-      return [firstName, lastName].where((s) => s != null && s.isNotEmpty).join(' ');
+      return [
+        firstName,
+        lastName,
+      ].where((s) => s != null && s.isNotEmpty).join(' ');
     }
 
     if (notification.type == 'validation_decided') {
@@ -208,14 +168,18 @@ class _NotificationRow extends StatelessWidget {
                     _typeLabels[notification.type] ?? notification.type,
                     style: AppTypography.bodyMd.copyWith(
                       color: AppColors.primary,
-                      fontWeight: notification.isUnread ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: notification.isUnread
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                   ),
                   if (detail != null && detail.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       detail,
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
                     ),
                   ],
                 ],

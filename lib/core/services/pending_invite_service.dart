@@ -8,19 +8,19 @@ typedef RedirectTarget = ({String route, Object? arguments});
 /// can be redeemed right after their next successful login/registration
 /// instead of being lost.
 class PendingInviteService extends GetxService {
-  String? _token;
+  RedirectTarget? _target;
 
-  void stash(String token) => _token = token;
+  void stash(String token) =>
+      _target = (route: AppRoutes.invitationAlly, arguments: token);
+
+  void stashRedirect(RedirectTarget target) => _target = target;
 
   /// The route to navigate to after a successful login/register — the
   /// pending invite if one was stashed (cleared as a side effect), home
   /// otherwise.
   RedirectTarget consumeRedirectTarget() {
-    final token = _token;
-    _token = null;
-    if (token != null) {
-      return (route: AppRoutes.invitationAlly, arguments: token);
-    }
-    return (route: AppRoutes.home, arguments: null);
+    final target = _target;
+    _target = null;
+    return target ?? (route: AppRoutes.home, arguments: null);
   }
 }
