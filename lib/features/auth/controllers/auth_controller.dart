@@ -6,6 +6,7 @@ import '../repositories/auth_repository.dart';
 import '../services/apple_auth_service.dart';
 import '../services/google_auth_service.dart';
 import '../../notifications/services/push_notification_service.dart';
+import '../../profile/controllers/profile_controller.dart';
 
 /// Which auth request is currently in flight, if any — lets each button in
 /// the UI show its own spinner instead of every button reacting to one
@@ -127,6 +128,9 @@ class AuthController extends GetxService {
     }
     await _tokenStorage.clear();
     user.value = null;
+    if (Get.isRegistered<ProfileController>()) {
+      Get.delete<ProfileController>(force: true);
+    }
   }
 
   Future<void> _runAuthAction(

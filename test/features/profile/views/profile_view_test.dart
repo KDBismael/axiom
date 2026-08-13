@@ -52,15 +52,22 @@ void main() {
   ) async {
     final mockQuestRepository = MockQuestRepository();
     when(() => mockQuestRepository.fetchQuests()).thenAnswer((_) async => []);
-    when(() => mockQuestRepository.fetchMyAllyInvitations()).thenAnswer((_) async => []);
+    when(
+      () => mockQuestRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
     Get.put<QuestListController>(QuestListController(mockQuestRepository));
 
     final mockSocialRepository = MockSocialRepository();
     when(() => mockSocialRepository.fetchAllies()).thenAnswer((_) async => []);
-    when(() => mockSocialRepository.fetchInvitations()).thenAnswer((_) async => []);
-    when(() => mockSocialRepository.fetchAllyRequests()).thenAnswer((_) async => []);
-    when(() => mockSocialRepository.fetchValidations(status: any(named: 'status')))
-        .thenAnswer((_) async => []);
+    when(
+      () => mockSocialRepository.fetchInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockSocialRepository.fetchAllyRequests(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockSocialRepository.fetchValidations(status: any(named: 'status')),
+    ).thenAnswer((_) async => []);
     Get.put<AlliesController>(AlliesController(mockSocialRepository));
     Get.put<ValidationsController>(ValidationsController(mockSocialRepository));
 
@@ -95,16 +102,31 @@ void main() {
     );
 
     await tester.pumpWidget(
-      GetMaterialApp(theme: AppTheme.dark, home: const Scaffold(body: ProfileView())),
+      GetMaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(body: ProfileView()),
+      ),
     );
     await tester.pump(const Duration(milliseconds: 350));
     tester.takeException();
 
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -3000));
+    expect(find.text('Modifications non enregistrées'), findsNothing);
+    expect(find.text('ENREGISTRER'), findsNothing);
+
+    final profileController = Get.find<ProfileController>();
+    profileController.firstNameController.text = 'Marc';
+    await tester.pump();
+    expect(find.text('Modifications non enregistrées'), findsOneWidget);
+    expect(find.text('ENREGISTRER'), findsOneWidget);
+
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -3000),
+    );
     await tester.pump();
     tester.takeException();
 
-    expect(find.text('ENREGISTRER LES MODIFICATIONS'), findsOneWidget);
+    expect(find.text('ENREGISTRER'), findsOneWidget);
     expect(find.text('STATISTIQUES'), findsOneWidget);
   });
 }

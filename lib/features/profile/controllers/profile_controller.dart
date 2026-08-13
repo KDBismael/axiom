@@ -8,7 +8,11 @@ import '../repositories/profile_repository.dart';
 import '../services/avatar_picker_service.dart';
 
 class ProfileController extends GetxController {
-  ProfileController(this._repository, this._avatarPickerService);
+  ProfileController(this._repository, this._avatarPickerService) {
+    firstNameController.addListener(_markDraftChanged);
+    lastNameController.addListener(_markDraftChanged);
+    phoneController.addListener(_markDraftChanged);
+  }
 
   final ProfileRepository _repository;
   final AvatarPickerService _avatarPickerService;
@@ -32,6 +36,15 @@ class ProfileController extends GetxController {
   final isLoading = false.obs;
   final isSaving = false.obs;
   final errorMessage = RxnString();
+  final _draftRevision = 0.obs;
+  bool _disposed = false;
+
+  bool get hasUnsavedChanges {
+    _draftRevision.value;
+    final current = profile.value;
+    if (current == null) return false;
+    return _buildChanges(current).isNotEmpty;
+  }
 
   @override
   void onInit() {
@@ -41,6 +54,10 @@ class ProfileController extends GetxController {
 
   @override
   void onClose() {
+    _disposed = true;
+    firstNameController.removeListener(_markDraftChanged);
+    lastNameController.removeListener(_markDraftChanged);
+    phoneController.removeListener(_markDraftChanged);
     firstNameController.dispose();
     lastNameController.dispose();
     phoneController.dispose();
@@ -52,11 +69,12 @@ class ProfileController extends GetxController {
     errorMessage.value = null;
     try {
       final result = await _repository.getMe();
+      if (_disposed) return;
       _applyProfile(result);
     } on ProfileException catch (e) {
-      errorMessage.value = e.message;
+      if (!_disposed) errorMessage.value = e.message;
     } finally {
-      isLoading.value = false;
+      if (!_disposed) isLoading.value = false;
     }
   }
 
@@ -64,6 +82,23 @@ class ProfileController extends GetxController {
     final current = profile.value;
     if (current == null) return;
 
+    final changes = _buildChanges(current);
+    if (changes.isEmpty || isSaving.value) return;
+
+    isSaving.value = true;
+    errorMessage.value = null;
+    try {
+      final updated = await _repository.updateMe(changes);
+      if (_disposed) return;
+      _applyProfile(updated);
+    } on ProfileException catch (e) {
+      if (!_disposed) errorMessage.value = e.message;
+    } finally {
+      if (!_disposed) isSaving.value = false;
+    }
+  }
+
+  Map<String, dynamic> _buildChanges(Profile current) {
     final changes = <String, dynamic>{};
     if (firstNameController.text != current.firstName) {
       changes['firstName'] = firstNameController.text;
@@ -71,30 +106,23 @@ class ProfileController extends GetxController {
     if (lastNameController.text != current.lastName) {
       changes['lastName'] = lastNameController.text;
     }
-    final phone =
-        phoneController.text.isEmpty ? null : '${country.value.dialCode}${phoneController.text}';
+    final phone = phoneController.text.isEmpty
+        ? null
+        : '${country.value.dialCode}${phoneController.text}';
     if (phone != current.phone) changes['phone'] = phone;
-    if (language.value != current.language) changes['language'] = language.value;
+    if (language.value != current.language) {
+      changes['language'] = language.value;
+    }
     if (notificationsEnabled.value != current.notificationsEnabled) {
       changes['notificationsEnabled'] = notificationsEnabled.value;
     }
     if (privacyLevel.value != current.privacyLevel) {
       changes['privacyLevel'] = privacyLevel.value.toJson();
     }
-
-    if (changes.isEmpty) return;
-
-    isSaving.value = true;
-    errorMessage.value = null;
-    try {
-      final updated = await _repository.updateMe(changes);
-      _applyProfile(updated);
-    } on ProfileException catch (e) {
-      errorMessage.value = e.message;
-    } finally {
-      isSaving.value = false;
-    }
+    return changes;
   }
+
+  void _markDraftChanged() => _draftRevision.value++;
 
   Future<void> pickAndUploadAvatar() async {
     // Guards against a second concurrent pick — e.g. a rapid double-tap —
@@ -105,6 +133,7 @@ class ProfileController extends GetxController {
     errorMessage.value = null;
     try {
       final picked = await _avatarPickerService.pickImage();
+      if (_disposed) return;
       if (picked == null) return;
 
       if (picked.sizeBytes > _maxAvatarBytes) {
@@ -117,16 +146,21 @@ class ProfileController extends GetxController {
       }
 
       final fileId = await _repository.uploadAvatar(picked);
-      final updated = await _repository.updateMe({'avatarUrl': '/files/$fileId'});
+      if (_disposed) return;
+      final updated = await _repository.updateMe({
+        'avatarUrl': '/files/$fileId',
+      });
+      if (_disposed) return;
       _applyProfile(updated);
     } on ProfileException catch (e) {
-      errorMessage.value = e.message;
+      if (!_disposed) errorMessage.value = e.message;
     } finally {
-      isSaving.value = false;
+      if (!_disposed) isSaving.value = false;
     }
   }
 
   void _applyProfile(Profile result) {
+    if (_disposed) return;
     profile.value = result;
     firstNameController.text = result.firstName;
     lastNameController.text = result.lastName;

@@ -76,6 +76,17 @@ void main() {
   tearDown(Get.reset);
 
   group('ProfileController.loadProfile', () {
+    test('ignores a profile response that arrives after disposal', () async {
+      final response = Completer<Profile>();
+      when(() => mockRepository.getMe()).thenAnswer((_) => response.future);
+
+      final loading = controller.loadProfile();
+      controller.onClose();
+      response.complete(baseProfile);
+
+      await expectLater(loading, completes);
+    });
+
     test('populates the text controllers and settings fields', () async {
       when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
 
@@ -109,13 +120,15 @@ void main() {
       await controller.loadProfile();
 
       controller.firstNameController.text = 'Marc';
-      when(() => mockRepository.updateMe(any()))
-          .thenAnswer((_) async => baseProfile);
+      when(
+        () => mockRepository.updateMe(any()),
+      ).thenAnswer((_) async => baseProfile);
 
       await controller.save();
 
-      final captured = verify(() => mockRepository.updateMe(captureAny())).captured.single
-          as Map<String, dynamic>;
+      final captured =
+          verify(() => mockRepository.updateMe(captureAny())).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'firstName': 'Marc'});
     });
 
@@ -128,50 +141,65 @@ void main() {
       verifyNever(() => mockRepository.updateMe(any()));
     });
 
-    test('composes the dial code with the local number when the phone changes', () async {
-      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
-      await controller.loadProfile();
+    test(
+      'composes the dial code with the local number when the phone changes',
+      () async {
+        when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+        await controller.loadProfile();
 
-      controller.phoneController.text = '0711111111';
-      when(() => mockRepository.updateMe(any())).thenAnswer((_) async => baseProfile);
+        controller.phoneController.text = '0711111111';
+        when(
+          () => mockRepository.updateMe(any()),
+        ).thenAnswer((_) async => baseProfile);
 
-      await controller.save();
+        await controller.save();
 
-      final captured = verify(() => mockRepository.updateMe(captureAny())).captured.single
-          as Map<String, dynamic>;
-      expect(captured, {'phone': '+2250711111111'});
-    });
+        final captured =
+            verify(() => mockRepository.updateMe(captureAny())).captured.single
+                as Map<String, dynamic>;
+        expect(captured, {'phone': '+2250711111111'});
+      },
+    );
 
     test('recomposes the phone when only the country changes', () async {
       when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
       await controller.loadProfile();
 
-      controller.country.value = xofZoneCountries.firstWhere((c) => c.dialCode == '+221');
-      when(() => mockRepository.updateMe(any())).thenAnswer((_) async => baseProfile);
+      controller.country.value = xofZoneCountries.firstWhere(
+        (c) => c.dialCode == '+221',
+      );
+      when(
+        () => mockRepository.updateMe(any()),
+      ).thenAnswer((_) async => baseProfile);
 
       await controller.save();
 
-      final captured = verify(() => mockRepository.updateMe(captureAny())).captured.single
-          as Map<String, dynamic>;
+      final captured =
+          verify(() => mockRepository.updateMe(captureAny())).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'phone': '+2210700000000'});
     });
 
-    test('makes no repository call when the same country+number round-trips', () async {
-      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
-      await controller.loadProfile();
+    test(
+      'makes no repository call when the same country+number round-trips',
+      () async {
+        when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+        await controller.loadProfile();
 
-      // No edits — country/local number are exactly what loadProfile derived.
-      await controller.save();
+        // No edits — country/local number are exactly what loadProfile derived.
+        await controller.save();
 
-      verifyNever(() => mockRepository.updateMe(any()));
-    });
+        verifyNever(() => mockRepository.updateMe(any()));
+      },
+    );
 
     test('failure surfaces the backend French message', () async {
       when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
       await controller.loadProfile();
       controller.firstNameController.text = 'Marc';
-      when(() => mockRepository.updateMe(any()))
-          .thenThrow(ProfileException('Prénom invalide'));
+      when(
+        () => mockRepository.updateMe(any()),
+      ).thenThrow(ProfileException('Prénom invalide'));
 
       await controller.save();
 
@@ -196,12 +224,105 @@ void main() {
         notificationsEnabled: baseProfile.notificationsEnabled,
         privacyLevel: baseProfile.privacyLevel,
       );
-      when(() => mockRepository.updateMe(any())).thenAnswer((_) async => updated);
+      when(
+        () => mockRepository.updateMe(any()),
+      ).thenAnswer((_) async => updated);
 
       await controller.save();
 
       expect(Get.find<AuthController>().user.value!.firstName, 'Marc');
     });
+
+    test('ignores a second save while the first one is in flight', () async {
+      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+      await controller.loadProfile();
+      controller.firstNameController.text = 'Marc';
+      final response = Completer<Profile>();
+      when(
+        () => mockRepository.updateMe(any()),
+      ).thenAnswer((_) => response.future);
+
+      final first = controller.save();
+      final second = controller.save();
+
+      verify(() => mockRepository.updateMe(any())).called(1);
+      response.complete(baseProfile);
+      await Future.wait([first, second]);
+    });
+  });
+
+  group('ProfileController.hasUnsavedChanges', () {
+    setUp(() async {
+      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+      await controller.loadProfile();
+    });
+
+    test('is false after loading and when a text edit is reverted', () {
+      expect(controller.hasUnsavedChanges, isFalse);
+
+      controller.firstNameController.text = 'Marc';
+      expect(controller.hasUnsavedChanges, isTrue);
+
+      controller.firstNameController.text = baseProfile.firstName;
+      expect(controller.hasUnsavedChanges, isFalse);
+    });
+
+    test('tracks phone country and account settings', () {
+      controller.phoneController.text = '0711111111';
+      expect(controller.hasUnsavedChanges, isTrue);
+      controller.phoneController.text = '0700000000';
+      expect(controller.hasUnsavedChanges, isFalse);
+
+      controller.country.value = xofZoneCountries.firstWhere(
+        (country) => country.dialCode == '+221',
+      );
+      expect(controller.hasUnsavedChanges, isTrue);
+      controller.country.value = xofZoneCountries.first;
+      expect(controller.hasUnsavedChanges, isFalse);
+
+      controller.language.value = 'en';
+      expect(controller.hasUnsavedChanges, isTrue);
+      controller.language.value = baseProfile.language;
+      controller.notificationsEnabled.value = false;
+      expect(controller.hasUnsavedChanges, isTrue);
+      controller.notificationsEnabled.value = baseProfile.notificationsEnabled;
+      controller.privacyLevel.value = ProfilePrivacyLevel.private;
+      expect(controller.hasUnsavedChanges, isTrue);
+    });
+
+    test(
+      'successful save clears dirty state and an error preserves it',
+      () async {
+        controller.firstNameController.text = 'Marc';
+        final updated = Profile(
+          id: baseProfile.id,
+          email: baseProfile.email,
+          firstName: 'Marc',
+          lastName: baseProfile.lastName,
+          phone: baseProfile.phone,
+          avatarUrl: baseProfile.avatarUrl,
+          language: baseProfile.language,
+          role: baseProfile.role,
+          createdAt: baseProfile.createdAt,
+          updatedAt: baseProfile.updatedAt,
+          notificationsEnabled: baseProfile.notificationsEnabled,
+          privacyLevel: baseProfile.privacyLevel,
+        );
+        when(
+          () => mockRepository.updateMe(any()),
+        ).thenAnswer((_) async => updated);
+
+        await controller.save();
+        expect(controller.hasUnsavedChanges, isFalse);
+
+        controller.lastNameController.text = 'Koné';
+        when(
+          () => mockRepository.updateMe(any()),
+        ).thenThrow(ProfileException('Erreur serveur'));
+        await controller.save();
+        expect(controller.hasUnsavedChanges, isTrue);
+      },
+    );
   });
 
   group('ProfileController.pickAndUploadAvatar', () {
@@ -212,37 +333,45 @@ void main() {
       mimeType: 'image/png',
     );
 
-    test('uploads then patches avatarUrl, in order, and refreshes the profile', () async {
-      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
-      await controller.loadProfile();
+    test(
+      'uploads then patches avatarUrl, in order, and refreshes the profile',
+      () async {
+        when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+        await controller.loadProfile();
 
-      when(() => mockAvatarPicker.pickImage()).thenAnswer((_) async => picked);
-      when(() => mockRepository.uploadAvatar(picked)).thenAnswer((_) async => 'f-9');
-      final withAvatar = Profile(
-        id: baseProfile.id,
-        email: baseProfile.email,
-        firstName: baseProfile.firstName,
-        lastName: baseProfile.lastName,
-        phone: baseProfile.phone,
-        avatarUrl: '/files/f-9',
-        language: baseProfile.language,
-        role: baseProfile.role,
-        createdAt: baseProfile.createdAt,
-        updatedAt: baseProfile.updatedAt,
-        notificationsEnabled: baseProfile.notificationsEnabled,
-        privacyLevel: baseProfile.privacyLevel,
-      );
-      when(() => mockRepository.updateMe({'avatarUrl': '/files/f-9'}))
-          .thenAnswer((_) async => withAvatar);
+        when(
+          () => mockAvatarPicker.pickImage(),
+        ).thenAnswer((_) async => picked);
+        when(
+          () => mockRepository.uploadAvatar(picked),
+        ).thenAnswer((_) async => 'f-9');
+        final withAvatar = Profile(
+          id: baseProfile.id,
+          email: baseProfile.email,
+          firstName: baseProfile.firstName,
+          lastName: baseProfile.lastName,
+          phone: baseProfile.phone,
+          avatarUrl: '/files/f-9',
+          language: baseProfile.language,
+          role: baseProfile.role,
+          createdAt: baseProfile.createdAt,
+          updatedAt: baseProfile.updatedAt,
+          notificationsEnabled: baseProfile.notificationsEnabled,
+          privacyLevel: baseProfile.privacyLevel,
+        );
+        when(
+          () => mockRepository.updateMe({'avatarUrl': '/files/f-9'}),
+        ).thenAnswer((_) async => withAvatar);
 
-      await controller.pickAndUploadAvatar();
+        await controller.pickAndUploadAvatar();
 
-      verifyInOrder([
-        () => mockRepository.uploadAvatar(picked),
-        () => mockRepository.updateMe({'avatarUrl': '/files/f-9'}),
-      ]);
-      expect(controller.profile.value!.avatarUrl, '/files/f-9');
-    });
+        verifyInOrder([
+          () => mockRepository.uploadAvatar(picked),
+          () => mockRepository.updateMe({'avatarUrl': '/files/f-9'}),
+        ]);
+        expect(controller.profile.value!.avatarUrl, '/files/f-9');
+      },
+    );
 
     test('rejects a file over 5MB without calling the repository', () async {
       final tooBig = PickedAvatar(
@@ -259,18 +388,23 @@ void main() {
       verifyNever(() => mockRepository.uploadAvatar(any()));
     });
 
-    test('a second concurrent tap is ignored while a pick is already in flight', () async {
-      final pickerCompleter = Completer<PickedAvatar?>();
-      when(() => mockAvatarPicker.pickImage()).thenAnswer((_) => pickerCompleter.future);
+    test(
+      'a second concurrent tap is ignored while a pick is already in flight',
+      () async {
+        final pickerCompleter = Completer<PickedAvatar?>();
+        when(
+          () => mockAvatarPicker.pickImage(),
+        ).thenAnswer((_) => pickerCompleter.future);
 
-      final first = controller.pickAndUploadAvatar();
-      final second = controller.pickAndUploadAvatar();
+        final first = controller.pickAndUploadAvatar();
+        final second = controller.pickAndUploadAvatar();
 
-      pickerCompleter.complete(null);
-      await first;
-      await second;
+        pickerCompleter.complete(null);
+        await first;
+        await second;
 
-      verify(() => mockAvatarPicker.pickImage()).called(1);
-    });
+        verify(() => mockAvatarPicker.pickImage()).called(1);
+      },
+    );
   });
 }
