@@ -8,6 +8,9 @@ import '../api/token_storage.dart';
 import '../services/deep_link_service.dart';
 import '../services/pending_invite_service.dart';
 import '../../features/notifications/services/notification_navigation_service.dart';
+import '../../features/social/controllers/allies_controller.dart';
+import '../../features/social/controllers/validations_controller.dart';
+import '../../features/social/repositories/social_repository.dart';
 
 class InitialBinding extends Bindings {
   @override
@@ -16,7 +19,10 @@ class InitialBinding extends Bindings {
     // before the first frame) and again by GetMaterialApp's own
     // initialBinding lifecycle — guard against double registration
     // clobbering the already-restored AuthController.
-    if (Get.isRegistered<AuthController>()) return;
+    if (Get.isRegistered<AuthController>()) {
+      _registerSocialDependencies();
+      return;
+    }
 
     Get.lazyPut<TokenStorage>(() => TokenStorage());
     Get.lazyPut<ApiClient>(() => ApiClient(tokenStorage: Get.find()));
@@ -41,5 +47,27 @@ class InitialBinding extends Bindings {
       NotificationNavigationService(),
       permanent: true,
     );
+    _registerSocialDependencies();
+  }
+
+  void _registerSocialDependencies() {
+    if (!Get.isRegistered<SocialRepository>()) {
+      Get.lazyPut<SocialRepository>(
+        () => SocialRepository(Get.find()),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<AlliesController>()) {
+      Get.lazyPut<AlliesController>(
+        () => AlliesController(Get.find()),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<ValidationsController>()) {
+      Get.lazyPut<ValidationsController>(
+        () => ValidationsController(Get.find()),
+        fenix: true,
+      );
+    }
   }
 }

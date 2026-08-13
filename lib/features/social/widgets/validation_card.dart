@@ -63,6 +63,13 @@ class DecidedValidationCard extends StatelessWidget {
               ),
             ],
           ),
+          if (request.submitterName.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Preuve de ${request.submitterName}',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            ),
+          ],
           const SizedBox(height: 20),
           if (request.proofType == ProofType.text)
             TextProof(quote: request.textContent ?? '')
@@ -72,7 +79,8 @@ class DecidedValidationCard extends StatelessWidget {
               proofType: request.proofType,
               photoCount: request.fileIds.isEmpty ? 1 : request.fileIds.length,
             ),
-          if (request.description != null && request.description!.isNotEmpty) ...[
+          if (request.description != null &&
+              request.description!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
               'Commentaire du soumetteur : ${request.description}',
@@ -176,6 +184,13 @@ class _ValidationCardState extends State<ValidationCard> {
               fontWeight: FontWeight.w700,
             ),
           ),
+          if (request.submitterName.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Preuve envoyée par ${request.submitterName}',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            ),
+          ],
           const SizedBox(height: 20),
           if (request.proofType == ProofType.text)
             TextProof(quote: request.textContent ?? '')
@@ -294,7 +309,9 @@ class FileProof extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (proofType == ProofType.video)
-            EvidenceVideoThumbnail(path: '/validations/$validationId/evidence-file')
+            EvidenceVideoThumbnail(
+              path: '/validations/$validationId/evidence-file',
+            )
           else
             Row(
               children: [

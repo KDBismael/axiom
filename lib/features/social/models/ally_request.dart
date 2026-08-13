@@ -53,11 +53,20 @@ class AllyRequest {
   final AllyRequestUser otherUser;
 
   factory AllyRequest.fromJson(Map<String, dynamic> json) {
+    final nestedUser = json['otherUser'];
+    final userJson = nestedUser is Map
+        ? Map<String, dynamic>.from(nestedUser)
+        : <String, dynamic>{
+            'id': json['userId'],
+            'firstName': json['firstName'],
+            'lastName': json['lastName'],
+            'avatarUrl': json['avatarUrl'],
+          };
     return AllyRequest(
       id: json['id'] as String,
       direction: AllyRequestDirection.fromJson(json['direction'] as String),
       status: AllyRequestStatus.fromJson(json['status'] as String),
-      otherUser: AllyRequestUser.fromJson(json['otherUser'] as Map<String, dynamic>),
+      otherUser: AllyRequestUser.fromJson(userJson),
     );
   }
 }

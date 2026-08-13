@@ -8,6 +8,7 @@ abstract class AppRoutes {
   static const questValidation = '/quest-validation';
   static const questCheckinStatus = '/quest-checkin-status';
   static const inviteFriends = '/invite-friends';
+  static const allyRequest = '/ally-request';
   static const invitationAlly = '/invitation-allie';
   static const allyValidations = '/ally-validations';
   static const validationDetail = '/validation-detail';

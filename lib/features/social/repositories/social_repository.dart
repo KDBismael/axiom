@@ -55,18 +55,24 @@ class SocialRepository {
       throw SocialException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => AllyInvitation.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => AllyInvitation.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> redeemInvitation(String token) async {
-    final response = await _client.post('/allies/invitations/redeem', {'token': token});
+    final response = await _client.post('/allies/invitations/redeem', {
+      'token': token,
+    });
     if (!response.isOk) {
       throw SocialException(_extractMessage(response.body));
     }
   }
 
   Future<void> declineInvitation(String token) async {
-    final response = await _client.post('/allies/invitations/decline', {'token': token});
+    final response = await _client.post('/allies/invitations/decline', {
+      'token': token,
+    });
     if (!response.isOk) {
       throw SocialException(_extractMessage(response.body));
     }
@@ -78,11 +84,15 @@ class SocialRepository {
       throw SocialException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => UserSearchResult.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => UserSearchResult.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> sendAllyRequest(String recipientId) async {
-    final response = await _client.post('/allies/requests', {'recipientId': recipientId});
+    final response = await _client.post('/allies/requests', {
+      'recipientId': recipientId,
+    });
     if (!response.isOk) {
       throw SocialException(_extractMessage(response.body));
     }
@@ -94,13 +104,23 @@ class SocialRepository {
       throw SocialException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => AllyRequest.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => AllyRequest.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> respondToAllyRequest(String id, {required bool accept}) async {
-    final response = await _client.post(
-      '/allies/requests/$id/respond',
-      {'action': accept ? 'accept' : 'decline'},
+    final response = await _client.post('/allies/requests/$id/respond', {
+      'action': accept ? 'accept' : 'decline',
+    });
+    if (!response.isOk) {
+      throw SocialException(_extractMessage(response.body));
+    }
+  }
+
+  Future<void> removeAlly(String userId) async {
+    final response = await _client.delete(
+      '/allies/${Uri.encodeComponent(userId)}',
     );
     if (!response.isOk) {
       throw SocialException(_extractMessage(response.body));
@@ -116,17 +136,20 @@ class SocialRepository {
       throw SocialException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => AllyValidationRequest.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => AllyValidationRequest.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<void> decideValidation(String id, {required bool approved, String? comment}) async {
-    final response = await _client.post(
-      '/validations/$id/decision',
-      {
-        'decision': approved ? 'approved' : 'rejected',
-        if (comment != null && comment.isNotEmpty) 'comment': comment,
-      },
-    );
+  Future<void> decideValidation(
+    String id, {
+    required bool approved,
+    String? comment,
+  }) async {
+    final response = await _client.post('/validations/$id/decision', {
+      'decision': approved ? 'approved' : 'rejected',
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
     if (!response.isOk) {
       throw SocialException(_extractMessage(response.body));
     }

@@ -24,7 +24,9 @@ class HistoryView extends GetView<QuestListController> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'HISTORIQUE',
-                  style: AppTypography.titleLg.copyWith(color: AppColors.primary),
+                  style: AppTypography.titleLg.copyWith(
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),
@@ -32,7 +34,7 @@ class HistoryView extends GetView<QuestListController> {
         ),
         Expanded(
           child: Obx(() {
-            if (controller.isLoading.value) {
+            if (controller.isLoading.value && controller.quests.isEmpty) {
               return const Center(
                 child: CircularProgressIndicator(strokeWidth: 1),
               );
@@ -45,7 +47,9 @@ class HistoryView extends GetView<QuestListController> {
                   child: Text(
                     'Aucun historique pour l\'instant. Les quêtes complétées et échouées apparaîtront ici.',
                     textAlign: TextAlign.center,
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.outline,
+                    ),
                   ),
                 ),
               );

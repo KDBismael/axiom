@@ -12,6 +12,7 @@ import 'core/services/deep_link_service.dart';
 import 'core/services/onboarding_service.dart';
 import 'core/services/pending_invite_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/keyboard_dismiss_on_tap.dart';
 import 'features/auth/controllers/auth_controller.dart';
 import 'features/notifications/controllers/notification_controller.dart';
 import 'features/notifications/repositories/notification_repository.dart';
@@ -113,12 +114,21 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
       Get.find<ValidationsController>().loadValidations();
     }
     if (Get.isRegistered<AlliesController>()) {
-      Get.find<AlliesController>().loadAllyRequests();
+      final allies = Get.find<AlliesController>();
+      allies.loadAllies();
+      allies.loadAllyRequests();
     }
     if (Get.isRegistered<QuestListController>()) {
-      Get.find<QuestListController>()
+      final quests = Get.find<QuestListController>();
+      quests
         ..loadQuests()
         ..loadPendingAllyInvitations();
+      final currentQuestId = Get.currentRoute == AppRoutes.questDetail
+          ? Get.arguments
+          : null;
+      if (currentQuestId is String) {
+        quests.refreshQuest(currentQuestId);
+      }
     }
   }
 
@@ -162,6 +172,8 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
       initialBinding: InitialBinding(),
       initialRoute: widget.initialRoute,
       getPages: AppPages.pages,
+      builder: (context, child) =>
+          KeyboardDismissOnTap(child: child ?? const SizedBox.shrink()),
     );
   }
 }

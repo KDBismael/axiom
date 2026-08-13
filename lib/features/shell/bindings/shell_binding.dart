@@ -23,13 +23,47 @@ class ShellBinding extends Bindings {
     Get.lazyPut<PaymentRepository>(() => PaymentRepository(Get.find()));
     Get.lazyPut<UrlOpener>(() => UrlOpener());
     Get.lazyPut<EvidencePickerService>(() => EvidencePickerService());
-    Get.lazyPut<SocialRepository>(() => SocialRepository(Get.find()));
-    Get.lazyPut<AlliesController>(() => AlliesController(Get.find()));
-    Get.lazyPut<ValidationsController>(() => ValidationsController(Get.find()));
-    Get.lazyPut<ProfileRepository>(() => ProfileRepository(Get.find()));
-    Get.lazyPut<AvatarPickerService>(() => AvatarPickerService());
-    Get.lazyPut<ProfileController>(() => ProfileController(Get.find(), Get.find()));
-    Get.lazyPut<NotificationRepository>(() => NotificationRepository(Get.find()));
-    Get.lazyPut<NotificationController>(() => NotificationController(Get.find()));
+    if (!Get.isRegistered<SocialRepository>()) {
+      Get.lazyPut<SocialRepository>(
+        () => SocialRepository(Get.find()),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<AlliesController>()) {
+      Get.lazyPut<AlliesController>(
+        () => AlliesController(Get.find()),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<ValidationsController>()) {
+      Get.lazyPut<ValidationsController>(
+        () => ValidationsController(Get.find()),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<ProfileRepository>()) {
+      Get.lazyPut<ProfileRepository>(
+        () => ProfileRepository(Get.find()),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<AvatarPickerService>()) {
+      Get.lazyPut<AvatarPickerService>(
+        () => AvatarPickerService(),
+        fenix: true,
+      );
+    }
+    if (!Get.isRegistered<ProfileController>()) {
+      Get.put<ProfileController>(
+        ProfileController(Get.find(), Get.find()),
+        permanent: true,
+      );
+    }
+    Get.lazyPut<NotificationRepository>(
+      () => NotificationRepository(Get.find()),
+    );
+    Get.lazyPut<NotificationController>(
+      () => NotificationController(Get.find()),
+    );
   }
 }

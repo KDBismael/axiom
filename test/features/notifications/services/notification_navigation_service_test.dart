@@ -13,7 +13,15 @@ void main() {
       AppRoutes.questDetail,
     );
     expect(
-      notificationTarget('ally_request_received', {}).route,
+      notificationTarget('ally_request_received', {'requestId': 'ar-1'}).route,
+      AppRoutes.allyRequest,
+    );
+    expect(
+      notificationTarget('ally_removed', {}).route,
+      AppRoutes.inviteFriends,
+    );
+    expect(
+      notificationTarget('ally_request_declined', {}).route,
       AppRoutes.inviteFriends,
     );
     expect(
@@ -34,6 +42,10 @@ void main() {
   test('malformed and unknown payloads fall back to notifications', () {
     expect(
       notificationTarget('quest_completed', {}).route,
+      AppRoutes.notifications,
+    );
+    expect(
+      notificationTarget('ally_request_received', {}).route,
       AppRoutes.notifications,
     );
     expect(

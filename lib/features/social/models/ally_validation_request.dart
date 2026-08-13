@@ -24,6 +24,10 @@ class AllyValidationRequest {
     this.fileIds = const [],
     this.comment,
     this.description,
+    this.submitterId,
+    this.submitterFirstName,
+    this.submitterLastName,
+    this.submitterAvatarUrl,
   });
 
   final String id;
@@ -43,6 +47,15 @@ class AllyValidationRequest {
 
   /// The submitter's own note, left at check-in time.
   final String? description;
+  final String? submitterId;
+  final String? submitterFirstName;
+  final String? submitterLastName;
+  final String? submitterAvatarUrl;
+
+  String get submitterName => [
+    submitterFirstName,
+    submitterLastName,
+  ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
 
   /// `GET /validations` returns the request row flattened together with a
   /// nested `evidence` object (which itself nests `quest: { title }`) —
@@ -50,6 +63,7 @@ class AllyValidationRequest {
   factory AllyValidationRequest.fromJson(Map<String, dynamic> json) {
     final evidence = json['evidence'] as Map<String, dynamic>;
     final quest = evidence['quest'] as Map<String, dynamic>?;
+    final submitter = evidence['submitter'] as Map<String, dynamic>?;
     return AllyValidationRequest(
       id: json['id'] as String,
       questId: evidence['questId'] as String,
@@ -58,10 +72,15 @@ class AllyValidationRequest {
       proofType: ProofType.fromJson(evidence['proofType'] as String),
       textContent: evidence['textContent'] as String?,
       fileId: evidence['fileId'] as String?,
-      fileIds: (evidence['fileIds'] as List<dynamic>?)?.cast<String>() ?? const [],
+      fileIds:
+          (evidence['fileIds'] as List<dynamic>?)?.cast<String>() ?? const [],
       status: ValidationDecisionStatus.fromJson(json['status'] as String),
       comment: json['comment'] as String?,
       description: evidence['description'] as String?,
+      submitterId: submitter?['id'] as String?,
+      submitterFirstName: submitter?['firstName'] as String?,
+      submitterLastName: submitter?['lastName'] as String?,
+      submitterAvatarUrl: submitter?['avatarUrl'] as String?,
     );
   }
 }

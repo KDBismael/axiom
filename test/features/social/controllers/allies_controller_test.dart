@@ -21,7 +21,9 @@ void main() {
   group('AlliesController.loadAllies', () {
     test('populates allies on success', () async {
       when(() => mockRepository.fetchAllies()).thenAnswer(
-        (_) async => [const Ally(id: 'u-2', firstName: 'Marie', lastName: 'Kone')],
+        (_) async => [
+          const Ally(id: 'u-2', firstName: 'Marie', lastName: 'Kone'),
+        ],
       );
 
       await controller.loadAllies();
@@ -39,8 +41,11 @@ void main() {
         status: InvitationStatus.pending,
         expiresAt: DateTime(2026, 1, 8),
       );
-      when(() => mockRepository.createInvitation(inviteeContact: any(named: 'inviteeContact')))
-          .thenAnswer((_) async => invitation);
+      when(
+        () => mockRepository.createInvitation(
+          inviteeContact: any(named: 'inviteeContact'),
+        ),
+      ).thenAnswer((_) async => invitation);
 
       await controller.createInvitation();
 
@@ -53,18 +58,27 @@ void main() {
         status: InvitationStatus.pending,
         expiresAt: DateTime(2026, 1, 8),
       );
-      when(() => mockRepository.createInvitation(inviteeContact: any(named: 'inviteeContact')))
-          .thenAnswer((_) async => invitation);
+      when(
+        () => mockRepository.createInvitation(
+          inviteeContact: any(named: 'inviteeContact'),
+        ),
+      ).thenAnswer((_) async => invitation);
 
       await controller.createInvitation(inviteeContact: 'friend@example.com');
 
-      verify(() => mockRepository.createInvitation(inviteeContact: 'friend@example.com'))
-          .called(1);
+      verify(
+        () => mockRepository.createInvitation(
+          inviteeContact: 'friend@example.com',
+        ),
+      ).called(1);
     });
 
     test('surfaces the backend French message on failure', () async {
-      when(() => mockRepository.createInvitation(inviteeContact: any(named: 'inviteeContact')))
-          .thenThrow(SocialException('Erreur serveur'));
+      when(
+        () => mockRepository.createInvitation(
+          inviteeContact: any(named: 'inviteeContact'),
+        ),
+      ).thenThrow(SocialException('Erreur serveur'));
 
       await controller.createInvitation();
 
@@ -81,7 +95,13 @@ void main() {
 
     test('searches once the query reaches 2 characters', () async {
       when(() => mockRepository.searchUsers('Aw')).thenAnswer(
-        (_) async => [const UserSearchResult(id: 'u-4', firstName: 'Awa', lastName: 'Traore')],
+        (_) async => [
+          const UserSearchResult(
+            id: 'u-4',
+            firstName: 'Awa',
+            lastName: 'Traore',
+          ),
+        ],
       );
 
       await controller.search('Aw');
@@ -91,9 +111,34 @@ void main() {
   });
 
   group('AlliesController.sendRequest', () {
+    test('reloads pending requests after sending', () async {
+      when(
+        () => mockRepository.sendAllyRequest('u-4'),
+      ).thenAnswer((_) async {});
+      when(() => mockRepository.fetchAllyRequests()).thenAnswer(
+        (_) async => [
+          AllyRequest(
+            id: 'req-1',
+            direction: AllyRequestDirection.outgoing,
+            status: AllyRequestStatus.pending,
+            otherUser: const AllyRequestUser(
+              id: 'u-4',
+              firstName: 'Awa',
+              lastName: 'Traore',
+            ),
+          ),
+        ],
+      );
+
+      expect(await controller.sendRequest('u-4'), isTrue);
+
+      expect(controller.outgoingRequests, hasLength(1));
+    });
+
     test('surfaces the duplicate-request 409 French message', () async {
-      when(() => mockRepository.sendAllyRequest('u-4'))
-          .thenThrow(SocialException('Une demande existe déjà'));
+      when(
+        () => mockRepository.sendAllyRequest('u-4'),
+      ).thenThrow(SocialException('Une demande existe déjà'));
 
       await controller.sendRequest('u-4');
 
@@ -101,23 +146,56 @@ void main() {
     });
   });
 
+  group('AlliesController.removeAlly', () {
+    test('removes and refreshes allies and pending requests', () async {
+      when(() => mockRepository.removeAlly('u-4')).thenAnswer((_) async {});
+      when(() => mockRepository.fetchAllies()).thenAnswer((_) async => []);
+      when(
+        () => mockRepository.fetchAllyRequests(),
+      ).thenAnswer((_) async => []);
+
+      expect(await controller.removeAlly('u-4'), isTrue);
+
+      verify(() => mockRepository.fetchAllies()).called(1);
+      verify(() => mockRepository.fetchAllyRequests()).called(1);
+    });
+
+    test('surfaces a removal failure', () async {
+      when(
+        () => mockRepository.removeAlly('u-4'),
+      ).thenThrow(SocialException('Relation alliée introuvable'));
+
+      expect(await controller.removeAlly('u-4'), isFalse);
+      expect(controller.errorMessage.value, 'Relation alliée introuvable');
+    });
+  });
+
   group('AlliesController.respondToRequest', () {
     test('reloads ally requests after responding', () async {
-      when(() => mockRepository.respondToAllyRequest('req-1', accept: true))
-          .thenAnswer((_) async {});
-      when(() => mockRepository.fetchAllyRequests()).thenAnswer((_) async => [
-            AllyRequest(
-              id: 'req-2',
-              direction: AllyRequestDirection.incoming,
-              status: AllyRequestStatus.pending,
-              otherUser: const AllyRequestUser(id: 'u-5', firstName: 'X', lastName: 'Y'),
+      when(
+        () => mockRepository.respondToAllyRequest('req-1', accept: true),
+      ).thenAnswer((_) async {});
+      when(() => mockRepository.fetchAllyRequests()).thenAnswer(
+        (_) async => [
+          AllyRequest(
+            id: 'req-2',
+            direction: AllyRequestDirection.incoming,
+            status: AllyRequestStatus.pending,
+            otherUser: const AllyRequestUser(
+              id: 'u-5',
+              firstName: 'X',
+              lastName: 'Y',
             ),
-          ]);
+          ),
+        ],
+      );
       when(() => mockRepository.fetchAllies()).thenAnswer((_) async => []);
 
       await controller.respondToRequest('req-1', accept: true);
 
-      verify(() => mockRepository.respondToAllyRequest('req-1', accept: true)).called(1);
+      verify(
+        () => mockRepository.respondToAllyRequest('req-1', accept: true),
+      ).called(1);
       expect(controller.allyRequests, hasLength(1));
     });
   });

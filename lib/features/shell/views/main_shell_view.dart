@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
@@ -53,7 +54,6 @@ class _BottomNav extends GetView<ShellController> {
         height: 80,
         child: Obx(
           () => Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavItem(
                 icon: Icons.grid_view,
@@ -97,24 +97,43 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active ? AppColors.primary : AppColors.outline;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? AppColors.emerald : Colors.transparent,
-          borderRadius: AppRadii.interactiveRadius,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: AppTypography.labelMd.copyWith(color: color, fontSize: 10),
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Center(
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                decoration: BoxDecoration(
+                  color: active ? AppColors.emerald : Colors.transparent,
+                  borderRadius: AppRadii.interactiveRadius,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: color, size: 22),
+                    const SizedBox(height: 4),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppTypography.labelMd.copyWith(
+                        color: color,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

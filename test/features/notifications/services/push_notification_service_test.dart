@@ -38,4 +38,33 @@ void main() {
       );
     });
   });
+
+  group('questIdToRefresh', () {
+    test('returns the quest for an accepted quest-ally invitation', () {
+      expect(
+        questIdToRefresh(
+          const PushEnvelope(
+            type: 'quest_ally_invite_accepted',
+            payload: {'questId': 'quest-1'},
+          ),
+        ),
+        'quest-1',
+      );
+    });
+
+    test('ignores unrelated and malformed notifications', () {
+      expect(
+        questIdToRefresh(
+          const PushEnvelope(type: 'ally_request_accepted', payload: {}),
+        ),
+        isNull,
+      );
+      expect(
+        questIdToRefresh(
+          const PushEnvelope(type: 'quest_ally_invite_accepted', payload: {}),
+        ),
+        isNull,
+      );
+    });
+  });
 }

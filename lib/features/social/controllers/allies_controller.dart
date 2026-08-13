@@ -14,14 +14,20 @@ class AlliesController extends GetxController {
   final invitations = <AllyInvitation>[].obs;
   final allyRequests = <AllyRequest>[].obs;
   final searchResults = <UserSearchResult>[].obs;
+  final searchQuery = ''.obs;
 
   final isLoading = false.obs;
   final isSearching = false.obs;
   final errorMessage = RxnString();
   final lastCreatedInvitation = Rxn<AllyInvitation>();
 
-  List<AllyRequest> get incomingRequests =>
-      allyRequests.where((r) => r.direction == AllyRequestDirection.incoming).toList();
+  List<AllyRequest> get incomingRequests => allyRequests
+      .where((r) => r.direction == AllyRequestDirection.incoming)
+      .toList();
+
+  List<AllyRequest> get outgoingRequests => allyRequests
+      .where((r) => r.direction == AllyRequestDirection.outgoing)
+      .toList();
 
   @override
   void onInit() {
@@ -91,38 +97,65 @@ class AlliesController extends GetxController {
   }
 
   Future<void> search(String query) async {
-    if (query.trim().length < 2) {
+    final normalized = query.trim();
+    searchQuery.value = normalized;
+    if (normalized.length < 2) {
       searchResults.clear();
+      isSearching.value = false;
       return;
     }
     isSearching.value = true;
     errorMessage.value = null;
     try {
-      searchResults.assignAll(await _repository.searchUsers(query.trim()));
+      final results = await _repository.searchUsers(normalized);
+      if (searchQuery.value == normalized) searchResults.assignAll(results);
     } on SocialException catch (e) {
-      errorMessage.value = e.message;
+      if (searchQuery.value == normalized) errorMessage.value = e.message;
     } finally {
-      isSearching.value = false;
+      if (searchQuery.value == normalized) isSearching.value = false;
     }
   }
 
-  Future<void> sendRequest(String recipientId) async {
+  void clearSearch() {
+    searchQuery.value = '';
+    searchResults.clear();
+    isSearching.value = false;
+  }
+
+  Future<bool> sendRequest(String recipientId) async {
     errorMessage.value = null;
     try {
       await _repository.sendAllyRequest(recipientId);
+      await loadAllyRequests();
+      return true;
     } on SocialException catch (e) {
       errorMessage.value = e.message;
+      return false;
     }
   }
 
-  Future<void> respondToRequest(String id, {required bool accept}) async {
+  Future<bool> respondToRequest(String id, {required bool accept}) async {
     errorMessage.value = null;
     try {
       await _repository.respondToAllyRequest(id, accept: accept);
       await loadAllyRequests();
       if (accept) await loadAllies();
+      return true;
     } on SocialException catch (e) {
       errorMessage.value = e.message;
+      return false;
+    }
+  }
+
+  Future<bool> removeAlly(String userId) async {
+    errorMessage.value = null;
+    try {
+      await _repository.removeAlly(userId);
+      await Future.wait([loadAllies(), loadAllyRequests()]);
+      return true;
+    } on SocialException catch (e) {
+      errorMessage.value = e.message;
+      return false;
     }
   }
 }

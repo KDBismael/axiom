@@ -16,6 +16,12 @@ void main() {
           'textContent': null,
           'fileId': 'f-1',
           'quest': {'title': 'Gym 3x par semaine'},
+          'submitter': {
+            'id': 'user-1',
+            'firstName': 'Awa',
+            'lastName': 'Koné',
+            'avatarUrl': null,
+          },
         },
       });
 
@@ -26,27 +32,31 @@ void main() {
       expect(request.proofType, ProofType.photo);
       expect(request.fileId, 'f-1');
       expect(request.status, ValidationDecisionStatus.pending);
+      expect(request.submitterName, 'Awa Koné');
     });
 
-    test('parses a cancelled text validation (another ally already decided)', () {
-      final request = AllyValidationRequest.fromJson({
-        'id': 'val-2',
-        'evidenceId': 'ev-2',
-        'status': 'cancelled',
-        'evidence': {
-          'id': 'ev-2',
-          'questId': 'q-1',
-          'proofType': 'text',
-          'textContent': "J'ai lu 20 minutes",
-          'fileId': null,
-          'quest': {'title': 'Lire 20 minutes'},
-        },
-      });
+    test(
+      'parses a cancelled text validation (another ally already decided)',
+      () {
+        final request = AllyValidationRequest.fromJson({
+          'id': 'val-2',
+          'evidenceId': 'ev-2',
+          'status': 'cancelled',
+          'evidence': {
+            'id': 'ev-2',
+            'questId': 'q-1',
+            'proofType': 'text',
+            'textContent': "J'ai lu 20 minutes",
+            'fileId': null,
+            'quest': {'title': 'Lire 20 minutes'},
+          },
+        });
 
-      expect(request.proofType, ProofType.text);
-      expect(request.textContent, "J'ai lu 20 minutes");
-      expect(request.status, ValidationDecisionStatus.cancelled);
-    });
+        expect(request.proofType, ProofType.text);
+        expect(request.textContent, "J'ai lu 20 minutes");
+        expect(request.status, ValidationDecisionStatus.cancelled);
+      },
+    );
 
     test('parses both the submitter comment and the decision comment', () {
       final request = AllyValidationRequest.fromJson({
@@ -69,23 +79,26 @@ void main() {
       expect(request.description, 'Séance de 45 minutes ce matin');
     });
 
-    test('leaves comment and description null when absent from the payload', () {
-      final request = AllyValidationRequest.fromJson({
-        'id': 'val-4',
-        'evidenceId': 'ev-4',
-        'status': 'pending',
-        'evidence': {
-          'id': 'ev-4',
-          'questId': 'q-1',
-          'proofType': 'text',
-          'textContent': 'Fait',
-          'fileId': null,
-          'quest': {'title': 'Lire 20 minutes'},
-        },
-      });
+    test(
+      'leaves comment and description null when absent from the payload',
+      () {
+        final request = AllyValidationRequest.fromJson({
+          'id': 'val-4',
+          'evidenceId': 'ev-4',
+          'status': 'pending',
+          'evidence': {
+            'id': 'ev-4',
+            'questId': 'q-1',
+            'proofType': 'text',
+            'textContent': 'Fait',
+            'fileId': null,
+            'quest': {'title': 'Lire 20 minutes'},
+          },
+        });
 
-      expect(request.comment, isNull);
-      expect(request.description, isNull);
-    });
+        expect(request.comment, isNull);
+        expect(request.description, isNull);
+      },
+    );
   });
 }

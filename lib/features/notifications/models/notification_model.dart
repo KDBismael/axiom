@@ -1,5 +1,6 @@
 /// `GET /notifications` item. `type` is one of: ally_invite_accepted,
-/// ally_request_received, ally_request_accepted, validation_requested,
+/// ally_request_received, ally_request_accepted, ally_request_declined,
+/// ally_removed, validation_requested,
 /// validation_decided, quest_completed, quest_failed,
 /// quest_deadline_reminder, payment_succeeded, payment_failed, payout_sent,
 /// refund_sent, quest_ally_invite_received, quest_ally_invite_accepted,

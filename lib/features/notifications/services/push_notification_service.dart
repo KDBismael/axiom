@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../quests/controllers/quest_list_controller.dart';
+import '../../social/controllers/allies_controller.dart';
+import '../controllers/notification_controller.dart';
 import '../repositories/notification_repository.dart';
 import 'notification_navigation_service.dart';
 
@@ -43,6 +46,12 @@ class PushEnvelope {
     'payload': jsonEncode(payload),
     if (notificationId != null) 'notificationId': notificationId,
   });
+}
+
+String? questIdToRefresh(PushEnvelope envelope) {
+  if (envelope.type != 'quest_ally_invite_accepted') return null;
+  final questId = envelope.payload['questId'];
+  return questId is String && questId.isNotEmpty ? questId : null;
 }
 
 class PushNotificationService extends GetxService {
@@ -199,6 +208,7 @@ class PushNotificationService extends GetxService {
     } catch (_) {
       return;
     }
+    _refreshLocalState(envelope);
     await _localNotifications.show(
       id: message.hashCode,
       title: message.notification?.title ?? 'Nouvelle notification',
@@ -219,13 +229,36 @@ class PushNotificationService extends GetxService {
 
   void _handleRemoteOpen(RemoteMessage message) {
     try {
-      _open(PushEnvelope.fromData(message.data));
+      final envelope = PushEnvelope.fromData(message.data);
+      _open(envelope);
     } catch (_) {
       _openFallback();
     }
   }
 
+  void _refreshLocalState(PushEnvelope envelope) {
+    if (Get.isRegistered<NotificationController>()) {
+      unawaited(Get.find<NotificationController>().loadNotifications());
+    }
+    final questId = questIdToRefresh(envelope);
+    if (questId != null && Get.isRegistered<QuestListController>()) {
+      unawaited(Get.find<QuestListController>().refreshQuest(questId));
+    }
+    if (!envelope.type.startsWith('ally_') ||
+        !Get.isRegistered<AlliesController>()) {
+      return;
+    }
+    final allies = Get.find<AlliesController>();
+    unawaited(allies.loadAllyRequests());
+    if (envelope.type == 'ally_request_accepted' ||
+        envelope.type == 'ally_invite_accepted' ||
+        envelope.type == 'ally_removed') {
+      unawaited(allies.loadAllies());
+    }
+  }
+
   void _open(PushEnvelope envelope) {
+    _refreshLocalState(envelope);
     if (envelope.notificationId != null && _authController.isAuthenticated) {
       _repository.markRead(envelope.notificationId!).catchError((_) {});
     }

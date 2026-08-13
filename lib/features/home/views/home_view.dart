@@ -41,7 +41,7 @@ class HomeView extends GetView<QuestListController> {
         // it visibly scrolls up and over the header bar.
         Positioned.fill(
           child: Obx(() {
-            if (controller.isLoading.value) {
+            if (controller.isLoading.value && controller.quests.isEmpty) {
               return const Center(
                 child: CircularProgressIndicator(strokeWidth: 1),
               );
@@ -208,6 +208,15 @@ class _PendingAllyInvitationCard extends StatelessWidget {
                       color: AppColors.primary,
                     ),
                   ),
+                  if (invitation.inviterName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Invité par ${invitation.inviterName}',
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

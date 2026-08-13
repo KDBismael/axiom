@@ -22,6 +22,22 @@ void main() {
       expect(request.otherUser.firstName, 'Marie');
     });
 
+    test('parses the flat shape returned by GET /allies/requests', () {
+      final request = AllyRequest.fromJson({
+        'id': 'req-flat',
+        'direction': 'incoming',
+        'status': 'pending',
+        'userId': 'u-4',
+        'firstName': 'Awa',
+        'lastName': 'Koné',
+        'avatarUrl': null,
+      });
+
+      expect(request.otherUser.id, 'u-4');
+      expect(request.otherUser.firstName, 'Awa');
+      expect(request.otherUser.lastName, 'Koné');
+    });
+
     test('parses an outgoing accepted request', () {
       final request = AllyRequest.fromJson({
         'id': 'req-2',

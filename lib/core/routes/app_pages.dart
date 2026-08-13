@@ -18,7 +18,10 @@ import '../../features/payments/services/url_opener.dart';
 import '../../features/payments/views/quest_payment_view.dart';
 import '../../features/profile/views/invite_friends_view.dart';
 import '../../features/social/views/ally_validations_view.dart';
+import '../../features/social/views/ally_request_view.dart';
 import '../../features/social/views/invitation_ally_view.dart';
+import '../../features/social/controllers/allies_controller.dart';
+import '../../features/social/repositories/social_repository.dart';
 import '../../features/social/views/validation_detail_view.dart';
 import '../../features/social/views/validation_history_view.dart';
 import '../../features/quests/views/quest_checkin_status_view.dart';
@@ -30,28 +33,16 @@ import 'auth_middleware.dart';
 
 class AppPages {
   static final pages = [
-    GetPage(
-      name: AppRoutes.onboarding,
-      page: () => const OnboardingView(),
-    ),
-    GetPage(
-      name: AppRoutes.login,
-      page: () => const LoginView(),
-    ),
-    GetPage(
-      name: AppRoutes.register,
-      page: () => const RegisterView(),
-    ),
+    GetPage(name: AppRoutes.onboarding, page: () => const OnboardingView()),
+    GetPage(name: AppRoutes.login, page: () => const LoginView()),
+    GetPage(name: AppRoutes.register, page: () => const RegisterView()),
     GetPage(
       name: AppRoutes.home,
       page: () => const MainShellView(),
       binding: ShellBinding(),
       middlewares: [AuthMiddleware()],
     ),
-    GetPage(
-      name: AppRoutes.questDetail,
-      page: () => const QuestDetailView(),
-    ),
+    GetPage(name: AppRoutes.questDetail, page: () => const QuestDetailView()),
     GetPage(
       name: AppRoutes.questValidation,
       page: () => const QuestValidationView(),
@@ -65,10 +56,24 @@ class AppPages {
       page: () => const InviteFriendsView(),
     ),
     GetPage(
+      name: AppRoutes.allyRequest,
+      page: () => const AllyRequestView(),
+      binding: BindingsBuilder(() {
+        if (!Get.isRegistered<SocialRepository>()) {
+          Get.lazyPut<SocialRepository>(() => SocialRepository(Get.find()));
+        }
+        if (!Get.isRegistered<AlliesController>()) {
+          Get.lazyPut<AlliesController>(() => AlliesController(Get.find()));
+        }
+      }),
+    ),
+    GetPage(
       name: AppRoutes.questCreate,
       page: () => const QuestCreateView(),
       binding: BindingsBuilder(() {
-        Get.lazyPut<QuestCreateController>(() => QuestCreateController(Get.find<QuestListController>()));
+        Get.lazyPut<QuestCreateController>(
+          () => QuestCreateController(Get.find<QuestListController>()),
+        );
       }),
     ),
     GetPage(

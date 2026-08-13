@@ -11,6 +11,8 @@ const _typeLabels = {
   'ally_invite_accepted': 'Invitation acceptée',
   'ally_request_received': "Demande d'alliance reçue",
   'ally_request_accepted': "Demande d'alliance acceptée",
+  'ally_request_declined': "Demande d'alliance refusée",
+  'ally_removed': 'Alliance terminée',
   'validation_requested': 'Validation demandée',
   'validation_decided': 'Validation décidée',
   'quest_completed': 'Quête réussie',
@@ -111,10 +113,9 @@ class _NotificationRow extends StatelessWidget {
     final payload = notification.payload;
     final questTitle =
         payload['questTitle'] as String? ?? payload['title'] as String?;
-    if (questTitle != null && questTitle.isNotEmpty) return questTitle;
-
     final firstName = payload['firstName'] as String?;
     final lastName = payload['lastName'] as String?;
+    if (questTitle != null && questTitle.isNotEmpty) return questTitle;
     if (firstName != null && firstName.isNotEmpty) {
       return [
         firstName,

@@ -31,8 +31,14 @@ RedirectTarget notificationTarget(String type, Map<String, dynamic> payload) {
           ? (route: AppRoutes.questDetail, arguments: questId)
           : (route: AppRoutes.notifications, arguments: null);
     case 'ally_request_received':
+      final requestId = payload['requestId'];
+      return requestId is String
+          ? (route: AppRoutes.allyRequest, arguments: payload)
+          : (route: AppRoutes.notifications, arguments: null);
     case 'ally_request_accepted':
+    case 'ally_request_declined':
     case 'ally_invite_accepted':
+    case 'ally_removed':
       return (route: AppRoutes.inviteFriends, arguments: null);
     case 'quest_ally_invite_received':
       final questId = payload['questId'];
