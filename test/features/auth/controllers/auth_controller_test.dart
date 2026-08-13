@@ -170,6 +170,21 @@ void main() {
       expect(controller.activeAction.value, isNull);
     });
 
+    test('surfaces a safe native Google configuration failure', () async {
+      when(() => mockGoogleAuthService.signIn()).thenThrow(
+        const GoogleAuthException(
+          stage: GoogleAuthStage.nativeSignIn,
+          code: 'sign_in_failed',
+          userMessage: 'Google n’a pas pu valider la connexion. Veuillez réessayer.',
+        ),
+      );
+
+      await controller.loginWithGoogle();
+
+      expect(controller.errorMessage.value, 'Google n’a pas pu valider la connexion. Veuillez réessayer.');
+      verifyNever(() => mockRepository.loginWithGoogle(any()));
+    });
+
     test('surfaces a generic French error, without crashing, when the native SDK throws '
         'something other than AuthException', () async {
       when(() => mockGoogleAuthService.signIn())

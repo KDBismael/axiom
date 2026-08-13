@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../../core/api/token_storage.dart';
 import '../models/user_model.dart';
@@ -86,7 +87,17 @@ class AuthController extends GetxService {
     return _runAuthAction(AuthAction.google, () async {
       final idToken = await _googleAuthService.signIn();
       if (idToken == null) throw AuthException('Connexion Google annulée.');
-      return _authRepository.loginWithGoogle(idToken);
+      debugPrint('GoogleAuth stage=backendExchange status=start');
+      try {
+        final result = await _authRepository.loginWithGoogle(idToken);
+        debugPrint('GoogleAuth stage=backendExchange status=success');
+        return result;
+      } on AuthException {
+        debugPrint(
+          'GoogleAuth failure stage=backendExchange code=request_rejected',
+        );
+        rethrow;
+      }
     });
   }
 
@@ -134,6 +145,8 @@ class AuthController extends GetxService {
       user.value = result.user;
     } on AuthException catch (e) {
       errorMessage.value = e.message;
+    } on GoogleAuthException catch (e) {
+      errorMessage.value = e.userMessage;
     } catch (_) {
       // Native SDK failures (Google/Apple sign-in) surface as plain
       // exceptions, not AuthException — never let those propagate
