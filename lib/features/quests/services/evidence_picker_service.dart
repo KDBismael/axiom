@@ -17,28 +17,75 @@ class PickedEvidence {
   final String mimeType;
 }
 
+class EvidencePickerException implements Exception {
+  const EvidencePickerException(this.message);
+
+  final String message;
+}
+
+const maxEvidenceImageSizeBytes = 5 * 1024 * 1024;
+const maxEvidenceVideoSizeBytes = 50 * 1024 * 1024;
+const maxEvidenceVideoDuration = Duration(seconds: 30);
+
 /// Thin wrapper around the native image/video picker for quest proof
 /// evidence. Isolated behind this class so quest controllers can be
 /// unit-tested without touching native code — tests fake this interface
 /// instead of the plugin itself.
 class EvidencePickerService {
+  EvidencePickerService({ImagePicker? picker})
+    : _picker = picker ?? ImagePicker();
+
+  final ImagePicker _picker;
+
   /// imageQuality forces the plugin to re-encode the picked image as JPEG on
   /// both iOS and Android — without it, iOS gallery photos are frequently
   /// HEIC, which the backend's upload allowlist rejects (only png/jpeg/webp/gif).
-  Future<PickedEvidence?> pickPhoto() =>
-      _pick(() => ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85));
+  Future<PickedEvidence?> pickPhoto(ImageSource source) => _pick(
+    () => _picker.pickImage(source: source, imageQuality: 85),
+    allowedMimeTypes: const {
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/gif',
+    },
+    maxSizeBytes: maxEvidenceImageSizeBytes,
+    oversizedMessage: 'Photo trop volumineuse (max 5 Mo).',
+  );
 
-  Future<PickedEvidence?> pickVideo() => _pick(() => ImagePicker().pickVideo(source: ImageSource.gallery));
+  Future<PickedEvidence?> pickVideo(ImageSource source) => _pick(
+    () => _picker.pickVideo(
+      source: source,
+      preferredCameraDevice: CameraDevice.rear,
+      maxDuration: maxEvidenceVideoDuration,
+    ),
+    allowedMimeTypes: const {'video/mp4', 'video/quicktime', 'video/webm'},
+    maxSizeBytes: maxEvidenceVideoSizeBytes,
+    oversizedMessage:
+        'Vidéo trop volumineuse (max 50 Mo). Enregistrez un clip plus court.',
+  );
 
-  Future<PickedEvidence?> _pick(Future<XFile?> Function() pick) async {
+  Future<PickedEvidence?> _pick(
+    Future<XFile?> Function() pick, {
+    required Set<String> allowedMimeTypes,
+    required int maxSizeBytes,
+    required String oversizedMessage,
+  }) async {
     final file = await pick();
     if (file == null) return null;
+    final mimeType = file.mimeType ?? mimeTypeForFilename(file.name);
+    if (!allowedMimeTypes.contains(mimeType)) {
+      throw const EvidencePickerException('Type de fichier non supporté.');
+    }
+    final sizeBytes = await file.length();
+    if (sizeBytes > maxSizeBytes) {
+      throw EvidencePickerException(oversizedMessage);
+    }
     final bytes = await file.readAsBytes();
     return PickedEvidence(
       bytes: bytes,
-      sizeBytes: bytes.length,
+      sizeBytes: sizeBytes,
       filename: file.name,
-      mimeType: file.mimeType ?? mimeTypeForFilename(file.name),
+      mimeType: mimeType,
     );
   }
 }

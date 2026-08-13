@@ -24,8 +24,14 @@
 		<false/>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
-		<key>LSRequiresIPhoneOS</key>
-		<true/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Ndeli utilise la caméra pour prendre une photo ou enregistrer une vidéo comme preuve.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ndeli utilise le microphone pendant l’enregistrement d’une vidéo de preuve.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ndeli accède à votre photothèque pour choisir une photo ou une vidéo comme preuve.</string>
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
@@ -41,7 +42,9 @@ class QuestValidationView extends GetView<QuestListController> {
                 return Center(
                   child: Text(
                     'Quête introuvable.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.outline,
+                    ),
                   ),
                 );
               }
@@ -77,7 +80,8 @@ class _ValidationBodyState extends State<_ValidationBody> {
   int _currentPeriodCount = 0;
   String? _error;
 
-  bool get _periodComplete => _currentPeriodCount >= widget.quest.targetPerPeriod;
+  bool get _periodComplete =>
+      _currentPeriodCount >= widget.quest.targetPerPeriod;
 
   @override
   void initState() {
@@ -86,7 +90,9 @@ class _ValidationBodyState extends State<_ValidationBody> {
   }
 
   Future<void> _loadHistory() async {
-    final checkIns = await Get.find<QuestListController>().fetchCheckIns(widget.quest.id);
+    final checkIns = await Get.find<QuestListController>().fetchCheckIns(
+      widget.quest.id,
+    );
     final count = countCheckInsInCurrentPeriod(
       checkIns,
       widget.quest.frequency,
@@ -105,18 +111,73 @@ class _ValidationBodyState extends State<_ValidationBody> {
   }
 
   Future<void> _pickVideo() async {
+    final source = await _chooseEvidenceSource(isVideo: true);
+    if (source == null) return;
     final service = Get.find<EvidencePickerService>();
-    final picked = await service.pickVideo();
-    if (picked == null) return;
-    setState(() => _pickedVideo = picked);
+    try {
+      final picked = await service.pickVideo(source);
+      if (picked == null || !mounted) return;
+      setState(() => _pickedVideo = picked);
+    } on EvidencePickerException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'Impossible d’accéder à la caméra ou à la galerie.',
+        );
+      }
+    }
   }
 
   Future<void> _pickPhoto() async {
     if (_pickedPhotos.length >= _maxPhotos) return;
+    final source = await _chooseEvidenceSource(isVideo: false);
+    if (source == null) return;
     final service = Get.find<EvidencePickerService>();
-    final picked = await service.pickPhoto();
-    if (picked == null) return;
-    setState(() => _pickedPhotos.add(picked));
+    try {
+      final picked = await service.pickPhoto(source);
+      if (picked == null || !mounted) return;
+      setState(() => _pickedPhotos.add(picked));
+    } on EvidencePickerException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'Impossible d’accéder à la caméra ou à la galerie.',
+        );
+      }
+    }
+  }
+
+  Future<ImageSource?> _chooseEvidenceSource({required bool isVideo}) {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLow,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(isVideo ? Icons.videocam : Icons.photo_camera),
+              title: Text(
+                isVideo ? 'Enregistrer une vidéo' : 'Prendre une photo',
+              ),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choisir dans la galerie'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Annuler'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _removePhoto(int index) {
@@ -127,11 +188,14 @@ class _ValidationBodyState extends State<_ValidationBody> {
     final hasProof = _evidenceType == _EvidenceType.video
         ? _pickedVideo != null
         : _pickedPhotos.isNotEmpty;
-    if (widget.quest.requiresProof && _evidenceType != _EvidenceType.text && !hasProof) {
+    if (widget.quest.requiresProof &&
+        _evidenceType != _EvidenceType.text &&
+        !hasProof) {
       setState(() => _error = 'Une preuve est requise pour cette quête.');
       return;
     }
-    if (_evidenceType == _EvidenceType.text && _descriptionController.text.trim().isEmpty) {
+    if (_evidenceType == _EvidenceType.text &&
+        _descriptionController.text.trim().isEmpty) {
       setState(() => _error = 'Veuillez décrire votre exécution.');
       return;
     }
@@ -147,9 +211,11 @@ class _ValidationBodyState extends State<_ValidationBody> {
       List<String>? fileIds;
       if (_evidenceType == _EvidenceType.video && _pickedVideo != null) {
         fileId = await controller.uploadEvidenceFile(_pickedVideo!);
-      } else if (_evidenceType == _EvidenceType.photo && _pickedPhotos.isNotEmpty) {
+      } else if (_evidenceType == _EvidenceType.photo &&
+          _pickedPhotos.isNotEmpty) {
         fileIds = [
-          for (final photo in _pickedPhotos) await controller.uploadEvidenceFile(photo),
+          for (final photo in _pickedPhotos)
+            await controller.uploadEvidenceFile(photo),
         ];
       }
 
@@ -161,13 +227,20 @@ class _ValidationBodyState extends State<_ValidationBody> {
 
       await controller.checkIn(
         widget.quest.id,
-        proofType: (fileId != null || fileIds != null || _evidenceType == _EvidenceType.text)
+        proofType:
+            (fileId != null ||
+                fileIds != null ||
+                _evidenceType == _EvidenceType.text)
             ? proofType
             : null,
         fileId: fileId,
         fileIds: fileIds,
-        textContent: _evidenceType == _EvidenceType.text ? _descriptionController.text.trim() : null,
-        description: _evidenceType != _EvidenceType.text && _descriptionController.text.trim().isNotEmpty
+        textContent: _evidenceType == _EvidenceType.text
+            ? _descriptionController.text.trim()
+            : null,
+        description:
+            _evidenceType != _EvidenceType.text &&
+                _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
             : null,
       );
@@ -284,7 +357,10 @@ class _ValidationBodyState extends State<_ValidationBody> {
               runSpacing: 12,
               children: [
                 for (var i = 0; i < _pickedPhotos.length; i++)
-                  _PhotoThumbnail(photo: _pickedPhotos[i], onRemove: () => _removePhoto(i)),
+                  _PhotoThumbnail(
+                    photo: _pickedPhotos[i],
+                    onRemove: () => _removePhoto(i),
+                  ),
                 if (_pickedPhotos.length < _maxPhotos)
                   _AddPhotoTile(onTap: _pickPhoto),
               ],
@@ -296,8 +372,10 @@ class _ValidationBodyState extends State<_ValidationBody> {
                 onPressed: _pickVideo,
                 icon: const Icon(Icons.upload, color: AppColors.primary),
                 label: Text(
-                  'Choisir un fichier',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                  'Ajouter une vidéo',
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.primary,
+                  ),
                 ),
               )
             else
@@ -308,7 +386,9 @@ class _ValidationBodyState extends State<_ValidationBody> {
           ],
           const SizedBox(height: 32),
           Text(
-            _evidenceType == _EvidenceType.text ? 'VOTRE PREUVE' : 'RÉCIT DE PERFORMANCE',
+            _evidenceType == _EvidenceType.text
+                ? 'VOTRE PREUVE'
+                : 'RÉCIT DE PERFORMANCE',
             style: AppTypography.labelMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: 12),
@@ -320,17 +400,23 @@ class _ValidationBodyState extends State<_ValidationBody> {
               hintText: _evidenceType == _EvidenceType.text
                   ? 'Décrivez ce que vous avez accompli...'
                   : 'Décrivez votre exécution ici (optionnel)...',
-              hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.outlineVariant),
+              hintStyle: AppTypography.bodyMd.copyWith(
+                color: AppColors.outlineVariant,
+              ),
               filled: true,
               fillColor: AppColors.surfaceContainerLowest,
               contentPadding: const EdgeInsets.all(16),
               border: OutlineInputBorder(
                 borderRadius: AppRadii.structuralRadius,
-                borderSide: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                borderSide: BorderSide(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: AppRadii.structuralRadius,
-                borderSide: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                borderSide: BorderSide(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                ),
               ),
               focusedBorder: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -435,16 +521,24 @@ class _EvidenceCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: selected ? AppColors.surfaceContainerHigh : AppColors.surfaceContainerLow,
+          color: selected
+              ? AppColors.surfaceContainerHigh
+              : AppColors.surfaceContainerLow,
           borderRadius: AppRadii.structuralRadius,
           border: Border.all(
-            color: selected ? AppColors.primaryFixed : AppColors.outlineVariant15,
+            color: selected
+                ? AppColors.primaryFixed
+                : AppColors.outlineVariant15,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: selected ? AppColors.primary : AppColors.outline, size: 22),
+            Icon(
+              icon,
+              color: selected ? AppColors.primary : AppColors.outline,
+              size: 22,
+            ),
             const SizedBox(height: 8),
             Text(
               label,

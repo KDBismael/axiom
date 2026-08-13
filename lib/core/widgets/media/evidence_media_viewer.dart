@@ -21,7 +21,10 @@ Future<void> showEvidenceImageViewer(
 }
 
 class _ImageViewerPage extends StatelessWidget {
-  const _ImageViewerPage({required this.imagePaths, required this.initialIndex});
+  const _ImageViewerPage({
+    required this.imagePaths,
+    required this.initialIndex,
+  });
 
   final List<String> imagePaths;
   final int initialIndex;
@@ -36,7 +39,8 @@ class _ImageViewerPage extends StatelessWidget {
             PageView.builder(
               controller: PageController(initialPage: initialIndex),
               itemCount: imagePaths.length,
-              itemBuilder: (context, index) => _ZoomableAuthenticatedImage(path: imagePaths[index]),
+              itemBuilder: (context, index) =>
+                  _ZoomableAuthenticatedImage(path: imagePaths[index]),
             ),
             Positioned(
               top: 8,
@@ -64,7 +68,9 @@ class _ZoomableAuthenticatedImage extends StatelessWidget {
       future: resolveAuthenticatedMedia(path),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.emerald));
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.emerald),
+          );
         }
         final (url, headers) = snapshot.data!;
         return InteractiveViewer(
@@ -80,12 +86,16 @@ class _ZoomableAuthenticatedImage extends StatelessWidget {
 }
 
 /// Full-screen video player with play/pause and a seek bar.
-Future<void> showEvidenceVideoViewer(BuildContext context, {required String videoPath}) {
+Future<void> showEvidenceVideoViewer(
+  BuildContext context, {
+  required String videoPath,
+}) {
   return Navigator.of(context).push(
     PageRouteBuilder(
       opaque: false,
       barrierColor: Colors.black,
-      pageBuilder: (context, animation, secondaryAnimation) => _VideoViewerPage(videoPath: videoPath),
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          _VideoViewerPage(videoPath: videoPath),
     ),
   );
 }
@@ -101,6 +111,8 @@ class _VideoViewerPage extends StatefulWidget {
 
 class _VideoViewerPageState extends State<_VideoViewerPage> {
   VideoPlayerController? _controller;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -109,22 +121,62 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   }
 
   Future<void> _init() async {
-    final (url, headers) = await resolveAuthenticatedMedia(widget.videoPath);
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(url),
-      httpHeaders: headers ?? const {},
-    );
-    await controller.initialize();
-    if (!mounted) {
-      await controller.dispose();
+    final previous = _controller;
+    _controller = null;
+    previous?.removeListener(_onVideoChanged);
+    await previous?.dispose();
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    VideoPlayerController? controller;
+    try {
+      final (url, headers) = await resolveAuthenticatedMedia(widget.videoPath);
+      controller = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: headers ?? const {},
+      );
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      controller.addListener(_onVideoChanged);
+      setState(() {
+        _controller = controller;
+        _loading = false;
+      });
+      await controller.play();
+    } catch (_) {
+      controller?.removeListener(_onVideoChanged);
+      await controller?.dispose();
+      if (!mounted) return;
+      setState(() {
+        _controller = null;
+        _loading = false;
+        _error = 'Impossible de lire cette vidéo.';
+      });
+    }
+  }
+
+  void _onVideoChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) return;
+    if (controller.value.hasError) {
+      controller.removeListener(_onVideoChanged);
+      setState(() {
+        _error = 'La lecture de cette vidéo a été interrompue.';
+      });
       return;
     }
-    setState(() => _controller = controller);
-    controller.play();
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _controller?.removeListener(_onVideoChanged);
     _controller?.dispose();
     super.dispose();
   }
@@ -138,20 +190,48 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
         child: Stack(
           children: [
             Center(
-              child: controller == null
+              child: _loading
                   ? const CircularProgressIndicator(color: AppColors.emerald)
+                  : _error != null
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _init,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Réessayer'),
+                        ),
+                      ],
+                    )
+                  : controller == null
+                  ? const SizedBox.shrink()
                   : AspectRatio(
                       aspectRatio: controller.value.aspectRatio,
                       child: GestureDetector(
-                        onTap: () => setState(
-                          () => controller.value.isPlaying ? controller.pause() : controller.play(),
-                        ),
+                        onTap: () => controller.value.isPlaying
+                            ? controller.pause()
+                            : controller.play(),
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
                             VideoPlayer(controller),
                             if (!controller.value.isPlaying)
-                              const Icon(Icons.play_arrow, color: Colors.white, size: 64),
+                              const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                                size: 64,
+                              ),
                           ],
                         ),
                       ),
@@ -165,7 +245,9 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
                 child: VideoProgressIndicator(
                   controller,
                   allowScrubbing: true,
-                  colors: const VideoProgressColors(playedColor: AppColors.emerald),
+                  colors: const VideoProgressColors(
+                    playedColor: AppColors.emerald,
+                  ),
                 ),
               ),
             Positioned(
