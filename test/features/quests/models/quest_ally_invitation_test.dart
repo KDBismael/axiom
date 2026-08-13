@@ -7,6 +7,12 @@ void main() {
     test('parses the full quest terms for a staked quest', () {
       final invitation = QuestAllyInvitation.fromJson({
         'invitation': {'status': 'pending'},
+        'inviter': {
+          'id': 'user-1',
+          'firstName': 'Awa',
+          'lastName': 'Koné',
+          'avatarUrl': null,
+        },
         'quest': {
           'id': 'q-1',
           'title': 'Courir tous les jours',
@@ -24,6 +30,8 @@ void main() {
       expect(invitation.status, QuestAllyStatus.pending);
       expect(invitation.questId, 'q-1');
       expect(invitation.title, 'Courir tous les jours');
+      expect(invitation.inviterName, 'Awa Koné');
+      expect(invitation.inviterId, 'user-1');
       expect(invitation.frequency, QuestFrequency.daily);
       expect(invitation.hasStake, isTrue);
       expect(invitation.stakeAmountXof, 5000.0);

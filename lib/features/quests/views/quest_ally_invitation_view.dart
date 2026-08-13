@@ -7,6 +7,7 @@ import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../controllers/quest_ally_invitation_controller.dart';
 import '../controllers/quest_list_controller.dart';
+import '../../social/controllers/allies_controller.dart';
 import '../models/quest_model.dart';
 
 class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
@@ -17,8 +18,11 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
     return Scaffold(
       body: SafeArea(
         child: Obx(() {
-          if (controller.isLoading.value && controller.invitation.value == null) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.emerald));
+          if (controller.isLoading.value &&
+              controller.invitation.value == null) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.emerald),
+            );
           }
           final invitation = controller.invitation.value;
           if (invitation == null) {
@@ -32,7 +36,10 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Text(
@@ -58,17 +65,46 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                     children: [
                       Text(
                         'INVITATION EN TANT QU\'ALLIÉ',
-                        style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                        style: AppTypography.labelMd.copyWith(
+                          color: AppColors.outline,
+                        ),
                       ),
+                      if (invitation.inviterName.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.person_outline,
+                              size: 18,
+                              color: AppColors.emerald,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Invité par ${invitation.inviterName}',
+                                style: AppTypography.bodyMd.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Text(
                         invitation.title,
-                        style: AppTypography.displayLg.copyWith(color: AppColors.primary),
+                        style: AppTypography.displayLg.copyWith(
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         invitation.description,
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.outline, height: 1.5),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.outline,
+                          height: 1.5,
+                        ),
                       ),
                       const SizedBox(height: 24),
                       Container(
@@ -77,14 +113,21 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                           color: AppColors.surfaceContainerLow,
                           borderRadius: AppRadii.structuralRadius,
                           border: const Border(
-                            left: BorderSide(color: AppColors.emerald, width: 4),
+                            left: BorderSide(
+                              color: AppColors.emerald,
+                              width: 4,
+                            ),
                           ),
                         ),
                         child: Text(
-                          "En acceptant, vous vous engagez à valider les preuves de cette quête, "
+                          "En acceptant, vous rejoindrez cette quête et deviendrez allié avec son propriétaire. "
+                          "Vous vous engagez à valider les preuves de cette quête, "
                           "à approuver une éventuelle demande de suppression, et vous pourriez "
                           "recevoir une part de la mise si la quête échoue.",
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.primary, height: 1.6),
+                          style: AppTypography.bodyMd.copyWith(
+                            color: AppColors.primary,
+                            height: 1.6,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -95,7 +138,10 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                             : 'Hebdomadaire',
                       ),
                       const SizedBox(height: 8),
-                      _InfoRow(label: 'Durée', value: '${invitation.durationDays} jours'),
+                      _InfoRow(
+                        label: 'Durée',
+                        value: '${invitation.durationDays} jours',
+                      ),
                       if (invitation.hasStake) ...[
                         const SizedBox(height: 8),
                         _InfoRow(
@@ -106,7 +152,9 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                         const SizedBox(height: 8),
                         _InfoRow(
                           label: 'Distribution en cas d\'échec',
-                          value: invitation.fundsDistribution == FundsDistribution.charity
+                          value:
+                              invitation.fundsDistribution ==
+                                  FundsDistribution.charity
                               ? 'Association'
                               : 'Alliés',
                         ),
@@ -120,7 +168,12 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                 if (error == null) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                  child: Text(error, style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
+                  child: Text(
+                    error,
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
                 );
               }),
               if (invitation.status != QuestAllyStatus.pending)
@@ -162,9 +215,12 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                           onPressed: controller.isResponding.value
                               ? null
                               : () async {
-                                  final ok = await controller.respond(accept: false);
+                                  final ok = await controller.respond(
+                                    accept: false,
+                                  );
                                   if (ok) {
-                                    Get.find<QuestListController>().loadPendingAllyInvitations();
+                                    await Get.find<QuestListController>()
+                                        .loadPendingAllyInvitations();
                                     Get.back();
                                   }
                                 },
@@ -179,9 +235,19 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                           onPressed: controller.isResponding.value
                               ? null
                               : () async {
-                                  final ok = await controller.respond(accept: true);
+                                  final ok = await controller.respond(
+                                    accept: true,
+                                  );
                                   if (ok) {
-                                    Get.find<QuestListController>().loadPendingAllyInvitations();
+                                    await Future.wait([
+                                      Get.find<QuestListController>()
+                                          .loadPendingAllyInvitations(),
+                                      Get.find<QuestListController>()
+                                          .loadQuests(),
+                                      Get.find<AlliesController>().loadAllies(),
+                                      Get.find<AlliesController>()
+                                          .loadAllyRequests(),
+                                    ]);
                                     Get.back();
                                   }
                                 },
@@ -209,7 +275,10 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(label, style: AppTypography.bodyMd.copyWith(color: AppColors.outline)),
+        Text(
+          label,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+        ),
         const Spacer(),
         Text(
           value,

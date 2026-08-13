@@ -29,14 +29,17 @@ class QuestListController extends GetxController {
 
   Future<void> loadPendingAllyInvitations() async {
     try {
-      pendingAllyInvitations.assignAll(await _repository.fetchMyAllyInvitations());
+      pendingAllyInvitations.assignAll(
+        await _repository.fetchMyAllyInvitations(),
+      );
     } on QuestException catch (e) {
       errorMessage.value = e.message;
     }
   }
 
   Future<void> loadQuests() async {
-    isLoading.value = true;
+    final showInitialLoader = quests.isEmpty;
+    if (showInitialLoader) isLoading.value = true;
     errorMessage.value = null;
     try {
       final data = await _repository.fetchQuests();
@@ -44,7 +47,7 @@ class QuestListController extends GetxController {
     } on QuestException catch (e) {
       errorMessage.value = e.message;
     } finally {
-      isLoading.value = false;
+      if (showInitialLoader) isLoading.value = false;
     }
   }
 
@@ -92,7 +95,8 @@ class QuestListController extends GetxController {
     }
   }
 
-  Future<List<CheckIn>> fetchCheckIns(String questId) => _repository.fetchCheckIns(questId);
+  Future<List<CheckIn>> fetchCheckIns(String questId) =>
+      _repository.fetchCheckIns(questId);
 
   Future<String> uploadEvidenceFile(PickedEvidence picked) =>
       _repository.uploadEvidenceFile(picked);
@@ -159,7 +163,9 @@ class QuestListController extends GetxController {
   Future<bool> updateDescription(String questId, String description) async {
     errorMessage.value = null;
     try {
-      final updated = await _repository.updateQuest(questId, {'description': description});
+      final updated = await _repository.updateQuest(questId, {
+        'description': description,
+      });
       final index = quests.indexWhere((q) => q.id == questId);
       if (index != -1) quests[index] = updated;
       return true;
@@ -172,11 +178,16 @@ class QuestListController extends GetxController {
   /// Quests still actionable from the dashboard — ongoing or awaiting stake
   /// payment before they start.
   List<QuestModel> get activeQuests => quests
-      .where((q) => q.status == QuestStatus.active || q.status == QuestStatus.pendingPayment)
+      .where(
+        (q) =>
+            q.status == QuestStatus.active ||
+            q.status == QuestStatus.pendingPayment,
+      )
       .toList();
 
   /// Finished quests — shown in the History tab.
-  List<QuestModel> get historyQuests => quests.where((q) => q.isFinished).toList();
+  List<QuestModel> get historyQuests =>
+      quests.where((q) => q.isFinished).toList();
 
   /// The pending deletion request for a quest, if any — populated by
   /// [requestDeletion]/[loadDeletionRequest].
@@ -184,7 +195,9 @@ class QuestListController extends GetxController {
 
   Future<void> loadDeletionRequest(String questId) async {
     try {
-      deletionRequests[questId] = await _repository.fetchDeletionRequest(questId);
+      deletionRequests[questId] = await _repository.fetchDeletionRequest(
+        questId,
+      );
     } on QuestException catch (e) {
       errorMessage.value = e.message;
     }
@@ -214,7 +227,11 @@ class QuestListController extends GetxController {
   }) async {
     errorMessage.value = null;
     try {
-      await _repository.voteOnDeletionRequest(questId, requestId, approve: approve);
+      await _repository.voteOnDeletionRequest(
+        questId,
+        requestId,
+        approve: approve,
+      );
       await loadDeletionRequest(questId);
     } on QuestException catch (e) {
       errorMessage.value = e.message;

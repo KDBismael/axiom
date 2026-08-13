@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:axiom/features/quests/controllers/quest_list_controller.dart';
@@ -51,8 +53,9 @@ void main() {
 
   group('QuestListController.loadQuests', () {
     test('populates quests on success', () async {
-      when(() => mockRepository.fetchQuests())
-          .thenAnswer((_) async => [quest(id: 'q-1'), quest(id: 'q-2')]);
+      when(
+        () => mockRepository.fetchQuests(),
+      ).thenAnswer((_) async => [quest(id: 'q-1'), quest(id: 'q-2')]);
 
       await controller.loadQuests();
 
@@ -61,30 +64,58 @@ void main() {
     });
 
     test('surfaces the backend French message on failure', () async {
-      when(() => mockRepository.fetchQuests()).thenThrow(QuestException('Non authentifié'));
+      when(
+        () => mockRepository.fetchQuests(),
+      ).thenThrow(QuestException('Non authentifié'));
 
       await controller.loadQuests();
 
       expect(controller.errorMessage.value, 'Non authentifié');
       expect(controller.quests, isEmpty);
     });
+
+    test('keeps existing dashboard content visible during refresh', () async {
+      controller.quests
+        ..clear()
+        ..add(quest());
+      controller.isLoading.value = false;
+      final response = Completer<List<QuestModel>>();
+      when(
+        () => mockRepository.fetchQuests(),
+      ).thenAnswer((_) => response.future);
+
+      final refresh = controller.loadQuests();
+
+      expect(controller.isLoading.value, isFalse);
+      expect(controller.quests, hasLength(1));
+      response.complete([quest(id: 'q-2')]);
+      await refresh;
+      expect(controller.quests.single.id, 'q-2');
+    });
   });
 
   group('QuestListController.createQuest', () {
     test('sends the payload and appends the created quest', () async {
-      when(() => mockRepository.createQuest(any())).thenAnswer((_) async => quest(id: 'new-1'));
+      when(
+        () => mockRepository.createQuest(any()),
+      ).thenAnswer((_) async => quest(id: 'new-1'));
 
       await controller.createQuest({'title': 'Gym'});
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single as Map;
+          verify(() => mockRepository.createQuest(captureAny())).captured.single
+              as Map;
       expect(captured['title'], 'Gym');
       expect(controller.findById('new-1'), isNotNull);
     });
 
     test('a quest created with hasStake renders as pending_payment', () async {
       when(() => mockRepository.createQuest(any())).thenAnswer(
-        (_) async => quest(id: 'stake-1', status: QuestStatus.pendingPayment, hasStake: true),
+        (_) async => quest(
+          id: 'stake-1',
+          status: QuestStatus.pendingPayment,
+          hasStake: true,
+        ),
       );
 
       await controller.createQuest({'title': 'Gym', 'hasStake': true});
@@ -95,17 +126,25 @@ void main() {
 
   group('QuestListController.checkIn', () {
     test('refreshes the quest in place on success', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
-      when(() => mockRepository.checkIn(
-            'q-1',
-            date: any(named: 'date'),
-            proofType: any(named: 'proofType'),
-            fileId: any(named: 'fileId'),
-            textContent: any(named: 'textContent'),
-            description: any(named: 'description'),
-          )).thenAnswer(
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      when(
+        () => mockRepository.checkIn(
+          'q-1',
+          date: any(named: 'date'),
+          proofType: any(named: 'proofType'),
+          fileId: any(named: 'fileId'),
+          textContent: any(named: 'textContent'),
+          description: any(named: 'description'),
+        ),
+      ).thenAnswer(
         (_) async => CheckInResult(
-          checkIn: CheckIn(id: 'ci-1', questId: 'q-1', date: DateTime(2026, 1, 2)),
+          checkIn: CheckIn(
+            id: 'ci-1',
+            questId: 'q-1',
+            date: DateTime(2026, 1, 2),
+          ),
           streakDays: 2,
           progress: 0.2,
           currentPeriodCount: 1,
@@ -123,66 +162,105 @@ void main() {
     });
 
     test('surfaces the dedup 409 French message without throwing', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
-      when(() => mockRepository.checkIn(
-            'q-1',
-            date: any(named: 'date'),
-            proofType: any(named: 'proofType'),
-            fileId: any(named: 'fileId'),
-            textContent: any(named: 'textContent'),
-            description: any(named: 'description'),
-          )).thenThrow(QuestException("Vous avez déjà validé aujourd'hui"));
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      when(
+        () => mockRepository.checkIn(
+          'q-1',
+          date: any(named: 'date'),
+          proofType: any(named: 'proofType'),
+          fileId: any(named: 'fileId'),
+          textContent: any(named: 'textContent'),
+          description: any(named: 'description'),
+        ),
+      ).thenThrow(QuestException("Vous avez déjà validé aujourd'hui"));
 
       await controller.checkIn('q-1');
 
-      expect(controller.errorMessage.value, "Vous avez déjà validé aujourd'hui");
+      expect(
+        controller.errorMessage.value,
+        "Vous avez déjà validé aujourd'hui",
+      );
     });
 
     test('surfaces the no-ally 400 French message', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
-      when(() => mockRepository.checkIn(
-            'q-1',
-            date: any(named: 'date'),
-            proofType: any(named: 'proofType'),
-            fileId: any(named: 'fileId'),
-            textContent: any(named: 'textContent'),
-            description: any(named: 'description'),
-          )).thenThrow(QuestException('Un allié accepté est requis pour soumettre une preuve'));
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      when(
+        () => mockRepository.checkIn(
+          'q-1',
+          date: any(named: 'date'),
+          proofType: any(named: 'proofType'),
+          fileId: any(named: 'fileId'),
+          textContent: any(named: 'textContent'),
+          description: any(named: 'description'),
+        ),
+      ).thenThrow(
+        QuestException('Un allié accepté est requis pour soumettre une preuve'),
+      );
 
-      await controller.checkIn('q-1', proofType: ProofType.photo, fileId: 'f-1');
+      await controller.checkIn(
+        'q-1',
+        proofType: ProofType.photo,
+        fileId: 'f-1',
+      );
 
-      expect(controller.errorMessage.value, 'Un allié accepté est requis pour soumettre une preuve');
+      expect(
+        controller.errorMessage.value,
+        'Un allié accepté est requis pour soumettre une preuve',
+      );
     });
   });
 
   group('QuestListController.refreshQuest', () {
-    test('replaces the quest in place with the single-fetch result (allies included)', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
-      final withAllies = quest(id: 'q-1').copyWith();
-      when(() => mockRepository.fetchQuest('q-1')).thenAnswer((_) async => withAllies);
+    test(
+      'replaces the quest in place with the single-fetch result (allies included)',
+      () async {
+        controller.quests
+          ..clear()
+          ..addAll([quest(id: 'q-1')]);
+        final withAllies = quest(id: 'q-1').copyWith();
+        when(
+          () => mockRepository.fetchQuest('q-1'),
+        ).thenAnswer((_) async => withAllies);
 
-      await controller.refreshQuest('q-1');
+        await controller.refreshQuest('q-1');
 
-      expect(controller.findById('q-1'), same(withAllies));
-    });
+        expect(controller.findById('q-1'), same(withAllies));
+      },
+    );
   });
 
   group('QuestListController.updateDescription', () {
     test('PATCHes and replaces the quest on success', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
-      when(() => mockRepository.updateQuest('q-1', {'description': 'Nouvelle description'}))
-          .thenAnswer((_) async => quest(id: 'q-1'));
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      when(
+        () => mockRepository.updateQuest('q-1', {
+          'description': 'Nouvelle description',
+        }),
+      ).thenAnswer((_) async => quest(id: 'q-1'));
 
-      final ok = await controller.updateDescription('q-1', 'Nouvelle description');
+      final ok = await controller.updateDescription(
+        'q-1',
+        'Nouvelle description',
+      );
 
       expect(ok, isTrue);
-      verify(() => mockRepository.updateQuest('q-1', {'description': 'Nouvelle description'}))
-          .called(1);
+      verify(
+        () => mockRepository.updateQuest('q-1', {
+          'description': 'Nouvelle description',
+        }),
+      ).called(1);
     });
 
     test('surfaces the backend error and returns false on failure', () async {
-      when(() => mockRepository.updateQuest(any(), any()))
-          .thenThrow(QuestException('Erreur'));
+      when(
+        () => mockRepository.updateQuest(any(), any()),
+      ).thenThrow(QuestException('Erreur'));
 
       final ok = await controller.updateDescription('q-1', 'x');
 
@@ -193,7 +271,9 @@ void main() {
 
   group('QuestListController.requestDeletion', () {
     test('removes the quest from the list when deleted immediately', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
       when(() => mockRepository.requestDeletion('q-1')).thenAnswer(
         (_) async => const QuestDeletionOutcome(deleted: true, pending: false),
       );
@@ -205,9 +285,15 @@ void main() {
     });
 
     test('removes the quest from the list when cancelled+refunded', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
       when(() => mockRepository.requestDeletion('q-1')).thenAnswer(
-        (_) async => const QuestDeletionOutcome(deleted: false, pending: false, cancelled: true),
+        (_) async => const QuestDeletionOutcome(
+          deleted: false,
+          pending: false,
+          cancelled: true,
+        ),
       );
 
       final outcome = await controller.requestDeletion('q-1');
@@ -217,7 +303,9 @@ void main() {
     });
 
     test('keeps the quest and loads the pending request tally', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
       when(() => mockRepository.requestDeletion('q-1')).thenAnswer(
         (_) async => const QuestDeletionOutcome(
           deleted: false,
@@ -244,8 +332,10 @@ void main() {
 
   group('QuestListController.voteOnDeletionRequest', () {
     test('votes then reloads the deletion request', () async {
-      when(() => mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true))
-          .thenAnswer((_) async {});
+      when(
+        () =>
+            mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true),
+      ).thenAnswer((_) async {});
       when(() => mockRepository.fetchDeletionRequest('q-1')).thenAnswer(
         (_) async => const QuestDeletionRequest(
           id: 'req-1',
@@ -256,15 +346,24 @@ void main() {
 
       await controller.voteOnDeletionRequest('q-1', 'req-1', approve: true);
 
-      expect(controller.deletionRequests['q-1']!.status, QuestDeletionRequestStatus.approved);
+      expect(
+        controller.deletionRequests['q-1']!.status,
+        QuestDeletionRequestStatus.approved,
+      );
     });
   });
 
   group('QuestListController.inviteAllies', () {
     test('invites then refreshes the quest, returning true', () async {
-      controller.quests..clear()..addAll([quest(id: 'q-1')]);
-      when(() => mockRepository.inviteAllies('q-1', ['ally-1'])).thenAnswer((_) async {});
-      when(() => mockRepository.fetchQuest('q-1')).thenAnswer((_) async => quest(id: 'q-1'));
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      when(
+        () => mockRepository.inviteAllies('q-1', ['ally-1']),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockRepository.fetchQuest('q-1'),
+      ).thenAnswer((_) async => quest(id: 'q-1'));
 
       final ok = await controller.inviteAllies('q-1', ['ally-1']);
 
@@ -273,8 +372,11 @@ void main() {
     });
 
     test('surfaces the backend error and returns false on failure', () async {
-      when(() => mockRepository.inviteAllies(any(), any()))
-          .thenThrow(QuestException('Un ou plusieurs alliés ont déjà été invités sur cette quête'));
+      when(() => mockRepository.inviteAllies(any(), any())).thenThrow(
+        QuestException(
+          'Un ou plusieurs alliés ont déjà été invités sur cette quête',
+        ),
+      );
 
       final ok = await controller.inviteAllies('q-1', ['ally-1']);
 
@@ -339,12 +441,16 @@ void main() {
       await controller.loadPendingAllyInvitations();
 
       expect(controller.pendingAllyInvitations, hasLength(1));
-      expect(controller.pendingAllyInvitations.single.questTitle, 'Courir tous les jours');
+      expect(
+        controller.pendingAllyInvitations.single.questTitle,
+        'Courir tous les jours',
+      );
     });
 
     test('surfaces the backend error on failure', () async {
-      when(() => mockRepository.fetchMyAllyInvitations())
-          .thenThrow(QuestException('Non authentifié'));
+      when(
+        () => mockRepository.fetchMyAllyInvitations(),
+      ).thenThrow(QuestException('Non authentifié'));
 
       await controller.loadPendingAllyInvitations();
 

@@ -1,3 +1,47 @@
+import 'dart:math' as math;
+
+int expectedQuestPeriods(QuestFrequency frequency, int durationDays) =>
+    frequency == QuestFrequency.weekly
+    ? (durationDays / 7).ceil()
+    : durationDays;
+
+int requiredQuestPeriods({
+  required QuestFrequency frequency,
+  required int durationDays,
+  required int successThresholdPercent,
+}) {
+  final expected = expectedQuestPeriods(frequency, durationDays);
+  return ((successThresholdPercent / 100) * expected).ceil();
+}
+
+int toleratedMissedPeriods({
+  required QuestFrequency frequency,
+  required int durationDays,
+  required int successThresholdPercent,
+}) {
+  final expected = expectedQuestPeriods(frequency, durationDays);
+  return math.max(
+    0,
+    expected -
+        requiredQuestPeriods(
+          frequency: frequency,
+          durationDays: durationDays,
+          successThresholdPercent: successThresholdPercent,
+        ),
+  );
+}
+
+int successThresholdForMissedPeriods({
+  required QuestFrequency frequency,
+  required int durationDays,
+  required int missedPeriods,
+}) {
+  final expected = math.max(1, expectedQuestPeriods(frequency, durationDays));
+  final missed = missedPeriods.clamp(0, expected - 1);
+  final required = expected - missed;
+  return math.max(1, (required * 100) ~/ expected);
+}
+
 enum QuestFrequency {
   daily,
   weekly;
@@ -179,8 +223,8 @@ class QuestModel {
       allies: json['allies'] == null
           ? const []
           : (json['allies'] as List)
-              .map((a) => QuestAllyRef.fromJson(a as Map<String, dynamic>))
-              .toList(),
+                .map((a) => QuestAllyRef.fromJson(a as Map<String, dynamic>))
+                .toList(),
     );
   }
 

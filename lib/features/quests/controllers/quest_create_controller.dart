@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../models/quest_model.dart';
@@ -6,6 +8,15 @@ import 'quest_list_controller.dart';
 class QuestCreateController extends GetxController {
   QuestCreateController(this._listController) {
     titleController.addListener(() => titleText.value = titleController.text);
+    durationController.addListener(
+      () => durationText.value = durationController.text,
+    );
+    targetPerPeriodController.addListener(
+      () => targetPerPeriodText.value = targetPerPeriodController.text,
+    );
+    gracePeriodController.addListener(
+      () => gracePeriodText.value = gracePeriodController.text,
+    );
     stakeController.addListener(() => stakeText.value = stakeController.text);
   }
 
@@ -14,6 +25,7 @@ class QuestCreateController extends GetxController {
   /// Title/Description → Schedule & Rules → Allies (optional) → Stake
   /// (optional) → Review.
   static const stepCount = 5;
+  static const paymentsEnabled = false;
 
   final currentStep = 0.obs;
 
@@ -22,14 +34,16 @@ class QuestCreateController extends GetxController {
   final durationController = TextEditingController(text: '30');
   final targetPerPeriodController = TextEditingController(text: '1');
   final gracePeriodController = TextEditingController(text: '0');
-  final successThresholdController = TextEditingController(text: '80');
   final stakeController = TextEditingController();
+  final allySearchController = TextEditingController();
+  bool questSearchInitialized = false;
 
   final frequency = QuestFrequency.daily.obs;
   final startDate = Rx<DateTime>(DateTime.now());
   final deadline = Rx<DateTime>(DateTime.now().add(const Duration(days: 30)));
   final riskLevel = QuestRiskLevel.medium.obs;
   final requiresProof = false.obs;
+  final successThresholdPercent = 80.obs;
   final hasStake = false.obs;
   final fundsDistribution = FundsDistribution.allies.obs;
 
@@ -48,6 +62,9 @@ class QuestCreateController extends GetxController {
   /// changes aren't observed by `Obx` on their own, so the footer's
   /// "SUIVANT" enabled-state reads this instead of the raw controller.
   final titleText = ''.obs;
+  final durationText = '30'.obs;
+  final targetPerPeriodText = '1'.obs;
+  final gracePeriodText = '0'.obs;
 
   /// Same mirroring as [titleText], for the stake amount.
   final stakeText = ''.obs;
@@ -55,6 +72,31 @@ class QuestCreateController extends GetxController {
   bool get canProceedFromTitle => titleText.value.trim().isNotEmpty;
 
   bool get hasStakeAmount => double.tryParse(stakeText.value.trim()) != null;
+
+  int get durationDays => math.max(1, int.tryParse(durationText.value) ?? 30);
+  int get expectedPeriods =>
+      expectedQuestPeriods(frequency.value, durationDays);
+  int get requiredPeriods => requiredQuestPeriods(
+    frequency: frequency.value,
+    durationDays: durationDays,
+    successThresholdPercent: successThresholdPercent.value,
+  );
+  int get missedPeriodsAllowed => toleratedMissedPeriods(
+    frequency: frequency.value,
+    durationDays: durationDays,
+    successThresholdPercent: successThresholdPercent.value,
+  );
+
+  void setMissedPeriodsAllowed(int value) {
+    successThresholdPercent.value = successThresholdForMissedPeriods(
+      frequency: frequency.value,
+      durationDays: durationDays,
+      missedPeriods: value,
+    );
+  }
+
+  int get targetPerPeriod =>
+      math.max(1, int.tryParse(targetPerPeriodText.value) ?? 1);
 
   void nextStep() {
     if (currentStep.value == 0 && !canProceedFromTitle) return;
@@ -79,14 +121,18 @@ class QuestCreateController extends GetxController {
         'targetPerPeriod': int.tryParse(targetPerPeriodController.text) ?? 1,
         'startDate': startDate.value.toIso8601String(),
         'deadline': deadline.value.toIso8601String(),
-        'gracePeriodDays': int.tryParse(gracePeriodController.text) ?? 0,
+        'gracePeriodDays': math.max(
+          0,
+          int.tryParse(gracePeriodController.text) ?? 0,
+        ),
         'riskLevel': riskLevel.value.toJson(),
         'requiresProof': requiresProof.value,
-        'successThresholdPercent': int.tryParse(successThresholdController.text) ?? 80,
-        'hasStake': hasStake.value,
-        if (hasStake.value)
+        'successThresholdPercent': successThresholdPercent.value,
+        'hasStake': paymentsEnabled && hasStake.value,
+        if (paymentsEnabled && hasStake.value)
           'stakeAmountXof': double.tryParse(stakeController.text) ?? 0,
-        if (hasStake.value) 'fundsDistribution': fundsDistribution.value.toJson(),
+        if (paymentsEnabled && hasStake.value)
+          'fundsDistribution': fundsDistribution.value.toJson(),
         if (selectedAllyIds.isNotEmpty) 'allyUserIds': selectedAllyIds.toList(),
       };
 
@@ -108,8 +154,8 @@ class QuestCreateController extends GetxController {
     durationController.dispose();
     targetPerPeriodController.dispose();
     gracePeriodController.dispose();
-    successThresholdController.dispose();
     stakeController.dispose();
+    allySearchController.dispose();
     super.onClose();
   }
 }

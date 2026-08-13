@@ -15,6 +15,10 @@ class QuestAllyInvitation {
     required this.startDate,
     required this.deadline,
     required this.hasStake,
+    this.inviterId,
+    this.inviterFirstName,
+    this.inviterLastName,
+    this.inviterAvatarUrl,
     this.stakeAmountXof,
     this.fundsDistribution,
   });
@@ -28,12 +32,17 @@ class QuestAllyInvitation {
   final DateTime startDate;
   final DateTime deadline;
   final bool hasStake;
+  final String? inviterId;
+  final String? inviterFirstName;
+  final String? inviterLastName;
+  final String? inviterAvatarUrl;
   final double? stakeAmountXof;
   final FundsDistribution? fundsDistribution;
 
   factory QuestAllyInvitation.fromJson(Map<String, dynamic> json) {
     final invitation = json['invitation'] as Map<String, dynamic>;
     final quest = json['quest'] as Map<String, dynamic>;
+    final inviter = json['inviter'] as Map<String, dynamic>?;
     return QuestAllyInvitation(
       status: QuestAllyStatus.fromJson(invitation['status'] as String),
       questId: quest['id'] as String,
@@ -44,12 +53,21 @@ class QuestAllyInvitation {
       startDate: DateTime.parse(quest['startDate'] as String),
       deadline: DateTime.parse(quest['deadline'] as String),
       hasStake: quest['hasStake'] as bool,
+      inviterId: inviter?['id'] as String?,
+      inviterFirstName: inviter?['firstName'] as String?,
+      inviterLastName: inviter?['lastName'] as String?,
+      inviterAvatarUrl: inviter?['avatarUrl'] as String?,
       stakeAmountXof: _parseDouble(quest['stakeAmountXof']),
       fundsDistribution: quest['fundsDistribution'] == null
           ? null
           : FundsDistribution.fromJson(quest['fundsDistribution'] as String),
     );
   }
+
+  String get inviterName => [
+    inviterFirstName,
+    inviterLastName,
+  ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' ');
 
   static double? _parseDouble(dynamic value) {
     if (value == null) return null;

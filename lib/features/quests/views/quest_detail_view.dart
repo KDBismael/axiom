@@ -10,6 +10,7 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/progress/segmented_progress.dart';
 import '../../social/controllers/allies_controller.dart';
 import '../../social/models/ally.dart';
+import '../../social/models/user_search_result.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
 import '../models/quest_deletion_request.dart';
@@ -264,14 +265,16 @@ class _QuestDetailBody extends GetView<QuestListController> {
           ),
           const SizedBox(height: 8),
           _MetadataRow(
-            label: 'Seuil de réussite',
-            value: '${quest.successThresholdPercent}%',
+            label: 'Absences tolérées',
+            value:
+                '${toleratedMissedPeriods(frequency: quest.frequency, durationDays: quest.durationDays, successThresholdPercent: quest.successThresholdPercent)} '
+                '${quest.frequency == QuestFrequency.daily ? 'jour(s)' : 'semaine(s)'}',
           ),
           const SizedBox(height: 8),
           _MetadataRow(label: 'Échéance', value: _formatDate(quest.deadline)),
           const SizedBox(height: 8),
           _MetadataRow(
-            label: 'Période de grâce',
+            label: 'Rattrapage après échéance',
             value: '${quest.gracePeriodDays} jour(s)',
             valueColor: AppColors.emerald,
           ),
@@ -341,7 +344,7 @@ class _QuestDetailBody extends GetView<QuestListController> {
       backgroundColor: AppColors.surfaceContainerLow,
       builder: (context) => _InviteAlliesSheet(
         questId: quest.id,
-        hasAnyAllies: allies.allies.isNotEmpty,
+        excludedUserIds: alreadyOnQuest,
         candidates: allies.allies
             .where((a) => !alreadyOnQuest.contains(a.id))
             .toList(),
@@ -452,16 +455,14 @@ class _QuestDetailBody extends GetView<QuestListController> {
 class _InviteAlliesSheet extends StatefulWidget {
   const _InviteAlliesSheet({
     required this.questId,
-    required this.hasAnyAllies,
+    required this.excludedUserIds,
     required this.candidates,
     required this.controller,
   });
 
   final String questId;
 
-  /// Whether the user has any accepted global allies at all — distinguishes
-  /// "you have no friends yet" from "all your friends are already invited".
-  final bool hasAnyAllies;
+  final Set<String> excludedUserIds;
   final List<Ally> candidates;
   final QuestListController controller;
 
@@ -471,7 +472,20 @@ class _InviteAlliesSheet extends StatefulWidget {
 
 class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
   final _selectedIds = <String>{};
+  final _searchController = TextEditingController();
   bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Get.find<AlliesController>().clearSearch();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> _send() async {
     if (_selectedIds.isEmpty) return;
@@ -504,26 +518,23 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
               style: AppTypography.labelMd.copyWith(color: AppColors.outline),
             ),
             const SizedBox(height: 16),
-            if (!widget.hasAnyAllies) ...[
-              Text(
-                "Vous n'avez pas encore d'alliés. Invitez d'abord des amis sur Ndeli, "
-                "puis revenez ici pour les ajouter à cette quête.",
-                style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                Get.find<AlliesController>().search(value);
+              },
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Rechercher un membre Ndeli…',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              AppButton(
-                label: 'INVITER DES AMIS',
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  Get.toNamed(AppRoutes.inviteFriends);
-                },
-              ),
-            ] else if (widget.candidates.isEmpty)
+            ),
+            const SizedBox(height: 16),
+            if (widget.candidates.isNotEmpty) ...[
               Text(
-                'Tous vos alliés sont déjà invités sur cette quête.',
-                style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-              )
-            else
+                'VOS ALLIÉS',
+                style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+              ),
               for (final ally in widget.candidates)
                 CheckboxListTile(
                   value: _selectedIds.contains(ally.id),
@@ -544,7 +555,76 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
-            if (widget.candidates.isNotEmpty) ...[
+            ],
+            Obx(() {
+              final allies = Get.find<AlliesController>();
+              final query = allies.searchQuery.value;
+              final acceptedIds = widget.candidates
+                  .map((ally) => ally.id)
+                  .toSet();
+              final members = query.length < 2
+                  ? const <UserSearchResult>[]
+                  : allies.searchResults
+                        .where(
+                          (user) =>
+                              !widget.excludedUserIds.contains(user.id) &&
+                              !acceptedIds.contains(user.id),
+                        )
+                        .toList();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (members.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'AUTRES MEMBRES',
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                    for (final user in members)
+                      CheckboxListTile(
+                        value: _selectedIds.contains(user.id),
+                        onChanged: (checked) => setState(() {
+                          checked == true
+                              ? _selectedIds.add(user.id)
+                              : _selectedIds.remove(user.id);
+                        }),
+                        title: Text(
+                          '${user.firstName} ${user.lastName}',
+                          style: AppTypography.bodyMd.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        activeColor: AppColors.emerald,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                  ],
+                  if (query.length >= 2 && allies.isSearching.value)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.emerald,
+                      ),
+                    ),
+                  if (query.length >= 2 &&
+                      !allies.isSearching.value &&
+                      members.isEmpty)
+                    Text(
+                      'Aucun autre membre trouvé.',
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                ],
+              );
+            }),
+            const SizedBox(height: 12),
+            Text(
+              'En acceptant, cette personne rejoindra votre quête et deviendra votre alliée.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            ),
+            ...[
               const SizedBox(height: 16),
               AppButton(
                 label: 'ENVOYER LES INVITATIONS',
@@ -636,7 +716,8 @@ class _CheckInRow extends StatelessWidget {
     final reviewComment = latestEvidence?.reviewComment;
     final hasReviewComment = reviewComment != null && reviewComment.isNotEmpty;
     final submitterComment = latestEvidence?.description;
-    final hasSubmitterComment = submitterComment != null && submitterComment.isNotEmpty;
+    final hasSubmitterComment =
+        submitterComment != null && submitterComment.isNotEmpty;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -670,7 +751,9 @@ class _CheckInRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   '${checkIn.date.day.toString().padLeft(2, '0')}/${checkIn.date.month.toString().padLeft(2, '0')}/${checkIn.date.year}',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
               if (latestEvidence != null)

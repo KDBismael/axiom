@@ -11,6 +11,7 @@ import 'package:axiom/features/quests/repositories/quest_repository.dart';
 import 'package:axiom/features/quests/views/quest_create_view.dart';
 import 'package:axiom/features/social/controllers/allies_controller.dart';
 import 'package:axiom/features/social/repositories/social_repository.dart';
+import 'package:axiom/features/social/models/user_search_result.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
 
@@ -27,8 +28,12 @@ void main() {
   void putAlliesController() {
     final mockSocialRepository = MockSocialRepository();
     when(() => mockSocialRepository.fetchAllies()).thenAnswer((_) async => []);
-    when(() => mockSocialRepository.fetchInvitations()).thenAnswer((_) async => []);
-    when(() => mockSocialRepository.fetchAllyRequests()).thenAnswer((_) async => []);
+    when(
+      () => mockSocialRepository.fetchInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockSocialRepository.fetchAllyRequests(),
+    ).thenAnswer((_) async => []);
     Get.put<AlliesController>(AlliesController(mockSocialRepository));
   }
 
@@ -51,7 +56,9 @@ void main() {
       fundsDistribution: payload['fundsDistribution'] == null
           ? null
           : FundsDistribution.fromJson(payload['fundsDistribution'] as String),
-      status: (payload['hasStake'] as bool) ? QuestStatus.pendingPayment : QuestStatus.active,
+      status: (payload['hasStake'] as bool)
+          ? QuestStatus.pendingPayment
+          : QuestStatus.active,
       progress: 0,
       streakDays: 0,
     );
@@ -62,14 +69,22 @@ void main() {
   ) async {
     final mockRepository = MockQuestRepository();
     when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
-    when(() => mockRepository.fetchMyAllyInvitations()).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
     when(() => mockRepository.createQuest(any())).thenAnswer(
-      (invocation) async => createdQuest(invocation.positionalArguments.single as Map<String, dynamic>),
+      (invocation) async => createdQuest(
+        invocation.positionalArguments.single as Map<String, dynamic>,
+      ),
     );
 
     putAlliesController();
-    final listController = Get.put<QuestListController>(QuestListController(mockRepository));
-    Get.lazyPut<QuestCreateController>(() => QuestCreateController(listController));
+    final listController = Get.put<QuestListController>(
+      QuestListController(mockRepository),
+    );
+    Get.lazyPut<QuestCreateController>(
+      () => QuestCreateController(listController),
+    );
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -100,6 +115,12 @@ void main() {
     await tester.pump();
     expect(controller.currentStep.value, 1);
     expect(find.text('DURÉE'), findsOneWidget);
+    expect(find.text('ABSENCES TOLÉRÉES'), findsOneWidget);
+    expect(find.text('6 jours sans conséquence'), findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget);
+    expect(find.text('PLUS SOUPLE'), findsOneWidget);
+    expect(find.text('PLUS STRICT'), findsOneWidget);
+    expect(find.text('JOURS DE RATTRAPAGE APRÈS L’ÉCHÉANCE'), findsOneWidget);
 
     // Step 2 -> 3 (allies, optional).
     await tester.tap(find.text('SUIVANT'));
@@ -119,6 +140,8 @@ void main() {
     expect(controller.currentStep.value, 4);
     expect(find.text('RÉCAPITULATIF'), findsOneWidget);
     expect(find.text('Méditer 10 minutes'), findsOneWidget);
+    expect(find.text('Absences tolérées'), findsOneWidget);
+    expect(find.text('Rattrapage après échéance'), findsOneWidget);
 
     // Submit.
     await tester.tap(find.text('LANCER LA QUÊTE'));
@@ -133,15 +156,21 @@ void main() {
     );
   });
 
-  testWidgets('enabling the stake toggle reveals the amount field and funds distribution', (
+  testWidgets('payment feature is disabled and marked as coming soon', (
     tester,
   ) async {
     final mockRepository = MockQuestRepository();
     when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
-    when(() => mockRepository.fetchMyAllyInvitations()).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
     putAlliesController();
-    final listController = Get.put<QuestListController>(QuestListController(mockRepository));
-    Get.lazyPut<QuestCreateController>(() => QuestCreateController(listController));
+    final listController = Get.put<QuestListController>(
+      QuestListController(mockRepository),
+    );
+    Get.lazyPut<QuestCreateController>(
+      () => QuestCreateController(listController),
+    );
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -165,18 +194,13 @@ void main() {
     await tester.pump();
     expect(find.text('ENJEU OPTIONNEL'), findsOneWidget);
 
-    // No stake yet: distribution options aren't shown.
     expect(find.text('DISTRIBUTION DES FONDS'), findsNothing);
-
-    controller.hasStake.value = true;
-    await tester.pump();
-    expect(find.text('DISTRIBUTION DES FONDS'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Donner à une association'));
-    await tester.pump();
-    await tester.tap(find.text('Donner à une association'));
-    await tester.pump();
-    expect(controller.fundsDistribution.value, FundsDistribution.charity);
+    expect(
+      find.text('Les enjeux financiers seront bientôt disponibles.'),
+      findsOneWidget,
+    );
+    final stakeSwitch = tester.widget<Switch>(find.byType(Switch));
+    expect(stakeSwitch.onChanged, isNull);
   });
 
   testWidgets('SUIVANT is disabled on step 1 until a title is entered', (
@@ -184,9 +208,15 @@ void main() {
   ) async {
     final mockRepository = MockQuestRepository();
     when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
-    when(() => mockRepository.fetchMyAllyInvitations()).thenAnswer((_) async => []);
-    final listController = Get.put<QuestListController>(QuestListController(mockRepository));
-    Get.lazyPut<QuestCreateController>(() => QuestCreateController(listController));
+    when(
+      () => mockRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
+    final listController = Get.put<QuestListController>(
+      QuestListController(mockRepository),
+    );
+    Get.lazyPut<QuestCreateController>(
+      () => QuestCreateController(listController),
+    );
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -208,5 +238,53 @@ void main() {
     await tester.tap(find.text('SUIVANT'));
     await tester.pump();
     expect(controller.currentStep.value, 0);
+  });
+
+  testWidgets('searches and selects a non-ally for the quest', (tester) async {
+    final questRepository = MockQuestRepository();
+    when(() => questRepository.fetchQuests()).thenAnswer((_) async => []);
+    when(
+      () => questRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
+    final socialRepository = MockSocialRepository();
+    when(() => socialRepository.fetchAllies()).thenAnswer((_) async => []);
+    when(() => socialRepository.fetchInvitations()).thenAnswer((_) async => []);
+    when(
+      () => socialRepository.fetchAllyRequests(),
+    ).thenAnswer((_) async => []);
+    when(() => socialRepository.searchUsers('Awa')).thenAnswer(
+      (_) async => const [
+        UserSearchResult(id: 'user-2', firstName: 'Awa', lastName: 'Koné'),
+      ],
+    );
+
+    Get.put<AlliesController>(AlliesController(socialRepository));
+    final listController = Get.put<QuestListController>(
+      QuestListController(questRepository),
+    );
+    final createController = Get.put<QuestCreateController>(
+      QuestCreateController(listController),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(theme: AppTheme.dark, home: const QuestCreateView()),
+    );
+    createController.currentStep.value = 2;
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField), 'Awa');
+    await tester.pumpAndSettle();
+
+    verify(() => socialRepository.searchUsers('Awa')).called(1);
+    expect(Get.find<AlliesController>().searchResults.single.id, 'user-2');
+    expect(Get.find<AlliesController>().searchQuery.value, 'Awa');
+    expect(Get.find<AlliesController>().allies, isEmpty);
+
+    expect(find.text('AUTRES MEMBRES', skipOffstage: false), findsOneWidget);
+    expect(find.text('AWA KONÉ', skipOffstage: false), findsOneWidget);
+    await tester.ensureVisible(find.text('AWA KONÉ', skipOffstage: false));
+    await tester.tap(find.text('AWA KONÉ', skipOffstage: false));
+    await tester.pump();
+    expect(createController.selectedAllyIds, contains('user-2'));
   });
 }
