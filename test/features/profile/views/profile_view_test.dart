@@ -50,6 +50,11 @@ void main() {
   testWidgets('renders without layout overflow across its full scroll extent', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
     final mockQuestRepository = MockQuestRepository();
     when(() => mockQuestRepository.fetchQuests()).thenAnswer((_) async => []);
     when(

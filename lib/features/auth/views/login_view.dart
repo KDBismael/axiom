@@ -92,13 +92,18 @@ class _LoginViewState extends State<LoginView> {
                 children: [
                   Text(
                     'MOT DE PASSE',
-                    style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                  ),
-                  Text(
-                    'Mot de passe oublié ?',
                     style: AppTypography.labelMd.copyWith(
                       color: AppColors.outline,
-                      fontSize: 10,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Get.toNamed(AppRoutes.forgotPassword),
+                    child: Text(
+                      'Mot de passe oublié ?',
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.emerald,
+                        fontSize: 10,
+                      ),
                     ),
                   ),
                 ],
@@ -111,11 +116,14 @@ class _LoginViewState extends State<LoginView> {
                 decoration: _fieldDecoration(hint: '••••••••').copyWith(
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                       color: AppColors.outlineVariant,
                       size: 20,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),
@@ -126,7 +134,9 @@ class _LoginViewState extends State<LoginView> {
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(
                     error,
-                    style: AppTypography.labelMd.copyWith(color: AppColors.error),
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.error,
+                    ),
                   ),
                 );
               }),
@@ -134,7 +144,8 @@ class _LoginViewState extends State<LoginView> {
               Obx(
                 () => AppButton(
                   label: 'SE CONNECTER',
-                  loading: _authController.activeAction.value == AuthAction.login,
+                  loading:
+                      _authController.activeAction.value == AuthAction.login,
                   onPressed: _authController.isLoading.value ? null : _signIn,
                 ),
               ),
@@ -161,8 +172,11 @@ class _LoginViewState extends State<LoginView> {
                   label: 'Continuer avec Google',
                   variant: AppButtonVariant.secondary,
                   leadingIcon: Icons.g_mobiledata,
-                  loading: _authController.activeAction.value == AuthAction.google,
-                  onPressed: _authController.isLoading.value ? null : _signInWithGoogle,
+                  loading:
+                      _authController.activeAction.value == AuthAction.google,
+                  onPressed: _authController.isLoading.value
+                      ? null
+                      : _signInWithGoogle,
                 ),
               ),
               const SizedBox(height: 12),
@@ -171,8 +185,11 @@ class _LoginViewState extends State<LoginView> {
                   label: 'Continuer avec Apple',
                   variant: AppButtonVariant.secondary,
                   leadingIcon: Icons.apple,
-                  loading: _authController.activeAction.value == AuthAction.apple,
-                  onPressed: _authController.isLoading.value ? null : _signInWithApple,
+                  loading:
+                      _authController.activeAction.value == AuthAction.apple,
+                  onPressed: _authController.isLoading.value
+                      ? null
+                      : _signInWithApple,
                 ),
               ),
               const SizedBox(height: 24),
@@ -198,7 +215,9 @@ class _LoginViewState extends State<LoginView> {
   InputDecoration _fieldDecoration({required String hint}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.outline.withValues(alpha: 0.4)),
+      hintStyle: AppTypography.bodyMd.copyWith(
+        color: AppColors.outline.withValues(alpha: 0.4),
+      ),
       filled: true,
       fillColor: AppColors.surfaceContainerLowest,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import '../../features/auth/views/login_view.dart';
 import '../../features/auth/views/register_view.dart';
+import '../../features/auth/views/forgot_password_view.dart';
 import '../../features/notifications/views/notifications_view.dart';
 import '../../features/onboarding/views/onboarding_view.dart';
 import '../../features/quests/controllers/quest_ally_invitation_controller.dart';
@@ -34,6 +35,10 @@ class AppPages {
     GetPage(name: AppRoutes.onboarding, page: () => const OnboardingView()),
     GetPage(name: AppRoutes.login, page: () => const LoginView()),
     GetPage(name: AppRoutes.register, page: () => const RegisterView()),
+    GetPage(
+      name: AppRoutes.forgotPassword,
+      page: () => const ForgotPasswordView(),
+    ),
     GetPage(
       name: AppRoutes.home,
       page: () => const MainShellView(),

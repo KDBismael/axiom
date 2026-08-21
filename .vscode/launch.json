@@ -2,11 +2,26 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "axiom",
+            "name": "axiom (local, payments disabled)",
             "request": "launch",
             "type": "dart",
             "toolArgs": [
                 "--dart-define=API_BASE_URL=http://localhost:3000",
+                "--dart-define=AXIOM_PAYINS_ENABLED=false",
+                "--dart-define=AXIOM_PAYMENT_ENV=disabled",
+                "--dart-define=AXIOM_GENIUSPAY_SANDBOX_VERIFIED=false",
+                "--dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com"
+            ]
+        },
+        {
+            "name": "axiom (local sandbox pay-ins)",
+            "request": "launch",
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define=API_BASE_URL=${input:sandboxApiBaseUrl}",
+                "--dart-define=AXIOM_PAYINS_ENABLED=true",
+                "--dart-define=AXIOM_PAYMENT_ENV=sandbox",
+                "--dart-define=AXIOM_GENIUSPAY_SANDBOX_VERIFIED=true",
                 "--dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com"
             ]
         },
@@ -16,8 +31,19 @@
             "type": "dart",
             "toolArgs": [
                 "--dart-define=API_BASE_URL=https://server.ndeli.tech",
+                "--dart-define=AXIOM_PAYINS_ENABLED=false",
+                "--dart-define=AXIOM_PAYMENT_ENV=disabled",
+                "--dart-define=AXIOM_GENIUSPAY_SANDBOX_VERIFIED=false",
                 "--dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com"
             ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "sandboxApiBaseUrl",
+            "type": "promptString",
+            "description": "URL du backend sandbox accessible depuis cet appareil",
+            "default": "http://localhost:3000"
         }
     ]
 }

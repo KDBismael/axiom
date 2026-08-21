@@ -18,6 +18,7 @@ import 'features/notifications/controllers/notification_controller.dart';
 import 'features/notifications/repositories/notification_repository.dart';
 import 'features/notifications/services/push_notification_service.dart';
 import 'features/quests/controllers/quest_list_controller.dart';
+import 'features/payments/controllers/quest_payment_controller.dart';
 import 'features/social/controllers/allies_controller.dart';
 import 'features/social/controllers/validations_controller.dart';
 
@@ -107,6 +108,9 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
   /// notification or an ally's decision) would otherwise show stale data
   /// until the app is force-closed and reopened.
   void _refreshLiveData() {
+    if (Get.isRegistered<QuestPaymentController>()) {
+      Get.find<QuestPaymentController>().onAppResumed();
+    }
     if (Get.isRegistered<NotificationController>()) {
       Get.find<NotificationController>().loadNotifications();
     }

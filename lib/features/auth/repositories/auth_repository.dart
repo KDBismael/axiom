@@ -13,7 +13,11 @@ class AuthException implements Exception {
 }
 
 class AuthResult {
-  const AuthResult({required this.user, required this.accessToken, required this.refreshToken});
+  const AuthResult({
+    required this.user,
+    required this.accessToken,
+    required this.refreshToken,
+  });
 
   final User user;
   final String accessToken;
@@ -42,7 +46,30 @@ class AuthRepository {
   }
 
   Future<AuthResult> login({required String email, required String password}) {
-    return _postForAuthResult('/auth/login', {'email': email, 'password': password});
+    return _postForAuthResult('/auth/login', {
+      'email': email,
+      'password': password,
+    });
+  }
+
+  Future<String> requestPasswordReset(String email) async {
+    final response = await _client.post('/auth/forgot-password', {
+      'email': email,
+    });
+    if (!response.isOk) throw AuthException(_extractMessage(response.body));
+    return _extractMessage(response.body);
+  }
+
+  Future<String> resetPassword({
+    required String code,
+    required String password,
+  }) async {
+    final response = await _client.post('/auth/reset-password', {
+      'code': code,
+      'password': password,
+    });
+    if (!response.isOk) throw AuthException(_extractMessage(response.body));
+    return _extractMessage(response.body);
   }
 
   Future<AuthResult> loginWithGoogle(String idToken) {
@@ -66,7 +93,9 @@ class AuthRepository {
   }
 
   Future<void> logout(String refreshToken) async {
-    final response = await _client.post('/auth/logout', {'refreshToken': refreshToken});
+    final response = await _client.post('/auth/logout', {
+      'refreshToken': refreshToken,
+    });
     if (!response.isOk) {
       throw AuthException(_extractMessage(response.body));
     }
@@ -80,7 +109,10 @@ class AuthRepository {
     return User.fromJson(response.body as Map<String, dynamic>);
   }
 
-  Future<AuthResult> _postForAuthResult(String path, Map<String, dynamic> body) async {
+  Future<AuthResult> _postForAuthResult(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     final response = await _client.post(path, body);
     if (!response.isOk || response.body == null) {
       throw AuthException(_extractMessage(response.body));

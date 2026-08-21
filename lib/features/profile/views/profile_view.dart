@@ -538,8 +538,10 @@ class _ProfileViewState extends State<ProfileView> {
                     ),
                   ),
                   if (hasUnsavedChanges)
-                    Align(
-                      alignment: Alignment.bottomCenter,
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
                       child: _ProfileSaveBar(
                         saving: controller.isSaving.value,
                         onSave: () => _handleSave(controller),
@@ -564,7 +566,7 @@ class _ProfileSaveBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerHigh,
@@ -582,16 +584,21 @@ class _ProfileSaveBar extends StatelessWidget {
           Expanded(
             child: Text(
               'Modifications non enregistrées',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
             ),
           ),
           const SizedBox(width: 12),
           SizedBox(
+            width: 136,
             height: 40,
             child: ElevatedButton(
               onPressed: saving ? null : onSave,
               style: ElevatedButton.styleFrom(
                 elevation: 0,
+                minimumSize: const Size(0, 40),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 backgroundColor: AppColors.emerald,
                 foregroundColor: AppColors.primary,

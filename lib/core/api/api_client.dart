@@ -6,7 +6,8 @@ import 'token_storage.dart';
 /// to the axiom-backend API. Attaches the bearer token to authenticated
 /// requests and transparently refreshes+retries once on a 401.
 class ApiClient extends GetConnect {
-  ApiClient({required TokenStorage tokenStorage}) : _tokenStorage = tokenStorage;
+  ApiClient({required TokenStorage tokenStorage})
+    : _tokenStorage = tokenStorage;
 
   final TokenStorage _tokenStorage;
 
@@ -20,6 +21,8 @@ class ApiClient extends GetConnect {
     '/auth/refresh',
     '/auth/google',
     '/auth/apple',
+    '/auth/forgot-password',
+    '/auth/reset-password',
   ];
 
   static const String baseApiUrl = String.fromEnvironment(
@@ -51,12 +54,17 @@ class ApiClient extends GetConnect {
         return request;
       }
 
-      final response = await post('/auth/refresh', {'refreshToken': refreshToken});
+      final response = await post('/auth/refresh', {
+        'refreshToken': refreshToken,
+      });
       final body = response.body;
       if (response.isOk && body is Map<String, dynamic>) {
         final newAccess = body['accessToken'] as String;
         final newRefresh = body['refreshToken'] as String;
-        await _tokenStorage.saveTokenPair(access: newAccess, refresh: newRefresh);
+        await _tokenStorage.saveTokenPair(
+          access: newAccess,
+          refresh: newRefresh,
+        );
         request.headers['Authorization'] = 'Bearer $newAccess';
         return request;
       }
