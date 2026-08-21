@@ -14,25 +14,25 @@ class MockQuestListController extends Mock implements QuestListController {}
 class MockUrlOpener extends Mock implements UrlOpener {}
 
 QuestModel _quest({required QuestStatus status}) => QuestModel(
-      id: 'q-1',
-      title: 'Test',
-      description: 'desc',
-      frequency: QuestFrequency.daily,
-      durationDays: 10,
-      targetPerPeriod: 1,
-      startDate: DateTime(2026, 1, 1),
-      deadline: DateTime(2026, 1, 11),
-      gracePeriodDays: 0,
-      riskLevel: QuestRiskLevel.medium,
-      requiresProof: false,
-      successThresholdPercent: 80,
-      hasStake: true,
-      stakeAmountXof: 5000,
-      fundsDistribution: FundsDistribution.allies,
-      status: status,
-      progress: 0,
-      streakDays: 0,
-    );
+  id: 'q-1',
+  title: 'Test',
+  description: 'desc',
+  frequency: QuestFrequency.daily,
+  durationDays: 10,
+  targetPerPeriod: 1,
+  startDate: DateTime(2026, 1, 1),
+  deadline: DateTime(2026, 1, 11),
+  gracePeriodDays: 0,
+  riskLevel: QuestRiskLevel.medium,
+  requiresProof: false,
+  successThresholdPercent: 80,
+  hasStake: true,
+  stakeAmountXof: 5000,
+  fundsDistribution: FundsDistribution.allies,
+  status: status,
+  progress: 0,
+  streakDays: 0,
+);
 
 void main() {
   late MockPaymentRepository mockRepository;
@@ -67,15 +67,45 @@ void main() {
     controller.onClose();
   });
 
+  group('QuestPaymentController.onInit', () {
+    test('auto-triggers payment so the quest never needs a second tap', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
+      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.pendingPayment));
+
+      controller.onInit();
+      await Future.delayed(Duration.zero);
+
+      verify(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: null,
+        ),
+      ).called(1);
+      expect(controller.transaction.value, transaction);
+      controller.stopPolling();
+    });
+  });
+
   group('QuestPaymentController.pay', () {
     test('stores the transaction and opens the payment URL', () async {
-      when(() => mockRepository.initiateStakePayment(
-            'q-1',
-            phoneNumber: any(named: 'phoneNumber'),
-          )).thenAnswer((_) async => transaction);
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
       when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
-      when(() => mockQuestList.findById('q-1'))
-          .thenReturn(_quest(status: QuestStatus.pendingPayment));
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.pendingPayment));
 
       await controller.pay(phoneNumber: '+2250700000000');
 
@@ -85,10 +115,12 @@ void main() {
     });
 
     test('surfaces the backend error and does not open a URL', () async {
-      when(() => mockRepository.initiateStakePayment(
-            'q-1',
-            phoneNumber: any(named: 'phoneNumber'),
-          )).thenThrow(
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenThrow(
         PaymentException('Numéro de téléphone requis pour le paiement Wave'),
       );
 
@@ -104,16 +136,20 @@ void main() {
 
   group('QuestPaymentController polling', () {
     test('stops and reports success once the quest becomes active', () async {
-      when(() => mockRepository.initiateStakePayment(
-            'q-1',
-            phoneNumber: any(named: 'phoneNumber'),
-          )).thenAnswer((_) async => transaction);
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
       when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
       var callCount = 0;
       when(() => mockQuestList.findById('q-1')).thenAnswer((_) {
         callCount++;
         return _quest(
-          status: callCount < 3 ? QuestStatus.pendingPayment : QuestStatus.active,
+          status: callCount < 3
+              ? QuestStatus.pendingPayment
+              : QuestStatus.active,
         );
       });
 
@@ -124,41 +160,50 @@ void main() {
       expect(controller.paymentSucceeded.value, isTrue);
     });
 
-    test('reports timeout when the quest stays pending after max attempts', () async {
-      when(() => mockRepository.initiateStakePayment(
+    test(
+      'reports timeout when the quest stays pending after max attempts',
+      () async {
+        when(
+          () => mockRepository.initiateStakePayment(
             'q-1',
             phoneNumber: any(named: 'phoneNumber'),
-          )).thenAnswer((_) async => transaction);
-      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
-      when(() => mockQuestList.findById('q-1'))
-          .thenReturn(_quest(status: QuestStatus.pendingPayment));
+          ),
+        ).thenAnswer((_) async => transaction);
+        when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+        when(
+          () => mockQuestList.findById('q-1'),
+        ).thenReturn(_quest(status: QuestStatus.pendingPayment));
 
-      final shortController = QuestPaymentController(
-        mockRepository,
-        mockQuestList,
-        mockUrlOpener,
-        'q-1',
-        pollInterval: const Duration(milliseconds: 5),
-        maxPollAttempts: 3,
-      );
+        final shortController = QuestPaymentController(
+          mockRepository,
+          mockQuestList,
+          mockUrlOpener,
+          'q-1',
+          pollInterval: const Duration(milliseconds: 5),
+          maxPollAttempts: 3,
+        );
 
-      await shortController.pay();
-      await Future.delayed(const Duration(milliseconds: 60));
+        await shortController.pay();
+        await Future.delayed(const Duration(milliseconds: 60));
 
-      expect(shortController.isPolling.value, isFalse);
-      expect(shortController.paymentSucceeded.value, isFalse);
-      expect(shortController.paymentTimedOut.value, isTrue);
-      shortController.onClose();
-    });
+        expect(shortController.isPolling.value, isFalse);
+        expect(shortController.paymentSucceeded.value, isFalse);
+        expect(shortController.paymentTimedOut.value, isTrue);
+        shortController.onClose();
+      },
+    );
 
     test('a manual check stops polling early on success', () async {
-      when(() => mockRepository.initiateStakePayment(
-            'q-1',
-            phoneNumber: any(named: 'phoneNumber'),
-          )).thenAnswer((_) async => transaction);
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
       when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
-      when(() => mockQuestList.findById('q-1'))
-          .thenReturn(_quest(status: QuestStatus.active));
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.active));
 
       await controller.pay();
       await controller.checkNow();
@@ -168,25 +213,79 @@ void main() {
     });
   });
 
-  group('QuestPaymentController idempotency', () {
-    test('re-pay calls the endpoint again and stores the returned transaction', () async {
-      when(() => mockRepository.initiateStakePayment(
+  group('QuestPaymentController retry', () {
+    test(
+      'calling pay again after a timeout re-attempts against the same quest',
+      () async {
+        when(
+          () => mockRepository.initiateStakePayment(
             'q-1',
             phoneNumber: any(named: 'phoneNumber'),
-          )).thenAnswer((_) async => transaction);
+          ),
+        ).thenAnswer((_) async => transaction);
+        when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+        when(
+          () => mockQuestList.findById('q-1'),
+        ).thenReturn(_quest(status: QuestStatus.pendingPayment));
+
+        await controller.pay();
+        controller.stopPolling();
+        await controller.pay();
+
+        verify(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+          ),
+        ).called(2);
+        expect(controller.transaction.value, transaction);
+      },
+    );
+  });
+
+  group('QuestPaymentController.onAppResumed', () {
+    test('re-checks and resumes polling if not yet resolved', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
       when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
-      when(() => mockQuestList.findById('q-1'))
-          .thenReturn(_quest(status: QuestStatus.pendingPayment));
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.pendingPayment));
 
       await controller.pay();
       controller.stopPolling();
-      await controller.pay();
 
-      verify(() => mockRepository.initiateStakePayment(
-            'q-1',
-            phoneNumber: any(named: 'phoneNumber'),
-          )).called(2);
-      expect(controller.transaction.value, transaction);
+      await controller.onAppResumed();
+
+      expect(controller.isPolling.value, isTrue);
+      verify(() => mockQuestList.refreshQuest('q-1')).called(greaterThan(0));
+      controller.stopPolling();
+    });
+
+    test('does nothing once payment already succeeded', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
+      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.active));
+
+      await controller.pay();
+      await controller.checkNow();
+      expect(controller.paymentSucceeded.value, isTrue);
+      clearInteractions(mockQuestList);
+
+      await controller.onAppResumed();
+
+      verifyNever(() => mockQuestList.refreshQuest(any()));
     });
   });
 }

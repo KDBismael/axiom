@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../models/quest_model.dart';
 import 'quest_list_controller.dart';
+import '../../payments/services/payment_feature_config.dart';
 
 class QuestCreateController extends GetxController {
-  QuestCreateController(this._listController) {
+  QuestCreateController(
+    this._listController, {
+    PaymentFeatureConfig paymentConfig = PaymentFeatureConfig.current,
+  }) : _paymentConfig = paymentConfig {
     titleController.addListener(() => titleText.value = titleController.text);
     durationController.addListener(
       () => durationText.value = durationController.text,
@@ -21,11 +25,12 @@ class QuestCreateController extends GetxController {
   }
 
   final QuestListController _listController;
+  final PaymentFeatureConfig _paymentConfig;
 
   /// Title/Description → Schedule & Rules → Allies (optional) → Stake
   /// (optional) → Review.
   static const stepCount = 5;
-  static const paymentsEnabled = false;
+  bool get paymentsEnabled => _paymentConfig.isEnabled;
 
   final currentStep = 0.obs;
 
@@ -57,6 +62,11 @@ class QuestCreateController extends GetxController {
 
   final isSubmitting = false.obs;
   final errorMessage = RxnString();
+
+  /// The quest just created by [submit]; the view reads this to decide
+  /// whether to navigate to the payment screen (staked quest, still
+  /// `pending_payment`) or simply pop back (no stake).
+  final createdQuest = Rxn<QuestModel>();
 
   /// Mirrors [titleController]'s text reactively — `TextEditingController`
   /// changes aren't observed by `Obx` on their own, so the footer's
@@ -136,11 +146,12 @@ class QuestCreateController extends GetxController {
         if (selectedAllyIds.isNotEmpty) 'allyUserIds': selectedAllyIds.toList(),
       };
 
-      await _listController.createQuest(payload);
-      if (_listController.errorMessage.value != null) {
+      final created = await _listController.createQuest(payload);
+      if (created == null) {
         errorMessage.value = _listController.errorMessage.value;
         return false;
       }
+      createdQuest.value = created;
       return true;
     } finally {
       isSubmitting.value = false;

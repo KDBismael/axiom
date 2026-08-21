@@ -37,6 +37,14 @@ void main() {
       }).route,
       AppRoutes.questDeletionVote,
     );
+    expect(
+      notificationTarget('payout_rejected', {'questId': 'q-1'}).route,
+      AppRoutes.questDetail,
+    );
+    expect(
+      notificationTarget('refund_rejected', {'questId': 'q-1'}).route,
+      AppRoutes.questDetail,
+    );
   });
 
   test('malformed and unknown payloads fall back to notifications', () {

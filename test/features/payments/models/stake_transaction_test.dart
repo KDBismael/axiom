@@ -40,5 +40,21 @@ void main() {
       expect(tx.geniusReference, isNull);
       expect(tx.paymentUrl, isNull);
     });
+
+    test('carries the quest id it belongs to', () {
+      final json = {
+        'transactionId': 'tx-3',
+        'questId': 'quest-1',
+        'geniusReference': null,
+        'paymentUrl': null,
+        'status': 'pending',
+        'amountXof': 5000,
+        'feesXof': null,
+      };
+
+      final tx = StakeTransaction.fromJson(json);
+
+      expect(tx.questId, 'quest-1');
+    });
   });
 }

@@ -12,9 +12,7 @@ import '../../features/quests/views/quest_ally_invitation_view.dart';
 import '../../features/quests/views/quest_create_view.dart';
 import '../../features/quests/views/quest_deletion_vote_view.dart';
 import '../../features/quests/views/quest_detail_view.dart';
-import '../../features/payments/controllers/quest_payment_controller.dart';
-import '../../features/payments/repositories/payment_repository.dart';
-import '../../features/payments/services/url_opener.dart';
+import '../../features/payments/bindings/quest_payment_binding.dart';
 import '../../features/payments/views/quest_payment_view.dart';
 import '../../features/profile/views/invite_friends_view.dart';
 import '../../features/social/views/ally_validations_view.dart';
@@ -125,16 +123,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.questPayment,
       page: () => const QuestPaymentView(),
-      binding: BindingsBuilder(() {
-        Get.lazyPut<QuestPaymentController>(
-          () => QuestPaymentController(
-            Get.find<PaymentRepository>(),
-            Get.find<QuestListController>(),
-            Get.find<UrlOpener>(),
-            Get.arguments as String,
-          ),
-        );
-      }),
+      binding: QuestPaymentBinding(),
     ),
   ];
 }

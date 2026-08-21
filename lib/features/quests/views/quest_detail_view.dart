@@ -155,9 +155,10 @@ class _QuestDetailBody extends GetView<QuestListController> {
                 QuestDeletionRequestStatus.pending;
             if (quest.isPendingPayment) {
               return AppButton(
-                label: 'PAIEMENT BIENTÔT DISPONIBLE',
+                label: 'REPRENDRE LE PAIEMENT',
                 leadingIcon: Icons.payments,
-                onPressed: null,
+                onPressed: () =>
+                    Get.toNamed(AppRoutes.questPayment, arguments: quest.id),
               );
             }
             return AppButton(

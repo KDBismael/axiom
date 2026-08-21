@@ -100,13 +100,26 @@ void main() {
         () => mockRepository.createQuest(any()),
       ).thenAnswer((_) async => quest(id: 'new-1'));
 
-      await controller.createQuest({'title': 'Gym'});
+      final created = await controller.createQuest({'title': 'Gym'});
 
       final captured =
           verify(() => mockRepository.createQuest(captureAny())).captured.single
               as Map;
       expect(captured['title'], 'Gym');
       expect(controller.findById('new-1'), isNotNull);
+      expect(created?.id, 'new-1');
+    });
+
+    test('returns null and does not add a quest on failure', () async {
+      when(
+        () => mockRepository.createQuest(any()),
+      ).thenThrow(QuestException('Requête invalide'));
+
+      final created = await controller.createQuest({'title': 'Gym'});
+
+      expect(created, isNull);
+      expect(controller.errorMessage.value, 'Requête invalide');
+      expect(controller.quests, isEmpty);
     });
 
     test('a quest created with hasStake renders as pending_payment', () async {

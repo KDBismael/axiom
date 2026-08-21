@@ -23,6 +23,8 @@ RedirectTarget notificationTarget(String type, Map<String, dynamic> payload) {
     case 'payment_failed':
     case 'payout_sent':
     case 'refund_sent':
+    case 'payout_rejected':
+    case 'refund_rejected':
     case 'quest_ally_invite_accepted':
     case 'quest_deletion_approved':
     case 'quest_deletion_rejected':

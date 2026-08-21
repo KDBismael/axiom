@@ -4,6 +4,7 @@ import 'package:axiom/features/quests/controllers/quest_create_controller.dart';
 import 'package:axiom/features/quests/controllers/quest_list_controller.dart';
 import 'package:axiom/features/quests/models/quest_model.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
+import 'package:axiom/features/payments/services/payment_feature_config.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
 
@@ -76,6 +77,56 @@ void main() {
   });
 
   group('QuestCreateController.submit', () {
+    test(
+      'creates the quest directly (pending_payment), not a draft intent, when stake is enabled',
+      () async {
+        when(() => mockRepository.createQuest(any())).thenAnswer(
+          (_) async => QuestModel(
+            id: 'q-2',
+            title: 'Courir 5km',
+            description: '',
+            frequency: QuestFrequency.daily,
+            durationDays: 30,
+            targetPerPeriod: 1,
+            startDate: DateTime(2026, 1, 1),
+            deadline: DateTime(2026, 1, 31),
+            gracePeriodDays: 0,
+            riskLevel: QuestRiskLevel.medium,
+            requiresProof: false,
+            successThresholdPercent: 80,
+            hasStake: true,
+            status: QuestStatus.pendingPayment,
+            progress: 0,
+            streakDays: 0,
+          ),
+        );
+        final stakeController = QuestCreateController(
+          listController,
+          paymentConfig: const PaymentFeatureConfig(
+            payInsEnabled: true,
+            environment: 'sandbox',
+            sandboxVerified: true,
+          ),
+        );
+        stakeController.titleController.text = 'Courir 5km';
+        stakeController.hasStake.value = true;
+        stakeController.stakeController.text = '5000';
+
+        final ok = await stakeController.submit();
+
+        expect(ok, isTrue);
+        final captured =
+            verify(
+                  () => mockRepository.createQuest(captureAny()),
+                ).captured.single
+                as Map;
+        expect(captured['hasStake'], isTrue);
+        expect(captured['stakeAmountXof'], 5000.0);
+        expect(stakeController.createdQuest.value?.isPendingPayment, isTrue);
+        stakeController.onClose();
+      },
+    );
+
     test('sends the full payload for a no-stake quest', () async {
       when(
         () => mockRepository.createQuest(any()),

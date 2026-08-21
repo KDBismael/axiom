@@ -2,6 +2,7 @@ class StakeTransaction {
   const StakeTransaction({
     required this.transactionId,
     required this.status,
+    this.questId,
     this.geniusReference,
     this.paymentUrl,
     this.amountXof,
@@ -9,6 +10,7 @@ class StakeTransaction {
   });
 
   final String transactionId;
+  final String? questId;
   final String? geniusReference;
   final String? paymentUrl;
   final String status;
@@ -18,6 +20,7 @@ class StakeTransaction {
   factory StakeTransaction.fromJson(Map<String, dynamic> json) {
     return StakeTransaction(
       transactionId: json['transactionId'] as String,
+      questId: json['questId'] as String?,
       geniusReference: json['geniusReference'] as String?,
       paymentUrl: json['paymentUrl'] as String?,
       status: json['status'] as String,
@@ -39,6 +42,7 @@ class StakeTransaction {
   bool operator ==(Object other) =>
       other is StakeTransaction &&
       other.transactionId == transactionId &&
+      other.questId == questId &&
       other.geniusReference == geniusReference &&
       other.paymentUrl == paymentUrl &&
       other.status == status &&
@@ -46,6 +50,13 @@ class StakeTransaction {
       other.feesXof == feesXof;
 
   @override
-  int get hashCode =>
-      Object.hash(transactionId, geniusReference, paymentUrl, status, amountXof, feesXof);
+  int get hashCode => Object.hash(
+    transactionId,
+    questId,
+    geniusReference,
+    paymentUrl,
+    status,
+    amountXof,
+    feesXof,
+  );
 }

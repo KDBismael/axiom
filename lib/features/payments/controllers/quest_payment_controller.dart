@@ -6,11 +6,14 @@ import '../models/stake_transaction.dart';
 import '../repositories/payment_repository.dart';
 import '../services/url_opener.dart';
 
-/// Drives the Wave sandbox stake-payment flow for one quest: initiates the
-/// payment, opens the returned Wave checkout URL, then polls the quest
-/// (there's no success_url/error_url wired on the backend, so the app can't
-/// rely on a deep-link redirect) until it leaves `pending_payment` or a
-/// timeout is reached.
+/// Drives the Wave sandbox stake-payment flow for one already-created
+/// `pending_payment` quest: initiates the payment, opens the returned Wave
+/// checkout URL, then polls the quest (there's no success_url/error_url
+/// wired on the backend, so the app can't rely on a deep-link redirect)
+/// until it leaves `pending_payment` or a timeout is reached. The quest
+/// already exists before this screen loads, so a failed, cancelled, or
+/// timed-out attempt never loses it — [pay] can simply be called again to
+/// retry against the same quest.
 class QuestPaymentController extends GetxController {
   QuestPaymentController(
     this._repository,
@@ -19,8 +22,8 @@ class QuestPaymentController extends GetxController {
     this.questId, {
     Duration pollInterval = const Duration(seconds: 3),
     int maxPollAttempts = 40,
-  })  : _pollInterval = pollInterval,
-        _maxPollAttempts = maxPollAttempts;
+  }) : _pollInterval = pollInterval,
+       _maxPollAttempts = maxPollAttempts;
 
   final PaymentRepository _repository;
   final QuestListController _questList;
@@ -38,6 +41,15 @@ class QuestPaymentController extends GetxController {
 
   Timer? _pollTimer;
   int _pollAttempts = 0;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Flows straight from quest creation into the Wave checkout with no
+    // second tap; the manual "PAYER AVEC WAVE" button remains as a fallback
+    // if this first attempt fails (e.g. no phone on file yet).
+    pay();
+  }
 
   Future<void> pay({String? phoneNumber}) async {
     isLoading.value = true;
@@ -80,6 +92,17 @@ class QuestPaymentController extends GetxController {
     if (_pollAttempts >= _maxPollAttempts) {
       paymentTimedOut.value = true;
       stopPolling();
+    }
+  }
+
+  /// Re-checks payment status when the app returns to the foreground —
+  /// covers the case where the user completed the Wave checkout while the
+  /// app was backgrounded and missed the in-app polling window.
+  Future<void> onAppResumed() async {
+    if (paymentSucceeded.value) return;
+    await checkNow();
+    if (!paymentSucceeded.value && !isPolling.value) {
+      _startPolling();
     }
   }
 

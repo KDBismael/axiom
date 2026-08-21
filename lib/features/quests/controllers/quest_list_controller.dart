@@ -51,13 +51,15 @@ class QuestListController extends GetxController {
     }
   }
 
-  Future<void> createQuest(Map<String, dynamic> payload) async {
+  Future<QuestModel?> createQuest(Map<String, dynamic> payload) async {
     errorMessage.value = null;
     try {
       final created = await _repository.createQuest(payload);
       quests.add(created);
+      return created;
     } on QuestException catch (e) {
       errorMessage.value = e.message;
+      return null;
     }
   }
 

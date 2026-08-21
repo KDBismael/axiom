@@ -3,7 +3,8 @@
 /// ally_removed, validation_requested,
 /// validation_decided, quest_completed, quest_failed,
 /// quest_deadline_reminder, payment_succeeded, payment_failed, payout_sent,
-/// refund_sent, quest_ally_invite_received, quest_ally_invite_accepted,
+/// refund_sent, payout_rejected, refund_rejected,
+/// quest_ally_invite_received, quest_ally_invite_accepted,
 /// quest_deletion_requested, quest_deletion_approved,
 /// quest_deletion_rejected.
 class AppNotification {

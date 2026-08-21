@@ -12,6 +12,8 @@ import 'package:axiom/features/quests/views/quest_create_view.dart';
 import 'package:axiom/features/social/controllers/allies_controller.dart';
 import 'package:axiom/features/social/repositories/social_repository.dart';
 import 'package:axiom/features/social/models/user_search_result.dart';
+import 'package:axiom/features/payments/services/payment_feature_config.dart';
+import 'package:axiom/core/routes/app_routes.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
 
@@ -202,6 +204,131 @@ void main() {
     final stakeSwitch = tester.widget<Switch>(find.byType(Switch));
     expect(stakeSwitch.onChanged, isNull);
   });
+
+  testWidgets('sandbox payment configuration enables stake controls', (
+    tester,
+  ) async {
+    final mockRepository = MockQuestRepository();
+    when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
+    putAlliesController();
+    final listController = Get.put<QuestListController>(
+      QuestListController(mockRepository),
+    );
+    Get.lazyPut<QuestCreateController>(
+      () => QuestCreateController(
+        listController,
+        paymentConfig: const PaymentFeatureConfig(
+          payInsEnabled: true,
+          environment: 'sandbox',
+          sandboxVerified: true,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        theme: AppTheme.dark,
+        initialRoute: '/',
+        getPages: [
+          GetPage(name: '/', page: () => const Scaffold()),
+          GetPage(name: '/quest-create', page: () => const QuestCreateView()),
+        ],
+      ),
+    );
+    Get.toNamed('/quest-create');
+    await tester.pumpAndSettle();
+
+    final controller = Get.find<QuestCreateController>();
+    controller.currentStep.value = 3;
+    await tester.pump();
+
+    final stakeSwitch = tester.widget<Switch>(find.byType(Switch));
+    expect(stakeSwitch.onChanged, isNotNull);
+    expect(
+      find.text('Les enjeux financiers seront bientôt disponibles.'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+
+    expect(controller.hasStake.value, isTrue);
+    expect(find.text('DISTRIBUTION DES FONDS'), findsOneWidget);
+    expect(find.text('XOF'), findsOneWidget);
+  });
+
+  testWidgets(
+    'submitting a staked quest navigates to the payment screen for the new quest',
+    (tester) async {
+      final mockRepository = MockQuestRepository();
+      when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
+      when(
+        () => mockRepository.fetchMyAllyInvitations(),
+      ).thenAnswer((_) async => []);
+      when(() => mockRepository.createQuest(any())).thenAnswer(
+        (invocation) async => createdQuest(
+          invocation.positionalArguments.single as Map<String, dynamic>,
+        ),
+      );
+      putAlliesController();
+      final listController = Get.put<QuestListController>(
+        QuestListController(mockRepository),
+      );
+      Get.lazyPut<QuestCreateController>(
+        () => QuestCreateController(
+          listController,
+          paymentConfig: const PaymentFeatureConfig(
+            payInsEnabled: true,
+            environment: 'sandbox',
+            sandboxVerified: true,
+          ),
+        ),
+      );
+
+      String? capturedArguments;
+      await tester.pumpWidget(
+        GetMaterialApp(
+          theme: AppTheme.dark,
+          initialRoute: '/',
+          getPages: [
+            GetPage(name: '/', page: () => const Scaffold()),
+            GetPage(
+              name: '/quest-create',
+              page: () => const QuestCreateView(),
+            ),
+            GetPage(
+              name: AppRoutes.questPayment,
+              page: () {
+                capturedArguments = Get.arguments as String?;
+                return const Scaffold();
+              },
+            ),
+          ],
+        ),
+      );
+      Get.toNamed('/quest-create');
+      await tester.pumpAndSettle();
+
+      final controller = Get.find<QuestCreateController>();
+      controller.titleController.text = 'Courir 5km';
+      controller.currentStep.value = 3;
+      await tester.pump();
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      controller.stakeController.text = '5000';
+      controller.currentStep.value = 4;
+      await tester.pump();
+
+      await tester.tap(find.text('LANCER LA QUÊTE'));
+      await tester.pumpAndSettle();
+
+      expect(Get.currentRoute, AppRoutes.questPayment);
+      expect(capturedArguments, 'new-1');
+    },
+  );
 
   testWidgets('SUIVANT is disabled on step 1 until a title is entered', (
     tester,

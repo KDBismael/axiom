@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency.dart';
@@ -38,10 +39,7 @@ class QuestPaymentView extends GetView<QuestPaymentController> {
               return _SuccessState(quest: quest);
             }
             if (controller.transaction.value != null) {
-              return _WaitingState(
-                controller: controller,
-                quest: quest,
-              );
+              return _WaitingState(controller: controller, quest: quest);
             }
             return _InitialState(
               controller: controller,
@@ -107,9 +105,10 @@ class _InitialState extends StatelessWidget {
           onPressed: controller.isLoading.value
               ? null
               : () => controller.pay(
-                    phoneNumber:
-                        phoneController.text.trim().isEmpty ? null : phoneController.text.trim(),
-                  ),
+                  phoneNumber: phoneController.text.trim().isEmpty
+                      ? null
+                      : phoneController.text.trim(),
+                ),
         ),
       ],
     );
@@ -128,7 +127,9 @@ class _WaitingState extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Center(child: CircularProgressIndicator(color: AppColors.emerald)),
+        const Center(
+          child: CircularProgressIndicator(color: AppColors.emerald),
+        ),
         const SizedBox(height: 24),
         Text(
           controller.paymentTimedOut.value
@@ -149,6 +150,13 @@ class _WaitingState extends StatelessWidget {
           variant: AppButtonVariant.secondary,
           onPressed: controller.checkNow,
         ),
+        if (controller.paymentTimedOut.value) ...[
+          const SizedBox(height: 12),
+          AppButton(
+            label: 'RÉESSAYER LE PAIEMENT',
+            onPressed: () => controller.pay(),
+          ),
+        ],
       ],
     );
   }
@@ -179,7 +187,10 @@ class _SuccessState extends StatelessWidget {
         AppButton(
           label: 'VOIR LA QUÊTE',
           onPressed: () {
-            if (quest != null) Get.back(result: true);
+            final questId = quest?.id;
+            if (questId != null) {
+              Get.offNamed(AppRoutes.questDetail, arguments: questId);
+            }
           },
         ),
       ],
@@ -210,7 +221,9 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            quest?.stakeAmountXof != null ? formatXof(quest!.stakeAmountXof!) : '—',
+            quest?.stakeAmountXof != null
+                ? formatXof(quest!.stakeAmountXof!)
+                : '—',
             style: AppTypography.headlineMd.copyWith(color: AppColors.primary),
           ),
           const SizedBox(height: 12),

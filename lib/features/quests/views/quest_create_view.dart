@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/routes/app_routes.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
@@ -167,7 +168,16 @@ class _Footer extends StatelessWidget {
                       : () async {
                           if (isLastStep) {
                             final ok = await controller.submit();
-                            if (ok) Get.back();
+                            if (!ok) return;
+                            final quest = controller.createdQuest.value;
+                            if (quest != null && quest.hasStake) {
+                              Get.offNamed(
+                                AppRoutes.questPayment,
+                                arguments: quest.id,
+                              );
+                            } else {
+                              Get.back();
+                            }
                           } else {
                             controller.nextStep();
                           }
@@ -721,74 +731,244 @@ class _StakeStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Obx(() {
+      // Read unconditionally so the disabled build still has an observable
+      // dependency; GetX otherwise rejects an Obx whose short-circuited
+      // branch never touches reactive state.
+      final hasStake = controller.hasStake.value;
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(color: AppColors.outlineVariant15),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Opacity(
+              opacity: controller.paymentsEnabled ? 1 : 0.45,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ENJEU OPTIONNEL',
+                          style: AppTypography.labelMd.copyWith(
+                            color: AppColors.outline,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Quelle est la valeur de votre parole ?',
+                          style: AppTypography.titleLg.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: controller.paymentsEnabled ? hasStake : false,
+                    onChanged: controller.paymentsEnabled
+                        ? (value) => controller.hasStake.value = value
+                        : null,
+                    activeThumbColor: AppColors.primaryFixed,
+                  ),
+                ],
+              ),
+            ),
+            if (!controller.paymentsEnabled) ...[
+              const SizedBox(height: 20),
+              _StakeInfo(
+                icon: Icons.schedule,
+                message: 'Les enjeux financiers seront bientôt disponibles.',
+              ),
+            ] else if (!hasStake) ...[
+              const SizedBox(height: 20),
+              const _StakeInfo(
+                icon: Icons.info_outline,
+                message:
+                    'Activez cette option pour financer votre engagement en sandbox.',
+              ),
+            ] else ...[
+              const SizedBox(height: 32),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller.stakeController,
+                      keyboardType: TextInputType.number,
+                      style: AppTypography.displayLg.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 40,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '200',
+                        hintStyle: AppTypography.displayLg.copyWith(
+                          color: AppColors.surfaceContainerHighest,
+                          fontSize: 40,
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      'XOF',
+                      style: AppTypography.titleLg.copyWith(
+                        color: AppColors.surfaceBright,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _StakeInfo(
+                icon: Icons.info_outline,
+                message:
+                    'Minimum 200 XOF. Le paiement Wave sera demandé après la création.',
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'DISTRIBUTION DES FONDS',
+                style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+              ),
+              const SizedBox(height: 12),
+              _DistributionOption(
+                icon: Icons.groups,
+                label: 'Partager entre mes alliés',
+                description:
+                    'Les fonds seront divisés équitablement entre vos alliés.',
+                selected:
+                    controller.fundsDistribution.value ==
+                    FundsDistribution.allies,
+                onTap: () => controller.fundsDistribution.value =
+                    FundsDistribution.allies,
+              ),
+              const SizedBox(height: 12),
+              _DistributionOption(
+                icon: Icons.volunteer_activism,
+                label: 'Donner à une association',
+                description: 'Un don manuel sera préparé si la quête échoue.',
+                selected:
+                    controller.fundsDistribution.value ==
+                    FundsDistribution.charity,
+                onTap: () => controller.fundsDistribution.value =
+                    FundsDistribution.charity,
+              ),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _StakeInfo extends StatelessWidget {
+  const _StakeInfo({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: AppColors.surfaceContainer,
         borderRadius: AppRadii.interactiveRadius,
         border: Border.all(color: AppColors.outlineVariant15),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Opacity(
-            opacity: 0.45,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ENJEU OPTIONNEL',
-                        style: AppTypography.labelMd.copyWith(
-                          color: AppColors.outline,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Quelle est la valeur de votre parole ?',
-                        style: AppTypography.titleLg.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: false,
-                  onChanged: null,
-                  activeThumbColor: AppColors.primaryFixed,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainer,
-              borderRadius: AppRadii.interactiveRadius,
-              border: Border.all(color: AppColors.outlineVariant15),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.schedule, color: AppColors.outline, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Les enjeux financiers seront bientôt disponibles.',
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.outline,
-                    ),
-                  ),
-                ),
-              ],
+          Icon(icon, color: AppColors.outline, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DistributionOption extends StatelessWidget {
+  const _DistributionOption({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.surfaceContainerHigh
+              : AppColors.surfaceContainer,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(
+            color: selected
+                ? AppColors.primaryFixed
+                : AppColors.outlineVariant15,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: selected ? AppColors.primary : AppColors.outline,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -813,8 +993,7 @@ class _ReviewStep extends StatelessWidget {
         ),
         const SizedBox(height: 32),
         Obx(() {
-          final stake =
-              QuestCreateController.paymentsEnabled && controller.hasStake.value
+          final stake = controller.paymentsEnabled && controller.hasStake.value
               ? double.tryParse(controller.stakeController.text)
               : null;
           return Column(
