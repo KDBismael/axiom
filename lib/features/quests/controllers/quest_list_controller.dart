@@ -1,8 +1,10 @@
 import 'package:get/get.dart';
 import '../models/check_in_model.dart';
+import '../models/focus_session_model.dart';
 import '../models/quest_ally_invitation_summary.dart';
 import '../models/quest_deletion_request.dart';
 import '../models/quest_model.dart';
+import '../models/quest_owner_invitation_summary.dart';
 import '../repositories/quest_repository.dart';
 import '../services/evidence_picker_service.dart';
 
@@ -20,17 +22,32 @@ class QuestListController extends GetxController {
   /// was dismissed.
   final pendingAllyInvitations = <QuestAllyInvitationSummary>[].obs;
 
+  /// Quests the current user has been offered ownership of (sponsor
+  /// quests) — same discoverability rationale as [pendingAllyInvitations].
+  final pendingOwnerInvitations = <QuestOwnerInvitationSummary>[].obs;
+
   @override
   void onInit() {
     super.onInit();
     loadQuests();
     loadPendingAllyInvitations();
+    loadPendingOwnerInvitations();
   }
 
   Future<void> loadPendingAllyInvitations() async {
     try {
       pendingAllyInvitations.assignAll(
         await _repository.fetchMyAllyInvitations(),
+      );
+    } on QuestException catch (e) {
+      errorMessage.value = e.message;
+    }
+  }
+
+  Future<void> loadPendingOwnerInvitations() async {
+    try {
+      pendingOwnerInvitations.assignAll(
+        await _repository.fetchMyOwnerInvitations(),
       );
     } on QuestException catch (e) {
       errorMessage.value = e.message;
@@ -75,6 +92,8 @@ class QuestListController extends GetxController {
     List<String>? fileIds,
     String? textContent,
     String? description,
+    DateTime? focusStartedAt,
+    DateTime? focusEndedAt,
   }) async {
     errorMessage.value = null;
     try {
@@ -86,6 +105,8 @@ class QuestListController extends GetxController {
         fileIds: fileIds,
         textContent: textContent,
         description: description,
+        focusStartedAt: focusStartedAt,
+        focusEndedAt: focusEndedAt,
       );
       final refreshed = await _repository.fetchQuest(questId);
       final index = quests.indexWhere((q) => q.id == questId);
@@ -99,6 +120,9 @@ class QuestListController extends GetxController {
 
   Future<List<CheckIn>> fetchCheckIns(String questId) =>
       _repository.fetchCheckIns(questId);
+
+  Future<FocusSessionHistory> fetchFocusSessions(String questId) =>
+      _repository.fetchFocusSessions(questId);
 
   Future<String> uploadEvidenceFile(PickedEvidence picked) =>
       _repository.uploadEvidenceFile(picked);
@@ -137,8 +161,12 @@ class QuestListController extends GetxController {
     }
   }
 
+  /// Money currently at stake — only quests still active count; a
+  /// finished quest's stake has already been refunded/paid out, so
+  /// summing over the full [quests] history (including it) would inflate
+  /// this past what's actually at risk right now.
   double get totalStakeAmount =>
-      quests.fold(0, (sum, quest) => sum + (quest.stakeAmountXof ?? 0));
+      activeQuests.fold(0, (sum, quest) => sum + (quest.stakeAmountXof ?? 0));
 
   String get riskLevel {
     if (totalStakeAmount >= 500) return 'ÉLEVÉ';
@@ -177,13 +205,14 @@ class QuestListController extends GetxController {
     }
   }
 
-  /// Quests still actionable from the dashboard — ongoing or awaiting stake
-  /// payment before they start.
+  /// Quests still actionable from the dashboard — ongoing, awaiting stake
+  /// payment, or (for a sponsor) awaiting the invitee's acceptance.
   List<QuestModel> get activeQuests => quests
       .where(
         (q) =>
             q.status == QuestStatus.active ||
-            q.status == QuestStatus.pendingPayment,
+            q.status == QuestStatus.pendingPayment ||
+            q.status == QuestStatus.pendingOwnerAcceptance,
       )
       .toList();
 

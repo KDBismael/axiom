@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:axiom/features/quests/controllers/quest_list_controller.dart';
 import 'package:axiom/features/quests/models/check_in_model.dart';
+import 'package:axiom/features/quests/models/focus_session_model.dart';
 import 'package:axiom/features/quests/models/quest_ally_invitation_summary.dart';
 import 'package:axiom/features/quests/models/quest_deletion_request.dart';
 import 'package:axiom/features/quests/models/quest_model.dart';
+import 'package:axiom/features/quests/models/quest_owner_invitation_summary.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
@@ -29,6 +31,7 @@ void main() {
       id: id,
       title: 'Gym',
       description: '',
+      creatorId: 'user-1',
       frequency: QuestFrequency.daily,
       durationDays: 10,
       targetPerPeriod: 1,
@@ -225,6 +228,73 @@ void main() {
         'Un allié accepté est requis pour soumettre une preuve',
       );
     });
+
+    test('forwards focusStartedAt/focusEndedAt to the repository', () async {
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      final startedAt = DateTime(2026, 1, 2, 9, 0);
+      final endedAt = DateTime(2026, 1, 2, 9, 30);
+      when(
+        () => mockRepository.checkIn(
+          'q-1',
+          date: any(named: 'date'),
+          proofType: any(named: 'proofType'),
+          fileId: any(named: 'fileId'),
+          textContent: any(named: 'textContent'),
+          description: any(named: 'description'),
+          focusStartedAt: startedAt,
+          focusEndedAt: endedAt,
+        ),
+      ).thenAnswer(
+        (_) async => CheckInResult(
+          checkIn: CheckIn(
+            id: 'ci-1',
+            questId: 'q-1',
+            date: DateTime(2026, 1, 2),
+          ),
+          streakDays: 1,
+          progress: 0.1,
+          currentPeriodCount: 1,
+          targetPerPeriod: 1,
+        ),
+      );
+      when(
+        () => mockRepository.fetchQuest('q-1'),
+      ).thenAnswer((_) async => quest(id: 'q-1'));
+
+      await controller.checkIn(
+        'q-1',
+        focusStartedAt: startedAt,
+        focusEndedAt: endedAt,
+      );
+
+      verify(
+        () => mockRepository.checkIn(
+          'q-1',
+          date: any(named: 'date'),
+          proofType: any(named: 'proofType'),
+          fileId: any(named: 'fileId'),
+          textContent: any(named: 'textContent'),
+          description: any(named: 'description'),
+          focusStartedAt: startedAt,
+          focusEndedAt: endedAt,
+        ),
+      ).called(1);
+    });
+  });
+
+  group('QuestListController.fetchFocusSessions', () {
+    test('delegates to the repository', () async {
+      when(() => mockRepository.fetchFocusSessions('q-1')).thenAnswer(
+        (_) async =>
+            const FocusSessionHistory(sessions: [], todayMinutes: 30),
+      );
+
+      final history = await controller.fetchFocusSessions('q-1');
+
+      expect(history.todayMinutes, 30);
+    });
   });
 
   group('QuestListController.refreshQuest', () {
@@ -402,23 +472,30 @@ void main() {
   });
 
   group('QuestListController.activeQuests / historyQuests', () {
-    test('activeQuests includes active and pending-payment quests', () {
-      controller.quests
-        ..clear()
-        ..addAll([
-          quest(id: 'q-active', status: QuestStatus.active),
-          quest(id: 'q-pending', status: QuestStatus.pendingPayment),
-          quest(id: 'q-completed', status: QuestStatus.completed),
-          quest(id: 'q-failed', status: QuestStatus.failed),
-          quest(id: 'q-cancelled', status: QuestStatus.cancelled),
-        ]);
+    test(
+      'activeQuests includes active, pending-payment, and pending-owner-acceptance quests',
+      () {
+        controller.quests
+          ..clear()
+          ..addAll([
+            quest(id: 'q-active', status: QuestStatus.active),
+            quest(id: 'q-pending', status: QuestStatus.pendingPayment),
+            quest(
+              id: 'q-pending-owner',
+              status: QuestStatus.pendingOwnerAcceptance,
+            ),
+            quest(id: 'q-completed', status: QuestStatus.completed),
+            quest(id: 'q-failed', status: QuestStatus.failed),
+            quest(id: 'q-cancelled', status: QuestStatus.cancelled),
+          ]);
 
-      expect(
-        controller.activeQuests.map((q) => q.id),
-        containsAll(['q-active', 'q-pending']),
-      );
-      expect(controller.activeQuests, hasLength(2));
-    });
+        expect(
+          controller.activeQuests.map((q) => q.id),
+          containsAll(['q-active', 'q-pending', 'q-pending-owner']),
+        );
+        expect(controller.activeQuests, hasLength(3));
+      },
+    );
 
     test('historyQuests includes completed, failed, and cancelled quests', () {
       controller.quests
@@ -436,6 +513,66 @@ void main() {
         containsAll(['q-completed', 'q-failed', 'q-cancelled']),
       );
       expect(controller.historyQuests, hasLength(3));
+    });
+  });
+
+  group('QuestListController.totalStakeAmount', () {
+    test('sums only active quests\' stakes, not finished ones', () {
+      controller.quests
+        ..clear()
+        ..addAll([
+          quest(
+            id: 'q-active',
+            status: QuestStatus.active,
+            hasStake: true,
+            stakeAmountXof: 1000,
+          ),
+          quest(
+            id: 'q-completed',
+            status: QuestStatus.completed,
+            hasStake: true,
+            stakeAmountXof: 100000,
+          ),
+          quest(
+            id: 'q-failed',
+            status: QuestStatus.failed,
+            hasStake: true,
+            stakeAmountXof: 1000,
+          ),
+        ]);
+
+      expect(controller.totalStakeAmount, 1000);
+    });
+
+    test('includes pending-payment and pending-owner-acceptance stakes', () {
+      controller.quests
+        ..clear()
+        ..addAll([
+          quest(
+            id: 'q-active',
+            status: QuestStatus.active,
+            hasStake: true,
+            stakeAmountXof: 1000,
+          ),
+          quest(
+            id: 'q-pending',
+            status: QuestStatus.pendingPayment,
+            hasStake: true,
+            stakeAmountXof: 2000,
+          ),
+        ]);
+
+      expect(controller.totalStakeAmount, 3000);
+    });
+
+    test('is zero with no active stakes', () {
+      controller.quests
+        ..clear()
+        ..addAll([
+          quest(id: 'q-completed', status: QuestStatus.completed),
+        ]);
+
+      expect(controller.totalStakeAmount, 0);
     });
   });
 
@@ -469,6 +606,39 @@ void main() {
 
       expect(controller.errorMessage.value, 'Non authentifié');
       expect(controller.pendingAllyInvitations, isEmpty);
+    });
+  });
+
+  group('QuestListController.loadPendingOwnerInvitations', () {
+    test('populates pendingOwnerInvitations on success', () async {
+      when(() => mockRepository.fetchMyOwnerInvitations()).thenAnswer(
+        (_) async => [
+          QuestOwnerInvitationSummary(
+            questId: 'q-1',
+            questTitle: 'Courir pour un ami',
+            invitedAt: DateTime(2026, 7, 1),
+          ),
+        ],
+      );
+
+      await controller.loadPendingOwnerInvitations();
+
+      expect(controller.pendingOwnerInvitations, hasLength(1));
+      expect(
+        controller.pendingOwnerInvitations.single.questTitle,
+        'Courir pour un ami',
+      );
+    });
+
+    test('surfaces the backend error on failure', () async {
+      when(
+        () => mockRepository.fetchMyOwnerInvitations(),
+      ).thenThrow(QuestException('Non authentifié'));
+
+      await controller.loadPendingOwnerInvitations();
+
+      expect(controller.errorMessage.value, 'Non authentifié');
+      expect(controller.pendingOwnerInvitations, isEmpty);
     });
   });
 }
