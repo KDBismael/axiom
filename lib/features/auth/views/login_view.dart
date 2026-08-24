@@ -196,11 +196,25 @@ class _LoginViewState extends State<LoginView> {
               Center(
                 child: GestureDetector(
                   onTap: () => Get.toNamed(AppRoutes.register),
-                  child: Text(
-                    'PAS ENCORE MEMBRE ? CRÉER UN COMPTE',
-                    style: AppTypography.labelMd.copyWith(
-                      color: AppColors.outline,
-                      fontSize: 10,
+                  child: RichText(
+                    text: TextSpan(
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.outline,
+                        fontSize: 12,
+                      ),
+                      children: [
+                        const TextSpan(text: 'PAS ENCORE MEMBRE ? '),
+                        TextSpan(
+                          text: 'CRÉER UN COMPTE',
+                          style: AppTypography.labelMd.copyWith(
+                            color: AppColors.emerald,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.underline,
+                            decorationColor: AppColors.emerald,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
