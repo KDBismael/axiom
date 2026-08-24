@@ -3,13 +3,19 @@ import '../../features/auth/views/login_view.dart';
 import '../../features/auth/views/register_view.dart';
 import '../../features/auth/views/forgot_password_view.dart';
 import '../../features/notifications/views/notifications_view.dart';
+import '../../features/onboarding/controllers/onboarding_controller.dart';
 import '../../features/onboarding/views/onboarding_view.dart';
 import '../../features/quests/controllers/quest_ally_invitation_controller.dart';
+import '../../features/quests/controllers/quest_owner_invitation_controller.dart';
 import '../../features/quests/controllers/quest_create_controller.dart';
 import '../../features/quests/controllers/quest_deletion_vote_controller.dart';
 import '../../features/quests/controllers/quest_list_controller.dart';
+import '../../features/quests/controllers/focus_timer_controller.dart';
 import '../../features/quests/repositories/quest_repository.dart';
+import '../../features/quests/services/focus_session_draft_store.dart';
+import '../../features/quests/views/quest_focus_timer_view.dart';
 import '../../features/quests/views/quest_ally_invitation_view.dart';
+import '../../features/quests/views/quest_owner_invitation_view.dart';
 import '../../features/quests/views/quest_create_view.dart';
 import '../../features/quests/views/quest_deletion_vote_view.dart';
 import '../../features/quests/views/quest_detail_view.dart';
@@ -32,7 +38,13 @@ import 'auth_middleware.dart';
 
 class AppPages {
   static final pages = [
-    GetPage(name: AppRoutes.onboarding, page: () => const OnboardingView()),
+    GetPage(
+      name: AppRoutes.onboarding,
+      page: () => const OnboardingView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<OnboardingController>(() => OnboardingController());
+      }),
+    ),
     GetPage(name: AppRoutes.login, page: () => const LoginView()),
     GetPage(name: AppRoutes.register, page: () => const RegisterView()),
     GetPage(
@@ -112,6 +124,18 @@ class AppPages {
       }),
     ),
     GetPage(
+      name: AppRoutes.questOwnerInvitation,
+      page: () => const QuestOwnerInvitationView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<QuestOwnerInvitationController>(
+          () => QuestOwnerInvitationController(
+            Get.find<QuestRepository>(),
+            Get.arguments as String,
+          ),
+        );
+      }),
+    ),
+    GetPage(
       name: AppRoutes.questDeletionVote,
       page: () => const QuestDeletionVoteView(),
       binding: BindingsBuilder(() {
@@ -129,6 +153,30 @@ class AppPages {
       name: AppRoutes.questPayment,
       page: () => const QuestPaymentView(),
       binding: QuestPaymentBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.questFocusTimer,
+      page: () => const QuestFocusTimerView(),
+      binding: BindingsBuilder(() {
+        // Tagged + permanent: leaving this route must not stop the running
+        // timer (or the live/foreground presence it drives) — a plain
+        // lazyPut controller is disposed by GetX as soon as the route is
+        // popped. It's freed explicitly once the session is actually
+        // submitted (quest_validation_view.dart) or replaced by a fresh one
+        // the next time this route opens for the same quest.
+        final questId = Get.arguments as String;
+        if (!Get.isRegistered<FocusTimerController>(tag: questId)) {
+          Get.put<FocusTimerController>(
+            FocusTimerController(
+              Get.find<QuestListController>(),
+              Get.find<FocusSessionDraftStore>(),
+              questId,
+            ),
+            tag: questId,
+            permanent: true,
+          );
+        }
+      }),
     ),
   ];
 }

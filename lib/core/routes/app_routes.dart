@@ -16,6 +16,8 @@ abstract class AppRoutes {
   static const validationHistory = '/validation-history';
   static const notifications = '/notifications';
   static const questAllyInvitation = '/quest-ally-invitation';
+  static const questOwnerInvitation = '/quest-owner-invitation';
   static const questDeletionVote = '/quest-deletion-vote';
   static const questPayment = '/quest-payment';
+  static const questFocusTimer = '/quest-focus-timer';
 }

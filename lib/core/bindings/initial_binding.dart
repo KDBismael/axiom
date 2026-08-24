@@ -8,6 +8,7 @@ import '../api/token_storage.dart';
 import '../services/deep_link_service.dart';
 import '../services/pending_invite_service.dart';
 import '../../features/notifications/services/notification_navigation_service.dart';
+import '../../features/quests/services/focus_session_draft_store.dart';
 import '../../features/social/controllers/allies_controller.dart';
 import '../../features/social/controllers/validations_controller.dart';
 import '../../features/social/repositories/social_repository.dart';
@@ -30,6 +31,10 @@ class InitialBinding extends Bindings {
     Get.lazyPut<GoogleAuthService>(() => GoogleAuthService());
     Get.lazyPut<AppleAuthService>(() => AppleAuthService());
     Get.lazyPut<DeepLinkService>(() => DeepLinkService());
+    Get.lazyPut<FocusSessionDraftStore>(
+      () => FocusSessionDraftStore(),
+      fenix: true,
+    );
 
     // Permanent: auth state must survive across the whole app lifecycle,
     // not just one route — the first GetxService in this codebase.
