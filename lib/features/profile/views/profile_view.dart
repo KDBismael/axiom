@@ -515,7 +515,7 @@ class _ProfileViewState extends State<ProfileView> {
                                       _StatRow(
                                         label: 'Quêtes actives',
                                         value:
-                                            '${questController.quests.length}',
+                                            '${questController.activeQuests.length}',
                                       ),
                                       _StatRow(
                                         label: 'Total misé',
