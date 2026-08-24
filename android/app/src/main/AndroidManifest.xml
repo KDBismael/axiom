@@ -11,6 +11,11 @@
     <uses-permission
         android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
         tools:node="remove" />
+    <!-- Keeps the focus timer running (and its ongoing notification current)
+         while the app is backgrounded — see FocusPresenceService's Android
+         branch (flutter_foreground_task). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <application
         android:label="Ndeli"
         android:name="${applicationName}"
@@ -53,6 +58,11 @@
                     android:pathPrefix="/invite/"/>
             </intent-filter>
         </activity>
+        <!-- Warning: do not rename — required by flutter_foreground_task. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

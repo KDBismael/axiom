@@ -1,10 +1,13 @@
 import 'package:get/get.dart';
 import '../../../core/api/api_client.dart';
 import '../models/check_in_model.dart';
+import '../models/focus_session_model.dart';
 import '../models/quest_ally_invitation.dart';
 import '../models/quest_ally_invitation_summary.dart';
 import '../models/quest_deletion_request.dart';
 import '../models/quest_model.dart';
+import '../models/quest_owner_invitation.dart';
+import '../models/quest_owner_invitation_summary.dart';
 import '../services/evidence_picker_service.dart';
 
 /// Thrown when the backend rejects a quest/check-in request; [message] is
@@ -130,6 +133,40 @@ class QuestRepository {
     }
   }
 
+  Future<List<QuestOwnerInvitationSummary>> fetchMyOwnerInvitations() async {
+    final response = await _client.get('/quests/owner-invitations');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list
+        .map(
+          (e) => QuestOwnerInvitationSummary.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<QuestOwnerInvitation> fetchOwnerInvitation(String questId) async {
+    final response = await _client.get('/quests/$questId/owner-invitation');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestOwnerInvitation.fromJson(response.body as Map<String, dynamic>);
+  }
+
+  Future<void> respondToOwnerInvitation(
+    String questId, {
+    required bool accept,
+  }) async {
+    final response = await _client.post(
+      '/quests/$questId/owner-invitation/respond',
+      {'decision': accept ? 'accept' : 'decline'},
+    );
+    if (!response.isOk) {
+      throw QuestException(_extractMessage(response.body));
+    }
+  }
+
   Future<CheckInResult> checkIn(
     String questId, {
     DateTime? date,
@@ -138,6 +175,8 @@ class QuestRepository {
     List<String>? fileIds,
     String? textContent,
     String? description,
+    DateTime? focusStartedAt,
+    DateTime? focusEndedAt,
   }) async {
     final response = await _client.post('/quests/$questId/check-ins', {
       if (date != null) 'date': date.toIso8601String(),
@@ -146,6 +185,9 @@ class QuestRepository {
       if (fileIds != null && fileIds.isNotEmpty) 'fileIds': fileIds,
       if (textContent != null) 'textContent': textContent,
       if (description != null) 'description': description,
+      if (focusStartedAt != null)
+        'focusStartedAt': focusStartedAt.toIso8601String(),
+      if (focusEndedAt != null) 'focusEndedAt': focusEndedAt.toIso8601String(),
     });
     if (!response.isOk || response.body == null) {
       throw QuestException(_extractMessage(response.body));
@@ -160,6 +202,14 @@ class QuestRepository {
     }
     final list = response.body as List<dynamic>;
     return list.map((e) => CheckIn.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<FocusSessionHistory> fetchFocusSessions(String questId) async {
+    final response = await _client.get('/quests/$questId/focus-sessions');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return FocusSessionHistory.fromJson(response.body as Map<String, dynamic>);
   }
 
   Future<Evidence> resubmitProof(

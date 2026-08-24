@@ -16,6 +16,7 @@ void main() {
 
   final questJson = {
     'id': 'q-1',
+    'creatorId': 'user-1',
     'title': 'Gym 3x par semaine',
     'description': 'Ne jamais sauter une séance.',
     'frequency': 'weekly',
@@ -402,6 +403,104 @@ void main() {
     });
   });
 
+  group('QuestRepository.fetchMyOwnerInvitations', () {
+    test('GETs /quests/owner-invitations and returns the parsed list', () async {
+      when(() => mockClient.get<dynamic>('/quests/owner-invitations')).thenAnswer(
+        (_) async => Response(
+          statusCode: 200,
+          body: [
+            {
+              'questId': 'q-1',
+              'questTitle': 'Courir pour un ami',
+              'invitedAt': '2026-07-01T00:00:00.000Z',
+            },
+          ],
+        ),
+      );
+
+      final invitations = await repository.fetchMyOwnerInvitations();
+
+      expect(invitations, hasLength(1));
+      expect(invitations.single.questId, 'q-1');
+      expect(invitations.single.questTitle, 'Courir pour un ami');
+    });
+
+    test('throws QuestException on failure', () async {
+      when(() => mockClient.get<dynamic>('/quests/owner-invitations')).thenAnswer(
+        (_) async => const Response(statusCode: 401, body: {'message': 'Non authentifié'}),
+      );
+
+      expect(
+        () => repository.fetchMyOwnerInvitations(),
+        throwsA(isA<QuestException>()),
+      );
+    });
+  });
+
+  group('QuestRepository.fetchOwnerInvitation', () {
+    test('GETs /quests/:id/owner-invitation and returns the full terms', () async {
+      when(() => mockClient.get<dynamic>('/quests/q-1/owner-invitation')).thenAnswer(
+        (_) async => Response(
+          statusCode: 200,
+          body: {
+            'invitation': {'status': 'pending'},
+            'quest': {
+              'id': 'q-1',
+              'title': 'Courir pour un ami',
+              'description': '30 minutes de course',
+              'frequency': 'daily',
+              'durationDays': 30,
+              'startDate': '2026-01-01T00:00:00.000Z',
+              'deadline': '2026-01-31T00:00:00.000Z',
+              'hasStake': true,
+              'stakeAmountXof': '5000',
+              'fundsDistribution': 'allies',
+            },
+          },
+        ),
+      );
+
+      final invitation = await repository.fetchOwnerInvitation('q-1');
+
+      expect(invitation.title, 'Courir pour un ami');
+      expect(invitation.stakeAmountXof, 5000.0);
+    });
+  });
+
+  group('QuestRepository.respondToOwnerInvitation', () {
+    test('POSTs the accept decision', () async {
+      when(() => mockClient.post<dynamic>(
+            '/quests/q-1/owner-invitation/respond',
+            any(),
+          )).thenAnswer((_) async => const Response(statusCode: 200, body: {'outcome': 'accepted'}));
+
+      await repository.respondToOwnerInvitation('q-1', accept: true);
+
+      final captured = verify(() => mockClient.post<dynamic>(
+            '/quests/q-1/owner-invitation/respond',
+            captureAny(),
+          )).captured.single as Map<String, dynamic>;
+      expect(captured, {'decision': 'accept'});
+    });
+
+    test('throws QuestException when already answered', () async {
+      when(() => mockClient.post<dynamic>(
+            '/quests/q-1/owner-invitation/respond',
+            any(),
+          )).thenAnswer(
+        (_) async => const Response(
+          statusCode: 400,
+          body: {'message': 'Cette invitation a déjà été traitée'},
+        ),
+      );
+
+      expect(
+        () => repository.respondToOwnerInvitation('q-1', accept: false),
+        throwsA(isA<QuestException>()),
+      );
+    });
+  });
+
   group('QuestRepository.checkIn', () {
     final checkInResultJson = {
       'id': 'ci-1',
@@ -464,6 +563,38 @@ void main() {
       expect(() => repository.checkIn('q-1', proofType: ProofType.photo, fileId: 'f-1'),
           throwsA(isA<QuestException>()));
     });
+
+    test('includes focusStartedAt/focusEndedAt when a session rode along', () async {
+      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any()))
+          .thenAnswer((_) async => Response(statusCode: 201, body: checkInResultJson));
+
+      await repository.checkIn(
+        'q-1',
+        focusStartedAt: DateTime.utc(2026, 1, 5, 9, 0),
+        focusEndedAt: DateTime.utc(2026, 1, 5, 9, 30),
+      );
+
+      final captured =
+          verify(() => mockClient.post<dynamic>('/quests/q-1/check-ins', captureAny()))
+              .captured
+              .single as Map<String, dynamic>;
+      expect(captured['focusStartedAt'], '2026-01-05T09:00:00.000Z');
+      expect(captured['focusEndedAt'], '2026-01-05T09:30:00.000Z');
+    });
+
+    test('omits focus fields when no session rode along', () async {
+      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any()))
+          .thenAnswer((_) async => Response(statusCode: 201, body: checkInResultJson));
+
+      await repository.checkIn('q-1');
+
+      final captured =
+          verify(() => mockClient.post<dynamic>('/quests/q-1/check-ins', captureAny()))
+              .captured
+              .single as Map<String, dynamic>;
+      expect(captured.containsKey('focusStartedAt'), isFalse);
+      expect(captured.containsKey('focusEndedAt'), isFalse);
+    });
   });
 
   group('QuestRepository.fetchCheckIns', () {
@@ -480,6 +611,45 @@ void main() {
       final checkIns = await repository.fetchCheckIns('q-1');
 
       expect(checkIns, hasLength(1));
+    });
+  });
+
+  group('QuestRepository.fetchFocusSessions', () {
+    test('GETs /quests/:id/focus-sessions', () async {
+      when(() => mockClient.get<dynamic>('/quests/q-1/focus-sessions')).thenAnswer(
+        (_) async => Response(
+          statusCode: 200,
+          body: {
+            'sessions': [
+              {
+                'id': 'focus-1',
+                'questId': 'q-1',
+                'startedAt': '2026-01-05T09:00:00.000Z',
+                'endedAt': '2026-01-05T09:30:00.000Z',
+                'durationMinutes': 30,
+              },
+            ],
+            'todayMinutes': 30,
+          },
+        ),
+      );
+
+      final history = await repository.fetchFocusSessions('q-1');
+
+      expect(history.sessions, hasLength(1));
+      expect(history.todayMinutes, 30);
+    });
+
+    test('throws QuestException on failure', () async {
+      when(() => mockClient.get<dynamic>('/quests/q-1/focus-sessions')).thenAnswer(
+        (_) async =>
+            const Response(statusCode: 404, body: {'message': 'Quête introuvable'}),
+      );
+
+      expect(
+        () => repository.fetchFocusSessions('q-1'),
+        throwsA(isA<QuestException>()),
+      );
     });
   });
 

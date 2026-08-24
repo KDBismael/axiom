@@ -138,5 +138,42 @@ void main() {
       expect(result.evidence, isNull);
       expect(result.checkIn.evidence, isEmpty);
     });
+
+    test('parses the linked focusSession when present', () {
+      final result = CheckInResult.fromJson({
+        'id': 'ci-3',
+        'questId': 'q-1',
+        'date': '2026-01-07T00:00:00.000Z',
+        'streakDays': 1,
+        'progress': 0.1,
+        'currentPeriodCount': 1,
+        'targetPerPeriod': 1,
+        'evidence': null,
+        'focusSession': {
+          'id': 'focus-1',
+          'startedAt': '2026-01-07T09:00:00.000Z',
+          'endedAt': '2026-01-07T09:30:00.000Z',
+          'durationMinutes': 30,
+        },
+      });
+
+      expect(result.session, isNotNull);
+      expect(result.session!.durationMinutes, 30);
+    });
+
+    test('session is null when no focus session rode along', () {
+      final result = CheckInResult.fromJson({
+        'id': 'ci-4',
+        'questId': 'q-1',
+        'date': '2026-01-08T00:00:00.000Z',
+        'streakDays': 1,
+        'progress': 0.1,
+        'currentPeriodCount': 1,
+        'targetPerPeriod': 1,
+        'evidence': null,
+      });
+
+      expect(result.session, isNull);
+    });
   });
 }

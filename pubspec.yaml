@@ -47,6 +47,9 @@ dependencies:
   firebase_core: ^4.13.0
   firebase_messaging: ^16.4.3
   flutter_local_notifications: ^20.1.0
+  audioplayers: ^6.1.0
+  flutter_foreground_task: ^8.17.0
+  live_activities: ^2.4.0
   # Declares an Android/iOS runtime plugin (net.jonhanson.flutter_native_splash)
   # even though we only use its CLI (`dart run flutter_native_splash:create`)
   # to generate splash assets — as a dev_dependency, Gradle's release build
@@ -81,6 +84,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/branding/logo.png
+    - assets/sounds/focus_chime.wav
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -13,6 +13,7 @@ import '../../social/models/ally.dart';
 import '../../social/models/user_search_result.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
+import '../models/focus_session_model.dart';
 import '../models/quest_deletion_request.dart';
 import '../models/quest_model.dart';
 
@@ -161,15 +162,27 @@ class _QuestDetailBody extends GetView<QuestListController> {
                     Get.toNamed(AppRoutes.questPayment, arguments: quest.id),
               );
             }
-            return AppButton(
-              label: 'VALIDER AVEC PREUVE',
-              leadingIcon: Icons.task_alt,
-              onPressed: quest.isActive && !isPendingDeletion
-                  ? () => Get.toNamed(
-                      AppRoutes.questValidation,
-                      arguments: quest.id,
-                    )
-                  : null,
+            return Column(
+              children: [
+                AppButton(
+                  label: 'VALIDER AVEC PREUVE',
+                  leadingIcon: Icons.task_alt,
+                  onPressed: quest.isActive && !isPendingDeletion
+                      ? () => Get.toNamed(
+                          AppRoutes.questValidation,
+                          arguments: quest.id,
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                // Temporarily disabled — grayed out until the timer feature
+                // is ready to ship.
+                OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.timer_outlined),
+                  label: const Text('MINUTEUR DE FOCUS'),
+                ),
+              ],
             );
           }),
           const SizedBox(height: 40),
@@ -251,6 +264,12 @@ class _QuestDetailBody extends GetView<QuestListController> {
               ),
             ),
             child: _CheckInHistory(questId: quest.id),
+          ),
+          const SizedBox(height: 40),
+          _SectionCard(
+            icon: Icons.timer_outlined,
+            title: 'SESSIONS DE FOCUS',
+            child: _FocusSessionHistory(questId: quest.id),
           ),
           const SizedBox(height: 40),
           Text(
@@ -700,6 +719,88 @@ class _CheckInHistory extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _FocusSessionHistory extends StatelessWidget {
+  const _FocusSessionHistory({required this.questId});
+
+  final String questId;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<FocusSessionHistory>(
+      future: Get.find<QuestListController>().fetchFocusSessions(questId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
+          );
+        }
+        final history = snapshot.data!;
+        if (history.sessions.isEmpty) {
+          return Text(
+            'Aucune session de focus pour le moment.',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${history.todayMinutes} minute(s) de focus aujourd\'hui',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.emerald,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final session in history.sessions) ...[
+              _FocusSessionRow(session: session),
+              if (session != history.sessions.last) const SizedBox(height: 8),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FocusSessionRow extends StatelessWidget {
+  const _FocusSessionRow({required this.session});
+
+  final FocusSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final start = session.startedAt.toLocal();
+    final end = session.endedAt.toLocal();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outlineVariant15),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${two(start.hour)}:${two(start.minute)} – ${two(end.hour)}:${two(end.minute)}',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          ),
+          Text(
+            '${session.durationMinutes} min',
+            style: AppTypography.bodyMd.copyWith(
+              color: AppColors.outline,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

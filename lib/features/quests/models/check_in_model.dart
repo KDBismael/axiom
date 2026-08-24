@@ -85,6 +85,31 @@ class Evidence {
   }
 }
 
+/// The focus-timer session that produced a check-in, when one rode along on
+/// the submission — see `FocusTimerController`/`FocusSessionDraftStore`.
+class FocusSessionInfo {
+  const FocusSessionInfo({
+    required this.id,
+    required this.startedAt,
+    required this.endedAt,
+    required this.durationMinutes,
+  });
+
+  final String id;
+  final DateTime startedAt;
+  final DateTime endedAt;
+  final int durationMinutes;
+
+  factory FocusSessionInfo.fromJson(Map<String, dynamic> json) {
+    return FocusSessionInfo(
+      id: json['id'] as String,
+      startedAt: DateTime.parse(json['startedAt'] as String),
+      endedAt: DateTime.parse(json['endedAt'] as String),
+      durationMinutes: json['durationMinutes'] as int,
+    );
+  }
+}
+
 /// Response envelope for `POST /quests/:id/check-ins`.
 class CheckInResult {
   const CheckInResult({
@@ -94,6 +119,7 @@ class CheckInResult {
     required this.currentPeriodCount,
     required this.targetPerPeriod,
     this.evidence,
+    this.session,
   });
 
   final CheckIn checkIn;
@@ -108,11 +134,15 @@ class CheckInResult {
   final int targetPerPeriod;
   final Evidence? evidence;
 
+  /// Present only when this check-in came from a finished focus-timer
+  /// session (`quest_repository.dart`'s `checkIn()` with focus params set).
+  final FocusSessionInfo? session;
+
   /// `POST /quests/:id/check-ins` returns the check-in row flattened with
   /// `streakDays`/`progress`/`currentPeriodCount`/`targetPerPeriod`/`evidence`
   /// alongside it (not nested under a `checkIn` key) — see
   /// `check-ins.service.ts`'s `{ ...checkIn, streakDays, progress,
-  /// currentPeriodCount, targetPerPeriod, evidence }`.
+  /// currentPeriodCount, targetPerPeriod, evidence, focusSession }`.
   factory CheckInResult.fromJson(Map<String, dynamic> json) {
     final evidence = json['evidence'] == null
         ? null
@@ -129,6 +159,11 @@ class CheckInResult {
       currentPeriodCount: json['currentPeriodCount'] as int,
       targetPerPeriod: json['targetPerPeriod'] as int,
       evidence: evidence,
+      session: json['focusSession'] == null
+          ? null
+          : FocusSessionInfo.fromJson(
+              json['focusSession'] as Map<String, dynamic>,
+            ),
     );
   }
 }

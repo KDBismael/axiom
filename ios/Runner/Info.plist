@@ -79,5 +79,7 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSSupportsLiveActivities</key>
+		<true/>
 	</dict>
 </plist>

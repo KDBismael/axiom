@@ -6,11 +6,13 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../controllers/focus_timer_controller.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
 import '../models/quest_model.dart';
 import '../repositories/quest_repository.dart';
 import '../services/evidence_picker_service.dart';
+import '../services/focus_session_draft_store.dart';
 import '../utils/period_progress.dart';
 
 class QuestValidationView extends GetView<QuestListController> {
@@ -79,6 +81,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
   bool _loadingHistory = true;
   int _currentPeriodCount = 0;
   String? _error;
+  FocusSessionDraft? _focusDraft;
 
   bool get _periodComplete =>
       _currentPeriodCount >= widget.quest.targetPerPeriod;
@@ -87,6 +90,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
   void initState() {
     super.initState();
     _loadHistory();
+    _loadFocusDraft();
   }
 
   Future<void> _loadHistory() async {
@@ -102,6 +106,17 @@ class _ValidationBodyState extends State<_ValidationBody> {
       _loadingHistory = false;
       _currentPeriodCount = count;
     });
+  }
+
+  /// A focus-timer session finished but not yet submitted rides along on
+  /// this check-in — see `FocusTimerController.finish()` and
+  /// `FocusSessionDraftStore`.
+  Future<void> _loadFocusDraft() async {
+    final draft = await Get.find<FocusSessionDraftStore>().read(
+      widget.quest.id,
+    );
+    if (!mounted || draft == null) return;
+    setState(() => _focusDraft = draft);
   }
 
   @override
@@ -243,12 +258,24 @@ class _ValidationBodyState extends State<_ValidationBody> {
                 _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
             : null,
+        focusStartedAt: _focusDraft?.startedAt,
+        focusEndedAt: _focusDraft?.endedAt,
       );
 
       if (!mounted) return;
       if (controller.errorMessage.value != null) {
         setState(() => _error = controller.errorMessage.value);
         return;
+      }
+
+      if (_focusDraft != null) {
+        await Get.find<FocusSessionDraftStore>().clear(widget.quest.id);
+        // The timer controller is kept alive (tagged + permanent) across
+        // navigation so the session survives leaving the timer screen —
+        // now that it's actually been submitted, free it for real.
+        if (Get.isRegistered<FocusTimerController>(tag: widget.quest.id)) {
+          Get.delete<FocusTimerController>(tag: widget.quest.id, force: true);
+        }
       }
 
       Get.offNamed(AppRoutes.questCheckinStatus, arguments: widget.quest.id);
@@ -285,6 +312,14 @@ class _ValidationBodyState extends State<_ValidationBody> {
               fontSize: 40,
             ),
           ),
+          if (_focusDraft != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Session de focus : '
+              '${_focusDraft!.endedAt.difference(_focusDraft!.startedAt).inMinutes} min',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.emerald),
+            ),
+          ],
           if (!_loadingHistory && _periodComplete) ...[
             const SizedBox(height: 16),
             Text(
