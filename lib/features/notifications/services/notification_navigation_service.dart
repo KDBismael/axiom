@@ -26,6 +26,9 @@ RedirectTarget notificationTarget(String type, Map<String, dynamic> payload) {
     case 'payout_rejected':
     case 'refund_rejected':
     case 'quest_ally_invite_accepted':
+    case 'quest_owner_invite_accepted':
+    case 'quest_owner_invite_declined':
+    case 'quest_owner_invite_expired':
     case 'quest_deletion_approved':
     case 'quest_deletion_rejected':
       final questId = payload['questId'];
@@ -46,6 +49,11 @@ RedirectTarget notificationTarget(String type, Map<String, dynamic> payload) {
       final questId = payload['questId'];
       return questId is String
           ? (route: AppRoutes.questAllyInvitation, arguments: questId)
+          : (route: AppRoutes.notifications, arguments: null);
+    case 'quest_owner_invite_received':
+      final questId = payload['questId'];
+      return questId is String
+          ? (route: AppRoutes.questOwnerInvitation, arguments: questId)
           : (route: AppRoutes.notifications, arguments: null);
     case 'quest_deletion_requested':
       final questId = payload['questId'];

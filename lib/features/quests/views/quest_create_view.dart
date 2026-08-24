@@ -55,32 +55,26 @@ class QuestCreateView extends GetView<QuestCreateController> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ÉTAPE ${(step + 1).toString().padLeft(2, '0')} — 0${QuestCreateController.stepCount}',
+                          'ÉTAPE ${(step + 1).toString().padLeft(2, '0')} — 0${controller.stepCount}',
                           style: AppTypography.labelMd.copyWith(
                             color: AppColors.outline,
                           ),
                         ),
                         const SizedBox(height: 12),
                         Row(
-                          children: List.generate(
-                            QuestCreateController.stepCount,
-                            (i) {
-                              return Expanded(
-                                child: Container(
-                                  height: 4,
-                                  margin: EdgeInsets.only(
-                                    right:
-                                        i == QuestCreateController.stepCount - 1
-                                        ? 0
-                                        : 4,
-                                  ),
-                                  color: i <= step
-                                      ? AppColors.primary
-                                      : AppColors.surfaceContainerHighest,
+                          children: List.generate(controller.stepCount, (i) {
+                            return Expanded(
+                              child: Container(
+                                height: 4,
+                                margin: EdgeInsets.only(
+                                  right: i == controller.stepCount - 1 ? 0 : 4,
                                 ),
-                              );
-                            },
-                          ),
+                                color: i <= step
+                                    ? AppColors.primary
+                                    : AppColors.surfaceContainerHighest,
+                              ),
+                            );
+                          }),
                         ),
                       ],
                     ),
@@ -115,18 +109,16 @@ class QuestCreateView extends GetView<QuestCreateController> {
   }
 
   Widget _stepBody(int step) {
-    switch (step) {
-      case 0:
-        return _TitleStep(controller: controller);
-      case 1:
-        return _ScheduleRulesStep(controller: controller);
-      case 2:
-        return _AlliesStep(controller: controller);
-      case 3:
-        return _StakeStep(controller: controller);
-      default:
-        return _ReviewStep(controller: controller);
-    }
+    final steps = <Widget>[
+      _TitleStep(controller: controller),
+      if (controller.createForSomeoneElse.value)
+        _InviteeStep(controller: controller),
+      _ScheduleRulesStep(controller: controller),
+      _AlliesStep(controller: controller),
+      _StakeStep(controller: controller),
+      _ReviewStep(controller: controller),
+    ];
+    return steps[step.clamp(0, steps.length - 1)];
   }
 }
 
@@ -143,7 +135,10 @@ class _Footer extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Obx(() {
           final step = controller.currentStep.value;
-          final isLastStep = step == QuestCreateController.stepCount - 1;
+          final isLastStep = step == controller.stepCount - 1;
+          final onInviteeStep =
+              controller.createForSomeoneElse.value &&
+              step == QuestCreateController.inviteeStepIndex;
           final label = isLastStep ? 'LANCER LA QUÊTE' : 'SUIVANT';
           return Row(
             children: [
@@ -163,6 +158,7 @@ class _Footer extends StatelessWidget {
                   loading: controller.isSubmitting.value,
                   onPressed:
                       (step == 0 && !controller.canProceedFromTitle) ||
+                          (onInviteeStep && !controller.canProceedFromInvitee) ||
                           controller.isSubmitting.value
                       ? null
                       : () async {
@@ -176,6 +172,12 @@ class _Footer extends StatelessWidget {
                                 arguments: quest.id,
                               );
                             } else {
+                              if (controller.createForSomeoneElse.value) {
+                                Get.snackbar(
+                                  'Quête envoyée',
+                                  "Invitation envoyée. La quête sera activée dès son acceptation.",
+                                );
+                              }
                               Get.back();
                             }
                           } else {
@@ -263,6 +265,17 @@ class _TitleStep extends StatelessWidget {
             focusedBorder: const OutlineInputBorder(
               borderSide: BorderSide(color: AppColors.emerald),
             ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Obx(
+          () => _ToggleRow(
+            label: 'Créer cette quête pour quelqu’un d’autre',
+            value: controller.createForSomeoneElse.value,
+            onChanged: (value) {
+              controller.createForSomeoneElse.value = value;
+              if (!value) controller.selectedInviteeId.value = null;
+            },
           ),
         ),
       ],
@@ -584,6 +597,99 @@ class _ToggleRow extends StatelessWidget {
           onChanged: onChanged,
           activeThumbColor: AppColors.primaryFixed,
         ),
+      ],
+    );
+  }
+}
+
+class _InviteeStep extends StatefulWidget {
+  const _InviteeStep({required this.controller});
+
+  final QuestCreateController controller;
+
+  @override
+  State<_InviteeStep> createState() => _InviteeStepState();
+}
+
+class _InviteeStepState extends State<_InviteeStep> {
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.controller.inviteeSearchInitialized) {
+      Get.find<AlliesController>().clearSearch();
+      widget.controller.inviteeSearchInitialized = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allies = Get.find<AlliesController>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'POUR QUI EST CETTE QUÊTE ?',
+          style: AppTypography.displayLg.copyWith(
+            color: AppColors.primary,
+            fontSize: 32,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Choisissez la personne qui recevra cette quête. Elle devra "
+          "l'accepter pour en devenir propriétaire ; vous deviendrez alors "
+          "automatiquement son allié de responsabilité.",
+          style: AppTypography.bodyMd.copyWith(
+            color: AppColors.outline,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        TextField(
+          controller: widget.controller.inviteeSearchController,
+          onChanged: (value) => allies.search(value),
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Rechercher un membre Ndeli…',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Obx(() {
+          final query = allies.searchQuery.value;
+          final members = query.length < 2
+              ? const <UserSearchResult>[]
+              : allies.searchResults;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final user in members) ...[
+                Obx(
+                  () => _SelectOption(
+                    label: '${user.firstName} ${user.lastName}',
+                    selected:
+                        widget.controller.selectedInviteeId.value == user.id,
+                    onTap: () => widget.controller.selectInvitee(user.id),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (query.length >= 2 && allies.isSearching.value)
+                const Center(
+                  child: CircularProgressIndicator(color: AppColors.emerald),
+                ),
+              if (query.length >= 2 &&
+                  !allies.isSearching.value &&
+                  members.isEmpty)
+                Text(
+                  'Aucun membre trouvé.',
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.outline,
+                  ),
+                ),
+            ],
+          );
+        }),
       ],
     );
   }
@@ -1004,6 +1110,13 @@ class _ReviewStep extends StatelessWidget {
                     ? '—'
                     : controller.titleController.text.trim(),
               ),
+              if (controller.createForSomeoneElse.value) ...[
+                const SizedBox(height: 8),
+                const _ReviewRow(
+                  label: 'Destinataire',
+                  value: 'Invitation envoyée à l’acceptation',
+                ),
+              ],
               const SizedBox(height: 8),
               _ReviewRow(
                 label: 'Durée',

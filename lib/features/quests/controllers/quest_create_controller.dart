@@ -27,9 +27,9 @@ class QuestCreateController extends GetxController {
   final QuestListController _listController;
   final PaymentFeatureConfig _paymentConfig;
 
-  /// Title/Description → Schedule & Rules → Allies (optional) → Stake
-  /// (optional) → Review.
-  static const stepCount = 5;
+  /// Title/Description → [Invitee, if sponsoring] → Schedule & Rules →
+  /// Allies (optional) → Stake (optional) → Review.
+  int get stepCount => createForSomeoneElse.value ? 6 : 5;
   bool get paymentsEnabled => _paymentConfig.isEnabled;
 
   final currentStep = 0.obs;
@@ -41,7 +41,21 @@ class QuestCreateController extends GetxController {
   final gracePeriodController = TextEditingController(text: '0');
   final stakeController = TextEditingController();
   final allySearchController = TextEditingController();
+  final inviteeSearchController = TextEditingController();
   bool questSearchInitialized = false;
+  bool inviteeSearchInitialized = false;
+
+  /// Whether this quest is being created on behalf of someone else — the
+  /// invitee becomes the quest owner once they accept, and the creator
+  /// (this user) becomes an accountability partner automatically.
+  final createForSomeoneElse = false.obs;
+  final selectedInviteeId = RxnString();
+
+  void selectInvitee(String userId) {
+    selectedInviteeId.value = selectedInviteeId.value == userId
+        ? null
+        : userId;
+  }
 
   final frequency = QuestFrequency.daily.obs;
   final startDate = Rx<DateTime>(DateTime.now());
@@ -80,6 +94,11 @@ class QuestCreateController extends GetxController {
   final stakeText = ''.obs;
 
   bool get canProceedFromTitle => titleText.value.trim().isNotEmpty;
+
+  bool get canProceedFromInvitee => selectedInviteeId.value != null;
+
+  /// Index of the invitee-selection step, only present when sponsoring.
+  static const inviteeStepIndex = 1;
 
   bool get hasStakeAmount => double.tryParse(stakeText.value.trim()) != null;
 
@@ -144,6 +163,8 @@ class QuestCreateController extends GetxController {
         if (paymentsEnabled && hasStake.value)
           'fundsDistribution': fundsDistribution.value.toJson(),
         if (selectedAllyIds.isNotEmpty) 'allyUserIds': selectedAllyIds.toList(),
+        if (createForSomeoneElse.value && selectedInviteeId.value != null)
+          'inviteeId': selectedInviteeId.value,
       };
 
       final created = await _listController.createQuest(payload);
@@ -167,6 +188,7 @@ class QuestCreateController extends GetxController {
     gracePeriodController.dispose();
     stakeController.dispose();
     allySearchController.dispose();
+    inviteeSearchController.dispose();
     super.onClose();
   }
 }

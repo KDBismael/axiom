@@ -30,6 +30,7 @@ void main() {
           id: '1',
           title: 'Gym 3x par semaine',
           description: '',
+          creatorId: 'user-1',
           frequency: QuestFrequency.weekly,
           durationDays: 30,
           targetPerPeriod: 1,
@@ -47,6 +48,9 @@ void main() {
       ],
     );
     when(() => mockRepository.fetchMyAllyInvitations()).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
     when(() => mockRepository.fetchCheckIns('1')).thenAnswer(
       (_) async => [CheckIn(id: 'ci-1', questId: '1', date: DateTime.now())],
     );

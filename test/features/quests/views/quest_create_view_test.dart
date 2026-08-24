@@ -14,6 +14,7 @@ import 'package:axiom/features/social/repositories/social_repository.dart';
 import 'package:axiom/features/social/models/user_search_result.dart';
 import 'package:axiom/features/payments/services/payment_feature_config.dart';
 import 'package:axiom/core/routes/app_routes.dart';
+import 'package:axiom/core/widgets/buttons/app_button.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
 
@@ -44,6 +45,7 @@ void main() {
       id: 'new-1',
       title: payload['title'] as String,
       description: payload['description'] as String? ?? '',
+      creatorId: 'user-1',
       frequency: QuestFrequency.fromJson(payload['frequency'] as String),
       durationDays: payload['durationDays'] as int,
       targetPerPeriod: (payload['targetPerPeriod'] as int?) ?? 1,
@@ -73,6 +75,9 @@ void main() {
     when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
     when(
       () => mockRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
     when(() => mockRepository.createQuest(any())).thenAnswer(
       (invocation) async => createdQuest(
@@ -166,6 +171,9 @@ void main() {
     when(
       () => mockRepository.fetchMyAllyInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
     putAlliesController();
     final listController = Get.put<QuestListController>(
       QuestListController(mockRepository),
@@ -212,6 +220,9 @@ void main() {
     when(() => mockRepository.fetchQuests()).thenAnswer((_) async => []);
     when(
       () => mockRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
     putAlliesController();
     final listController = Get.put<QuestListController>(
@@ -268,6 +279,9 @@ void main() {
       when(
         () => mockRepository.fetchMyAllyInvitations(),
       ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
       when(() => mockRepository.createQuest(any())).thenAnswer(
         (invocation) async => createdQuest(
           invocation.positionalArguments.single as Map<String, dynamic>,
@@ -338,6 +352,9 @@ void main() {
     when(
       () => mockRepository.fetchMyAllyInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
     final listController = Get.put<QuestListController>(
       QuestListController(mockRepository),
     );
@@ -372,6 +389,9 @@ void main() {
     when(() => questRepository.fetchQuests()).thenAnswer((_) async => []);
     when(
       () => questRepository.fetchMyAllyInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => questRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
     final socialRepository = MockSocialRepository();
     when(() => socialRepository.fetchAllies()).thenAnswer((_) async => []);
@@ -414,4 +434,78 @@ void main() {
     await tester.pump();
     expect(createController.selectedAllyIds, contains('user-2'));
   });
+
+  testWidgets(
+    'toggling "pour quelqu’un d’autre" inserts an invitee step and requires a selection',
+    (tester) async {
+      final questRepository = MockQuestRepository();
+      when(() => questRepository.fetchQuests()).thenAnswer((_) async => []);
+      when(
+        () => questRepository.fetchMyAllyInvitations(),
+      ).thenAnswer((_) async => []);
+      when(
+        () => questRepository.fetchMyOwnerInvitations(),
+      ).thenAnswer((_) async => []);
+      when(() => questRepository.createQuest(any())).thenAnswer(
+        (invocation) async => createdQuest(
+          invocation.positionalArguments.single as Map<String, dynamic>,
+        ),
+      );
+      final socialRepository = MockSocialRepository();
+      when(() => socialRepository.fetchAllies()).thenAnswer((_) async => []);
+      when(
+        () => socialRepository.fetchInvitations(),
+      ).thenAnswer((_) async => []);
+      when(
+        () => socialRepository.fetchAllyRequests(),
+      ).thenAnswer((_) async => []);
+      when(() => socialRepository.searchUsers('Awa')).thenAnswer(
+        (_) async => const [
+          UserSearchResult(id: 'user-2', firstName: 'Awa', lastName: 'Koné'),
+        ],
+      );
+
+      Get.put<AlliesController>(AlliesController(socialRepository));
+      final listController = Get.put<QuestListController>(
+        QuestListController(questRepository),
+      );
+      final createController = Get.put<QuestCreateController>(
+        QuestCreateController(listController),
+      );
+
+      await tester.pumpWidget(
+        GetMaterialApp(theme: AppTheme.dark, home: const QuestCreateView()),
+      );
+
+      await tester.enterText(find.byType(TextField).first, 'Cadeau sport');
+      await tester.pump();
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(createController.createForSomeoneElse.value, isTrue);
+      expect(createController.stepCount, 6);
+
+      // SUIVANT is blocked without a title-only wizard advance until an
+      // invitee is picked on the new step.
+      await tester.tap(find.text('SUIVANT'));
+      await tester.pump();
+      expect(createController.currentStep.value, 1);
+      expect(find.text('POUR QUI EST CETTE QUÊTE ?'), findsOneWidget);
+
+      final nextButton = tester.widget<AppButton>(find.byType(AppButton));
+      expect(nextButton.onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField), 'Awa');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('AWA KONÉ', skipOffstage: false));
+      await tester.tap(find.text('AWA KONÉ', skipOffstage: false));
+      await tester.pump();
+      expect(createController.selectedInviteeId.value, 'user-2');
+
+      await tester.tap(find.text('SUIVANT'));
+      await tester.pump();
+      expect(createController.currentStep.value, 2);
+      expect(find.text('DURÉE'), findsOneWidget);
+    },
+  );
 }

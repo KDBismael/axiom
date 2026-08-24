@@ -17,6 +17,7 @@ QuestModel _quest({required QuestStatus status}) => QuestModel(
   id: 'q-1',
   title: 'Test',
   description: 'desc',
+  creatorId: 'user-1',
   frequency: QuestFrequency.daily,
   durationDays: 10,
   targetPerPeriod: 1,

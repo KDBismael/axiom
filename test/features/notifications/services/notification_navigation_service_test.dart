@@ -31,6 +31,30 @@ void main() {
       AppRoutes.questAllyInvitation,
     );
     expect(
+      notificationTarget('quest_owner_invite_received', {
+        'questId': 'q-1',
+      }).route,
+      AppRoutes.questOwnerInvitation,
+    );
+    expect(
+      notificationTarget('quest_owner_invite_accepted', {
+        'questId': 'q-1',
+      }).route,
+      AppRoutes.questDetail,
+    );
+    expect(
+      notificationTarget('quest_owner_invite_declined', {
+        'questId': 'q-1',
+      }).route,
+      AppRoutes.questDetail,
+    );
+    expect(
+      notificationTarget('quest_owner_invite_expired', {
+        'questId': 'q-1',
+      }).route,
+      AppRoutes.questDetail,
+    );
+    expect(
       notificationTarget('quest_deletion_requested', {
         'questId': 'q-1',
         'requestId': 'r-1',
@@ -58,6 +82,10 @@ void main() {
     );
     expect(
       notificationTarget('future_type', {}).route,
+      AppRoutes.notifications,
+    );
+    expect(
+      notificationTarget('quest_owner_invite_received', {}).route,
       AppRoutes.notifications,
     );
   });

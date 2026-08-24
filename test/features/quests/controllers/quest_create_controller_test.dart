@@ -21,6 +21,7 @@ void main() {
     id: 'q-1',
     title: 'Gym',
     description: '',
+    creatorId: 'user-1',
     frequency: QuestFrequency.daily,
     durationDays: 30,
     targetPerPeriod: 1,
@@ -59,7 +60,7 @@ void main() {
       for (var i = 0; i < 10; i++) {
         controller.nextStep();
       }
-      expect(controller.currentStep.value, QuestCreateController.stepCount - 1);
+      expect(controller.currentStep.value, controller.stepCount - 1);
     });
   });
 
@@ -85,6 +86,7 @@ void main() {
             id: 'q-2',
             title: 'Courir 5km',
             description: '',
+            creatorId: 'user-1',
             frequency: QuestFrequency.daily,
             durationDays: 30,
             targetPerPeriod: 1,
@@ -237,6 +239,58 @@ void main() {
           verify(() => mockRepository.createQuest(captureAny())).captured.single
               as Map;
       expect(captured['allyUserIds'], containsAll(['ally-1', 'ally-2']));
+    });
+
+    test('omits inviteeId when not creating for someone else', () async {
+      when(
+        () => mockRepository.createQuest(any()),
+      ).thenAnswer((_) async => quest());
+
+      controller.titleController.text = 'Courir 5km';
+      controller.selectedInviteeId.value = 'user-2';
+      await controller.submit();
+
+      final captured =
+          verify(() => mockRepository.createQuest(captureAny())).captured.single
+              as Map;
+      expect(captured.containsKey('inviteeId'), isFalse);
+    });
+
+    test('includes inviteeId when sponsoring someone else', () async {
+      when(
+        () => mockRepository.createQuest(any()),
+      ).thenAnswer((_) async => quest());
+
+      controller.titleController.text = 'Courir 5km';
+      controller.createForSomeoneElse.value = true;
+      controller.selectedInviteeId.value = 'user-2';
+      await controller.submit();
+
+      final captured =
+          verify(() => mockRepository.createQuest(captureAny())).captured.single
+              as Map;
+      expect(captured['inviteeId'], 'user-2');
+    });
+  });
+
+  group('QuestCreateController.createForSomeoneElse', () {
+    test('stepCount is 5 by default and 6 while sponsoring', () {
+      expect(controller.stepCount, 5);
+      controller.createForSomeoneElse.value = true;
+      expect(controller.stepCount, 6);
+    });
+
+    test('selectInvitee toggles selection on repeated taps', () {
+      controller.selectInvitee('user-2');
+      expect(controller.selectedInviteeId.value, 'user-2');
+      controller.selectInvitee('user-2');
+      expect(controller.selectedInviteeId.value, isNull);
+    });
+
+    test('canProceedFromInvitee requires a selected invitee', () {
+      expect(controller.canProceedFromInvitee, isFalse);
+      controller.selectedInviteeId.value = 'user-2';
+      expect(controller.canProceedFromInvitee, isTrue);
     });
   });
 

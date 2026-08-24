@@ -5,6 +5,8 @@
 /// quest_deadline_reminder, payment_succeeded, payment_failed, payout_sent,
 /// refund_sent, payout_rejected, refund_rejected,
 /// quest_ally_invite_received, quest_ally_invite_accepted,
+/// quest_owner_invite_received, quest_owner_invite_accepted,
+/// quest_owner_invite_declined, quest_owner_invite_expired,
 /// quest_deletion_requested, quest_deletion_approved,
 /// quest_deletion_rejected.
 class AppNotification {

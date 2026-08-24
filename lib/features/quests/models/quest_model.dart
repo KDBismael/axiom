@@ -75,6 +75,7 @@ enum FundsDistribution {
 
 enum QuestStatus {
   pendingPayment,
+  pendingOwnerAcceptance,
   active,
   completed,
   failed,
@@ -84,6 +85,8 @@ enum QuestStatus {
     switch (value) {
       case 'pending_payment':
         return QuestStatus.pendingPayment;
+      case 'pending_owner_acceptance':
+        return QuestStatus.pendingOwnerAcceptance;
       case 'active':
         return QuestStatus.active;
       case 'completed':
@@ -104,6 +107,21 @@ enum QuestAllyStatus {
 
   factory QuestAllyStatus.fromJson(String value) =>
       QuestAllyStatus.values.firstWhere((v) => v.name == value);
+
+  String toJson() => name;
+}
+
+/// A sponsor's offer of quest ownership to someone else — distinct from
+/// [QuestAllyStatus]: accepting makes the invitee the quest OWNER, not an
+/// accountability partner.
+enum QuestOwnerInvitationStatus {
+  pending,
+  accepted,
+  declined,
+  expired;
+
+  factory QuestOwnerInvitationStatus.fromJson(String value) =>
+      QuestOwnerInvitationStatus.values.firstWhere((v) => v.name == value);
 
   String toJson() => name;
 }
@@ -154,6 +172,7 @@ class QuestModel {
     required this.status,
     required this.progress,
     required this.streakDays,
+    required this.creatorId,
     this.stakeAmountXof,
     this.fundsDistribution,
     this.allies = const [],
@@ -186,10 +205,18 @@ class QuestModel {
   /// Server-computed/cached.
   final int streakDays;
 
+  /// The user who created (and, if staked, funded) the quest. Compare
+  /// against the current user's id to tell a sponsor quest apart from a
+  /// self-quest — equal to the quest's owner for a normal, non-sponsored
+  /// quest.
+  final String creatorId;
+
   /// Only populated by `GET /quests/:id` — the list endpoint omits it.
   final List<QuestAllyRef> allies;
 
   bool get isPendingPayment => status == QuestStatus.pendingPayment;
+  bool get isPendingOwnerAcceptance =>
+      status == QuestStatus.pendingOwnerAcceptance;
   bool get isActive => status == QuestStatus.active;
 
   /// Completed, failed, or cancelled — a terminal state shown in History.
@@ -220,6 +247,7 @@ class QuestModel {
       status: QuestStatus.fromJson(json['status'] as String),
       progress: _parseDouble(json['progress']) ?? 0,
       streakDays: json['streakDays'] as int,
+      creatorId: json['creatorId'] as String,
       allies: json['allies'] == null
           ? const []
           : (json['allies'] as List)
@@ -257,6 +285,7 @@ class QuestModel {
       status: status,
       progress: progress ?? this.progress,
       streakDays: streakDays ?? this.streakDays,
+      creatorId: creatorId,
       allies: allies,
     );
   }

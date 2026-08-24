@@ -4,6 +4,7 @@ import 'package:axiom/features/quests/models/quest_model.dart';
 void main() {
   final json = {
     'id': 'q-1',
+    'creatorId': 'user-1',
     'title': 'Gym 3x par semaine',
     'description': 'Ne jamais sauter une séance.',
     'frequency': 'weekly',
@@ -45,11 +46,26 @@ void main() {
       expect(quest.status, QuestStatus.active);
       expect(quest.progress, 0.42);
       expect(quest.streakDays, 3);
+      expect(quest.creatorId, 'user-1');
     });
 
     test('parses status: pending_payment', () {
       final quest = QuestModel.fromJson({...json, 'status': 'pending_payment'});
       expect(quest.status, QuestStatus.pendingPayment);
+    });
+
+    test('parses status: pending_owner_acceptance', () {
+      final quest = QuestModel.fromJson({
+        ...json,
+        'status': 'pending_owner_acceptance',
+      });
+      expect(quest.status, QuestStatus.pendingOwnerAcceptance);
+      expect(quest.isPendingOwnerAcceptance, isTrue);
+    });
+
+    test('parses a sponsor quest whose creatorId differs from the caller', () {
+      final quest = QuestModel.fromJson({...json, 'creatorId': 'sponsor-1'});
+      expect(quest.creatorId, 'sponsor-1');
     });
 
     test('handles a quest with no stake (nullable fields)', () {
