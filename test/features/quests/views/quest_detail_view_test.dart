@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:axiom/core/theme/app_theme.dart';
 import 'package:axiom/features/quests/controllers/quest_list_controller.dart';
+import 'package:axiom/features/quests/models/focus_session_model.dart';
 import 'package:axiom/features/quests/models/quest_model.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
 import 'package:axiom/features/quests/views/quest_detail_view.dart';
@@ -29,6 +30,7 @@ void main() {
         id: '1',
         title: 'Salle de sport 3x/semaine',
         description: '',
+        creatorId: 'user-1',
         frequency: QuestFrequency.weekly,
         durationDays: 30,
         targetPerPeriod: 1,
@@ -51,8 +53,14 @@ void main() {
         () => mockRepository.fetchDeletionRequest('1'),
       ).thenAnswer((_) async => null);
       when(() => mockRepository.fetchCheckIns('1')).thenAnswer((_) async => []);
+      when(() => mockRepository.fetchFocusSessions('1')).thenAnswer(
+        (_) async => const FocusSessionHistory(sessions: [], todayMinutes: 0),
+      );
       when(
         () => mockRepository.fetchMyAllyInvitations(),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockRepository.fetchMyOwnerInvitations(),
       ).thenAnswer((_) async => []);
 
       Get.put<ShellController>(ShellController());
