@@ -244,6 +244,117 @@ void main() {
     );
   });
 
+  group('QuestPaymentController topUp mode', () {
+    late QuestPaymentController topUpController;
+
+    setUp(() {
+      topUpController = QuestPaymentController(
+        mockRepository,
+        mockQuestList,
+        mockUrlOpener,
+        'q-1',
+        topUp: const StakeTopUp(
+          amountXof: 1500,
+          fundsDistribution: FundsDistribution.charity,
+        ),
+        pollInterval: const Duration(milliseconds: 10),
+      );
+      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+    });
+
+    tearDown(() {
+      topUpController.onClose();
+    });
+
+    test('forwards the top-up amount and funds distribution to the repository', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+          additionalAmountXof: 1500,
+          fundsDistribution: FundsDistribution.charity,
+        ),
+      ).thenAnswer((_) async => transaction);
+
+      await topUpController.pay();
+
+      verify(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: null,
+          additionalAmountXof: 1500,
+          fundsDistribution: FundsDistribution.charity,
+        ),
+      ).called(1);
+    });
+
+    test('detects success by polling the transaction, not the quest status', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+          additionalAmountXof: any(named: 'additionalAmountXof'),
+          fundsDistribution: any(named: 'fundsDistribution'),
+        ),
+      ).thenAnswer((_) async => transaction);
+      // The quest never leaves 'active' — that's the whole point of a
+      // top-up, so success must come from the transaction's own status.
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.active));
+      var pollCount = 0;
+      when(() => mockRepository.getTransaction('tx-1')).thenAnswer((_) async {
+        pollCount++;
+        return StakeTransaction(
+          transactionId: 'tx-1',
+          status: pollCount < 2 ? 'pending' : 'completed',
+        );
+      });
+
+      await topUpController.pay();
+      await Future.delayed(const Duration(milliseconds: 80));
+
+      expect(topUpController.isPolling.value, isFalse);
+      expect(topUpController.paymentSucceeded.value, isTrue);
+    });
+
+    test('times out if the transaction never completes', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+          additionalAmountXof: any(named: 'additionalAmountXof'),
+          fundsDistribution: any(named: 'fundsDistribution'),
+        ),
+      ).thenAnswer((_) async => transaction);
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.active));
+      when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
+        (_) async => const StakeTransaction(
+          transactionId: 'tx-1',
+          status: 'pending',
+        ),
+      );
+
+      final shortTopUpController = QuestPaymentController(
+        mockRepository,
+        mockQuestList,
+        mockUrlOpener,
+        'q-1',
+        topUp: const StakeTopUp(amountXof: 1500),
+        pollInterval: const Duration(milliseconds: 5),
+        maxPollAttempts: 3,
+      );
+
+      await shortTopUpController.pay();
+      await Future.delayed(const Duration(milliseconds: 60));
+
+      expect(shortTopUpController.paymentTimedOut.value, isTrue);
+      shortTopUpController.onClose();
+    });
+  });
+
   group('QuestPaymentController.onAppResumed', () {
     test('re-checks and resumes polling if not yet resolved', () async {
       when(

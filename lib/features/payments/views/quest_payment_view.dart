@@ -27,7 +27,7 @@ class QuestPaymentView extends GetView<QuestPaymentController> {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.primary),
         title: Text(
-          'PAIEMENT DE LA MISE',
+          controller.topUp != null ? 'AJOUTER UN ENJEU' : 'PAIEMENT DE LA MISE',
           style: AppTypography.labelMd.copyWith(color: AppColors.outline),
         ),
       ),
@@ -74,7 +74,7 @@ class _InitialState extends StatelessWidget {
           style: AppTypography.displayLg.copyWith(color: AppColors.primary),
         ),
         const SizedBox(height: 24),
-        _SummaryCard(quest: quest),
+        _SummaryCard(quest: quest, topUp: controller.topUp),
         const SizedBox(height: 24),
         Text(
           'NUMÉRO WAVE',
@@ -199,12 +199,17 @@ class _SuccessState extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.quest});
+  const _SummaryCard({required this.quest, this.topUp});
 
   final QuestModel? quest;
+  final StakeTopUp? topUp;
 
   @override
   Widget build(BuildContext context) {
+    // A top-up's amount is what's being charged right now, not the quest's
+    // (possibly still-null, or not-yet-updated) total stake.
+    final amount = topUp?.amountXof ?? quest?.stakeAmountXof;
+    final distribution = topUp?.fundsDistribution ?? quest?.fundsDistribution;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -216,19 +221,17 @@ class _SummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'MONTANT DE LA MISE',
+            topUp != null ? 'MONTANT À AJOUTER' : 'MONTANT DE LA MISE',
             style: AppTypography.labelMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: 8),
           Text(
-            quest?.stakeAmountXof != null
-                ? formatXof(quest!.stakeAmountXof!)
-                : '—',
+            amount != null ? formatXof(amount) : '—',
             style: AppTypography.headlineMd.copyWith(color: AppColors.primary),
           ),
           const SizedBox(height: 12),
           Text(
-            quest?.fundsDistribution == FundsDistribution.allies
+            distribution == FundsDistribution.allies
                 ? "En cas d'échec, reversé aux alliés."
                 : "En cas d'échec, reversé à une association caritative.",
             style: AppTypography.bodyMd.copyWith(color: AppColors.outline),

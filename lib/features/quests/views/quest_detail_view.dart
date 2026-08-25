@@ -174,6 +174,17 @@ class _QuestDetailBody extends GetView<QuestListController> {
                         )
                       : null,
                 ),
+                if (!quest.hasStake) ...[
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: 'AJOUTER UN ENJEU',
+                    leadingIcon: Icons.add_card,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: quest.isActive && !isPendingDeletion
+                        ? () => _addStake(context, quest)
+                        : null,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 // Temporarily disabled — grayed out until the timer feature
                 // is ready to ship.
@@ -373,6 +384,15 @@ class _QuestDetailBody extends GetView<QuestListController> {
     );
   }
 
+  void _addStake(BuildContext context, QuestModel quest) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainerLow,
+      builder: (context) => _AddStakeSheet(quest: quest),
+    );
+  }
+
   void _editDescription(BuildContext context, QuestModel quest) {
     final textController = TextEditingController(text: quest.description);
     showModalBottomSheet(
@@ -470,6 +490,173 @@ class _QuestDetailBody extends GetView<QuestListController> {
 
   String _formatDate(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+class _AddStakeSheet extends StatefulWidget {
+  const _AddStakeSheet({required this.quest});
+
+  final QuestModel quest;
+
+  @override
+  State<_AddStakeSheet> createState() => _AddStakeSheetState();
+}
+
+class _AddStakeSheetState extends State<_AddStakeSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountController = TextEditingController();
+  FundsDistribution? _distribution;
+  String? _distributionError;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final startingFromZero = !widget.quest.hasStake;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                startingFromZero ? 'DÉMARRER UN ENJEU' : 'AJOUTER UN ENJEU',
+                style: AppTypography.titleLg.copyWith(color: AppColors.primary),
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                decoration: const InputDecoration(
+                  labelText: 'Montant (XOF)',
+                  hintText: '200',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  final amount = double.tryParse(value?.trim() ?? '');
+                  if (amount == null || amount < 200) {
+                    return 'Minimum 200 XOF';
+                  }
+                  return null;
+                },
+              ),
+              if (startingFromZero) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'DISTRIBUTION DES FONDS',
+                  style: AppTypography.labelMd.copyWith(
+                    color: AppColors.outline,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _FundsChoiceOption(
+                  label: 'Partager entre mes alliés',
+                  selected: _distribution == FundsDistribution.allies,
+                  onTap: () => setState(() {
+                    _distribution = FundsDistribution.allies;
+                    _distributionError = null;
+                  }),
+                ),
+                const SizedBox(height: 8),
+                _FundsChoiceOption(
+                  label: 'Donner à une association',
+                  selected: _distribution == FundsDistribution.charity,
+                  onTap: () => setState(() {
+                    _distribution = FundsDistribution.charity;
+                    _distributionError = null;
+                  }),
+                ),
+                if (_distributionError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _distributionError!,
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 24),
+              AppButton(label: 'CONTINUER', onPressed: _continue),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _continue() {
+    final startingFromZero = !widget.quest.hasStake;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (startingFromZero && _distribution == null) {
+      setState(
+        () => _distributionError =
+            "Choisissez comment les fonds seront reversés en cas d'échec",
+      );
+      return;
+    }
+    final amount = double.parse(_amountController.text.trim());
+    Navigator.of(context).pop();
+    Get.toNamed(
+      AppRoutes.questPayment,
+      arguments: {
+        'questId': widget.quest.id,
+        'additionalAmountXof': amount,
+        if (_distribution != null) 'fundsDistribution': _distribution!.name,
+      },
+    );
+  }
+}
+
+class _FundsChoiceOption extends StatelessWidget {
+  const _FundsChoiceOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.surfaceContainerHigh
+              : AppColors.surfaceContainer,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(
+            color: selected
+                ? AppColors.primaryFixed
+                : AppColors.outlineVariant15,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+        ),
+      ),
+    );
+  }
 }
 
 class _InviteAlliesSheet extends StatefulWidget {

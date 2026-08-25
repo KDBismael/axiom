@@ -6,6 +6,17 @@ import '../models/stake_transaction.dart';
 import '../repositories/payment_repository.dart';
 import '../services/url_opener.dart';
 
+/// Data needed to reuse this controller's flow for topping up (or starting)
+/// a stake on a quest that's already active — as opposed to the default
+/// flow, which pays the stake decided at creation on a `pending_payment`
+/// quest and derives the amount server-side.
+class StakeTopUp {
+  const StakeTopUp({required this.amountXof, this.fundsDistribution});
+
+  final double amountXof;
+  final FundsDistribution? fundsDistribution;
+}
+
 /// Drives the Wave sandbox stake-payment flow for one already-created
 /// `pending_payment` quest: initiates the payment, opens the returned Wave
 /// checkout URL, then polls the quest (there's no success_url/error_url
@@ -20,6 +31,7 @@ class QuestPaymentController extends GetxController {
     this._questList,
     this._urlOpener,
     this.questId, {
+    this.topUp,
     Duration pollInterval = const Duration(seconds: 3),
     int maxPollAttempts = 40,
   }) : _pollInterval = pollInterval,
@@ -29,6 +41,7 @@ class QuestPaymentController extends GetxController {
   final QuestListController _questList;
   final UrlOpener _urlOpener;
   final String questId;
+  final StakeTopUp? topUp;
   final Duration _pollInterval;
   final int _maxPollAttempts;
 
@@ -60,6 +73,8 @@ class QuestPaymentController extends GetxController {
       final result = await _repository.initiateStakePayment(
         questId,
         phoneNumber: phoneNumber,
+        additionalAmountXof: topUp?.amountXof,
+        fundsDistribution: topUp?.fundsDistribution,
       );
       transaction.value = result;
       await _urlOpener.open(result.paymentUrl ?? '');
@@ -83,8 +98,8 @@ class QuestPaymentController extends GetxController {
   Future<void> checkNow() async {
     _pollAttempts++;
     await _questList.refreshQuest(questId);
-    final quest = _questList.findById(questId);
-    if (quest?.status == QuestStatus.active) {
+    final succeeded = topUp != null ? await _topUpSucceeded() : _questActive();
+    if (succeeded) {
       paymentSucceeded.value = true;
       stopPolling();
       return;
@@ -92,6 +107,27 @@ class QuestPaymentController extends GetxController {
     if (_pollAttempts >= _maxPollAttempts) {
       paymentTimedOut.value = true;
       stopPolling();
+    }
+  }
+
+  bool _questActive() =>
+      _questList.findById(questId)?.status == QuestStatus.active;
+
+  /// A top-up never changes the quest's status (it's already active), so
+  /// success is detected by polling the transaction itself instead. A
+  /// transient network failure here just means "not yet" — the next tick
+  /// retries rather than surfacing an error mid-poll.
+  Future<bool> _topUpSucceeded() async {
+    final current = transaction.value;
+    if (current == null) return false;
+    try {
+      final refreshed = await _repository.getTransaction(
+        current.transactionId,
+      );
+      transaction.value = refreshed;
+      return refreshed.status == 'completed';
+    } on PaymentException {
+      return false;
     }
   }
 
