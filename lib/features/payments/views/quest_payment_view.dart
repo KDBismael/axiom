@@ -39,6 +39,9 @@ class QuestPaymentView extends GetView<QuestPaymentController> {
             if (controller.paymentSucceeded.value) {
               return _SuccessState(quest: quest);
             }
+            if (controller.paymentFailed.value) {
+              return _FailedState(controller: controller);
+            }
             if (controller.transaction.value != null) {
               return _WaitingState(controller: controller, quest: quest);
             }
@@ -158,6 +161,42 @@ class _WaitingState extends StatelessWidget {
             onPressed: () => controller.pay(),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _FailedState extends StatelessWidget {
+  const _FailedState({required this.controller});
+
+  final QuestPaymentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Center(
+          child: Icon(Icons.error_outline, color: AppColors.error, size: 64),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Le paiement a échoué.',
+          textAlign: TextAlign.center,
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Wave n'a pas confirmé ce paiement. Vous pouvez réessayer.",
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 24),
+        AppButton(
+          label: 'RÉESSAYER LE PAIEMENT',
+          onPressed: () => controller.pay(),
+        ),
       ],
     );
   }

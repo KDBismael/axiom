@@ -49,8 +49,11 @@ class QuestPaymentController extends GetxController {
   final isLoading = false.obs;
   final isPolling = false.obs;
   final paymentSucceeded = false.obs;
+  final paymentFailed = false.obs;
   final paymentTimedOut = false.obs;
   final errorMessage = RxnString();
+
+  static const _terminalFailureStatuses = {'failed', 'cancelled', 'expired'};
 
   Timer? _pollTimer;
   int _pollAttempts = 0;
@@ -59,6 +62,7 @@ class QuestPaymentController extends GetxController {
     isLoading.value = true;
     errorMessage.value = null;
     paymentSucceeded.value = false;
+    paymentFailed.value = false;
     paymentTimedOut.value = false;
     try {
       final result = await _repository.initiateStakePayment(
@@ -89,7 +93,15 @@ class QuestPaymentController extends GetxController {
   Future<void> checkNow() async {
     _pollAttempts++;
     await _questList.refreshQuest(questId);
-    final succeeded = topUp != null ? await _topUpSucceeded() : _questActive();
+    final refreshed = await _refreshTransaction();
+    if (refreshed != null && _terminalFailureStatuses.contains(refreshed.status)) {
+      paymentFailed.value = true;
+      stopPolling();
+      return;
+    }
+    final succeeded = topUp != null
+        ? refreshed?.status == 'completed'
+        : _questActive();
     if (succeeded) {
       paymentSucceeded.value = true;
       stopPolling();
@@ -104,21 +116,22 @@ class QuestPaymentController extends GetxController {
   bool _questActive() =>
       _questList.findById(questId)?.status == QuestStatus.active;
 
-  /// A top-up never changes the quest's status (it's already active), so
-  /// success is detected by polling the transaction itself instead. A
-  /// transient network failure here just means "not yet" — the next tick
-  /// retries rather than surfacing an error mid-poll.
-  Future<bool> _topUpSucceeded() async {
+  /// Re-fetches the transaction so both flows can detect a terminal outcome
+  /// (success for a top-up, or failure for either flow) as soon as it's
+  /// recorded, rather than only inferring it from the quest's own status. A
+  /// transient network failure here just means "not yet known" — the next
+  /// tick retries rather than surfacing an error mid-poll.
+  Future<StakeTransaction?> _refreshTransaction() async {
     final current = transaction.value;
-    if (current == null) return false;
+    if (current == null) return null;
     try {
       final refreshed = await _repository.getTransaction(
         current.transactionId,
       );
       transaction.value = refreshed;
-      return refreshed.status == 'completed';
+      return refreshed;
     } on PaymentException {
-      return false;
+      return null;
     }
   }
 
@@ -126,9 +139,9 @@ class QuestPaymentController extends GetxController {
   /// covers the case where the user completed the Wave checkout while the
   /// app was backgrounded and missed the in-app polling window.
   Future<void> onAppResumed() async {
-    if (paymentSucceeded.value) return;
+    if (paymentSucceeded.value || paymentFailed.value) return;
     await checkNow();
-    if (!paymentSucceeded.value && !isPolling.value) {
+    if (!paymentSucceeded.value && !paymentFailed.value && !isPolling.value) {
       _startPolling();
     }
   }

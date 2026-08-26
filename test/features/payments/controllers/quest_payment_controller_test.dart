@@ -55,6 +55,13 @@ void main() {
     mockQuestList = MockQuestListController();
     mockUrlOpener = MockUrlOpener();
     when(() => mockUrlOpener.open(any())).thenAnswer((_) async => true);
+    // checkNow() now polls the transaction itself every tick (for both flows,
+    // to catch a terminal failure early) - default to "still pending" so
+    // tests that only care about the quest-status success path don't need to
+    // stub this individually.
+    when(
+      () => mockRepository.getTransaction(any()),
+    ).thenAnswer((_) async => transaction);
     controller = QuestPaymentController(
       mockRepository,
       mockQuestList,
@@ -182,6 +189,41 @@ void main() {
       },
     );
 
+    test('stops polling early and reports failure once the transaction fails - without waiting for the full timeout', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+        ),
+      ).thenAnswer((_) async => transaction);
+      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.pendingPayment));
+      when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
+        (_) async =>
+            const StakeTransaction(transactionId: 'tx-1', status: 'failed'),
+      );
+
+      final shortController = QuestPaymentController(
+        mockRepository,
+        mockQuestList,
+        mockUrlOpener,
+        'q-1',
+        pollInterval: const Duration(milliseconds: 5),
+        maxPollAttempts: 40, // would take far longer than this test waits
+      );
+
+      await shortController.pay();
+      await Future.delayed(const Duration(milliseconds: 30));
+
+      expect(shortController.isPolling.value, isFalse);
+      expect(shortController.paymentFailed.value, isTrue);
+      expect(shortController.paymentSucceeded.value, isFalse);
+      expect(shortController.paymentTimedOut.value, isFalse);
+      shortController.onClose();
+    });
+
     test('a manual check stops polling early on success', () async {
       when(
         () => mockRepository.initiateStakePayment(
@@ -304,6 +346,31 @@ void main() {
 
       expect(topUpController.isPolling.value, isFalse);
       expect(topUpController.paymentSucceeded.value, isTrue);
+    });
+
+    test('stops polling early and reports failure once the transaction fails', () async {
+      when(
+        () => mockRepository.initiateStakePayment(
+          'q-1',
+          phoneNumber: any(named: 'phoneNumber'),
+          additionalAmountXof: any(named: 'additionalAmountXof'),
+          fundsDistribution: any(named: 'fundsDistribution'),
+        ),
+      ).thenAnswer((_) async => transaction);
+      when(
+        () => mockQuestList.findById('q-1'),
+      ).thenReturn(_quest(status: QuestStatus.active));
+      when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
+        (_) async =>
+            const StakeTransaction(transactionId: 'tx-1', status: 'cancelled'),
+      );
+
+      await topUpController.pay();
+      await Future.delayed(const Duration(milliseconds: 30));
+
+      expect(topUpController.isPolling.value, isFalse);
+      expect(topUpController.paymentFailed.value, isTrue);
+      expect(topUpController.paymentSucceeded.value, isFalse);
     });
 
     test('times out if the transaction never completes', () async {
