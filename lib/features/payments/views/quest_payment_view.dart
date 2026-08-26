@@ -127,6 +127,9 @@ class _WaitingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.paymentTimedOut.value) {
+      return _PendingState(controller: controller, quest: quest);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -136,9 +139,7 @@ class _WaitingState extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          controller.paymentTimedOut.value
-              ? "Nous n'avons pas encore reçu la confirmation de Wave."
-              : 'En attente de confirmation du paiement…',
+          'En attente de confirmation du paiement…',
           textAlign: TextAlign.center,
           style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
         ),
@@ -154,13 +155,61 @@ class _WaitingState extends StatelessWidget {
           variant: AppButtonVariant.secondary,
           onPressed: controller.checkNow,
         ),
-        if (controller.paymentTimedOut.value) ...[
-          const SizedBox(height: 12),
-          AppButton(
-            label: 'RÉESSAYER LE PAIEMENT',
-            onPressed: () => controller.pay(),
-          ),
-        ],
+      ],
+    );
+  }
+}
+
+/// Shown once the client gives up polling without a spinner that makes the
+/// app look stuck — the payment isn't lost or failed, GeniusPay/Wave just
+/// hasn't confirmed it yet. The user is free to leave; the quest still
+/// updates itself later via the webhook (or reconciliation) and a
+/// notification.
+class _PendingState extends StatelessWidget {
+  const _PendingState({required this.controller, required this.quest});
+
+  final QuestPaymentController controller;
+  final QuestModel? quest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Center(
+          child: Icon(Icons.hourglass_top, color: AppColors.emerald, size: 64),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Paiement en cours de traitement',
+          textAlign: TextAlign.center,
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Wave n'a pas encore confirmé ce paiement. Vous serez notifié dès que ce sera fait.",
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+        ),
+        const SizedBox(height: 24),
+        AppButton(
+          label: 'VÉRIFIER MAINTENANT',
+          variant: AppButtonVariant.secondary,
+          onPressed: controller.checkNow,
+        ),
+        const SizedBox(height: 12),
+        AppButton(
+          label: 'RETOUR À LA QUÊTE',
+          onPressed: () {
+            final questId = quest?.id;
+            if (questId != null) {
+              Get.offNamed(AppRoutes.questDetail, arguments: questId);
+            } else {
+              Get.back();
+            }
+          },
+        ),
       ],
     );
   }
