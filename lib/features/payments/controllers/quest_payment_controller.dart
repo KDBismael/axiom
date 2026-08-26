@@ -55,15 +55,6 @@ class QuestPaymentController extends GetxController {
   Timer? _pollTimer;
   int _pollAttempts = 0;
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Flows straight from quest creation into the Wave checkout with no
-    // second tap; the manual "PAYER AVEC WAVE" button remains as a fallback
-    // if this first attempt fails (e.g. no phone on file yet).
-    pay();
-  }
-
   Future<void> pay({String? phoneNumber}) async {
     isLoading.value = true;
     errorMessage.value = null;

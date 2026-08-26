@@ -10,6 +10,7 @@ import '../../auth/controllers/auth_controller.dart';
 import '../../quests/controllers/quest_list_controller.dart';
 import '../../quests/models/quest_model.dart';
 import '../controllers/quest_payment_controller.dart';
+import '../utils/transaction_fees.dart';
 
 class QuestPaymentView extends GetView<QuestPaymentController> {
   const QuestPaymentView({super.key});
@@ -198,6 +199,35 @@ class _SuccessState extends StatelessWidget {
   }
 }
 
+class _FeeRow extends StatelessWidget {
+  const _FeeRow({
+    required this.label,
+    required this.amount,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final double? amount;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueStyle = emphasize
+        ? AppTypography.titleLg.copyWith(color: AppColors.primary)
+        : AppTypography.bodyMd.copyWith(color: AppColors.primary);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+        ),
+        Text(amount != null ? formatXof(amount!) : '—', style: valueStyle),
+      ],
+    );
+  }
+}
+
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.quest, this.topUp});
 
@@ -210,6 +240,8 @@ class _SummaryCard extends StatelessWidget {
     // (possibly still-null, or not-yet-updated) total stake.
     final amount = topUp?.amountXof ?? quest?.stakeAmountXof;
     final distribution = topUp?.fundsDistribution ?? quest?.fundsDistribution;
+    final fees = amount != null ? calculateTransactionFees(amount) : null;
+    final total = amount != null && fees != null ? amount + fees : null;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -229,6 +261,10 @@ class _SummaryCard extends StatelessWidget {
             amount != null ? formatXof(amount) : '—',
             style: AppTypography.headlineMd.copyWith(color: AppColors.primary),
           ),
+          const SizedBox(height: 16),
+          _FeeRow(label: 'FRAIS DE TRANSACTION', amount: fees),
+          const SizedBox(height: 8),
+          _FeeRow(label: 'TOTAL À PAYER', amount: total, emphasize: true),
           const SizedBox(height: 12),
           Text(
             distribution == FundsDistribution.allies

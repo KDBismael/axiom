@@ -69,29 +69,17 @@ void main() {
   });
 
   group('QuestPaymentController.onInit', () {
-    test('auto-triggers payment so the quest never needs a second tap', () async {
-      when(
-        () => mockRepository.initiateStakePayment(
-          'q-1',
-          phoneNumber: any(named: 'phoneNumber'),
-        ),
-      ).thenAnswer((_) async => transaction);
-      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
-      when(
-        () => mockQuestList.findById('q-1'),
-      ).thenReturn(_quest(status: QuestStatus.pendingPayment));
-
+    test('does not auto-trigger payment - waits for the user to confirm the fees/total first', () async {
       controller.onInit();
       await Future.delayed(Duration.zero);
 
-      verify(
+      verifyNever(
         () => mockRepository.initiateStakePayment(
-          'q-1',
-          phoneNumber: null,
+          any(),
+          phoneNumber: any(named: 'phoneNumber'),
         ),
-      ).called(1);
-      expect(controller.transaction.value, transaction);
-      controller.stopPolling();
+      );
+      expect(controller.transaction.value, isNull);
     });
   });
 
