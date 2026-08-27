@@ -11,11 +11,17 @@
     <uses-permission
         android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
         tools:node="remove" />
-    <!-- Keeps the focus timer running (and its ongoing notification current)
-         while the app is backgrounded — see FocusPresenceService's Android
-         branch (flutter_foreground_task). -->
+    <!-- The focus timer (FocusPresenceService, flutter_foreground_task) is not
+         currently reachable from the app's UI — no screen navigates to it.
+         FOREGROUND_SERVICE_DATA_SYNC is stripped to avoid the Play Console
+         foreground-service questionnaire until the feature is actually wired
+         up and can be demonstrated; the matching ForegroundService below is
+         disabled to match (see its own comment). Re-enable both together
+         when the feature ships. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+        tools:node="remove" />
     <application
         android:label="Ndeli"
         android:name="${applicationName}"
@@ -58,10 +64,13 @@
                     android:pathPrefix="/invite/"/>
             </intent-filter>
         </activity>
-        <!-- Warning: do not rename — required by flutter_foreground_task. -->
+        <!-- Warning: do not rename — required by flutter_foreground_task.
+             Disabled (and its dataSync type dropped) because the focus timer
+             that would start it isn't reachable from the app yet — see the
+             FOREGROUND_SERVICE_DATA_SYNC comment above. -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="dataSync"
+            android:enabled="false"
             android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
