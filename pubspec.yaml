@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+17
+version: 1.0.0+20
 
 environment:
   sdk: ^3.9.2
@@ -92,25 +92,28 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+  # Geist / Geist Mono aren't in the `google_fonts` package yet (Google Fonts
+  # the service has them, this community wrapper hasn't caught up), so the
+  # "Ndeli — Arène" design system bundles them directly. Files under
+  # assets/fonts/ are Vercel's open-source Geist font (SIL OFL — see
+  # assets/fonts/GEIST_LICENSE.txt), fetched from the `geist` npm package.
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/geist/Geist-Regular.ttf
+        - asset: assets/fonts/geist/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/geist/Geist-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/geist/Geist-Bold.ttf
+          weight: 700
+    - family: Geist Mono
+      fonts:
+        - asset: assets/fonts/geist_mono/GeistMono-Regular.ttf
+        - asset: assets/fonts/geist_mono/GeistMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/geist_mono/GeistMono-SemiBold.ttf
+          weight: 600
 
 flutter_launcher_icons:
   android: true
@@ -118,12 +121,12 @@ flutter_launcher_icons:
   image_path: "assets/branding/logo.png"
   min_sdk_android: 21
   remove_alpha_ios: true
-  adaptive_icon_background: "#131313"
+  adaptive_icon_background: "#0B0B0D"
   adaptive_icon_foreground: "assets/branding/logo.png"
 
 flutter_native_splash:
-  color: "#131313"
+  color: "#0B0B0D"
   image: "assets/branding/logo.png"
   android_12:
-    color: "#131313"
+    color: "#0B0B0D"
     image: "assets/branding/logo.png"

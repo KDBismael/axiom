@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:axiom/core/theme/app_colors.dart';
+import 'package:axiom/core/theme/app_effects.dart';
 import 'package:axiom/core/widgets/buttons/app_button.dart';
 
 void main() {
@@ -13,6 +14,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
     tester.takeException();
   }
+
+  AnimatedContainer pressableSurface(WidgetTester tester) => tester.widget<AnimatedContainer>(
+        find.descendant(of: find.byType(AppPressable), matching: find.byType(AnimatedContainer)),
+      );
 
   group('AppButton', () {
     testWidgets('renders its label', (tester) async {
@@ -34,23 +39,45 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('onPressed: null disables the button', (tester) async {
-      await pump(tester, const AppButton(label: 'Create Quest', onPressed: null));
-      final elevated = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-      expect(elevated.onPressed, isNull);
+    testWidgets('onPressed: null disables the button (tap is a no-op)', (tester) async {
+      var tapped = false;
+      await pump(
+        tester,
+        AppButton(label: 'Create Quest', onPressed: null),
+      );
+      await tester.tap(find.byType(AppButton), warnIfMissed: false);
+      await tester.pump();
+      expect(tapped, isFalse);
     });
 
-    testWidgets('primary variant fills with emerald', (tester) async {
+    testWidgets('primary variant fills with volt', (tester) async {
       await pump(
         tester,
         AppButton(label: 'Create Quest', onPressed: () {}),
       );
-      final elevated = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-      final fill = elevated.style?.backgroundColor?.resolve(<WidgetState>{});
-      expect(fill, AppColors.emerald);
+      final decoration = pressableSurface(tester).decoration as BoxDecoration;
+      expect(decoration.color, AppColors.volt);
     });
 
-    testWidgets('secondary variant is transparent with an outline border', (
+    testWidgets('danger variant fills with error red', (tester) async {
+      await pump(
+        tester,
+        AppButton(label: 'Supprimer', onPressed: () {}, variant: AppButtonVariant.danger),
+      );
+      final decoration = pressableSurface(tester).decoration as BoxDecoration;
+      expect(decoration.color, AppColors.error);
+    });
+
+    testWidgets('amber variant fills with amber', (tester) async {
+      await pump(
+        tester,
+        AppButton(label: 'Mettre en pause', onPressed: () {}, variant: AppButtonVariant.amber),
+      );
+      final decoration = pressableSurface(tester).decoration as BoxDecoration;
+      expect(decoration.color, AppColors.amber);
+    });
+
+    testWidgets('secondary variant is bordered and dark-filled, no drop shadow', (
       tester,
     ) async {
       await pump(
@@ -61,26 +88,8 @@ void main() {
           variant: AppButtonVariant.secondary,
         ),
       );
-      expect(find.byType(OutlinedButton), findsOneWidget);
-    });
-
-    testWidgets('lustre variant renders a gradient-decorated container', (
-      tester,
-    ) async {
-      await pump(
-        tester,
-        AppButton(
-          label: 'Get Started',
-          onPressed: () {},
-          variant: AppButtonVariant.lustre,
-        ),
-      );
-      final inkBoxes = tester.widgetList<Ink>(find.byType(Ink));
-      final hasGradient = inkBoxes.any(
-        (i) => i.decoration is BoxDecoration &&
-            (i.decoration as BoxDecoration).gradient != null,
-      );
-      expect(hasGradient, isTrue);
+      expect(find.byType(AppPressable), findsNothing);
+      expect(find.byType(InkWell), findsOneWidget);
     });
 
     testWidgets('loading state shows a spinner and hides the label', (
@@ -114,7 +123,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('lustre variant with trailingIcon + long label does not overflow', (
+    testWidgets('primary with trailingIcon + long label does not overflow', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -126,7 +135,6 @@ void main() {
                 label: 'CONTINUER VERS LE PAIEMENT',
                 trailingIcon: Icons.arrow_forward,
                 onPressed: () {},
-                variant: AppButtonVariant.lustre,
               ),
             ),
           ),

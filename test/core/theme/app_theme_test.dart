@@ -23,9 +23,9 @@ void main() {
       expect(AppTheme.dark.scaffoldBackgroundColor, AppColors.surface);
     });
 
-    testWidgets('colorScheme.primary matches AppColors.primary', (tester) async {
+    testWidgets('colorScheme.primary matches AppColors.volt', (tester) async {
       await pumpTheme(tester);
-      expect(AppTheme.dark.colorScheme.primary, AppColors.primary);
+      expect(AppTheme.dark.colorScheme.primary, AppColors.volt);
     });
 
     testWidgets('elevated and outlined button themes use interactive radius', (
@@ -54,9 +54,9 @@ void main() {
       expect(AppTheme.dark.cardTheme.elevation, 0);
     });
 
-    testWidgets('textTheme is built on Inter', (tester) async {
+    testWidgets('textTheme is built on Geist', (tester) async {
       await pumpTheme(tester);
-      expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, contains('Inter'));
+      expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'Geist');
     });
   });
 }

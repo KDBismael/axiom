@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'app_radii.dart';
 import 'app_typography.dart';
 
-/// Assembles the "Monolith Architect" design system into a [ThemeData].
+/// Assembles the "Ndeli — Arène" design system into a [ThemeData].
 class AppTheme {
   static ThemeData get dark {
     final base = ThemeData.dark(useMaterial3: true);
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      displayLarge: AppTypography.displayLg,
-      headlineMedium: AppTypography.headlineMd,
-      titleLarge: AppTypography.titleLg,
-      bodyMedium: AppTypography.bodyMd,
-      labelMedium: AppTypography.labelMd,
-    );
+    final textTheme = base.textTheme.apply(fontFamily: 'Geist').copyWith(
+          displayLarge: AppTypography.displayLg,
+          headlineMedium: AppTypography.headlineMd,
+          titleLarge: AppTypography.titleLg,
+          bodyMedium: AppTypography.bodyMd,
+          labelMedium: AppTypography.labelMd,
+        );
 
     return base.copyWith(
       scaffoldBackgroundColor: AppColors.surface,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.primary,
+        primary: AppColors.volt,
         onPrimary: AppColors.onPrimary,
         surface: AppColors.surface,
         onSurface: AppColors.primary,
+        error: AppColors.error,
       ),
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
@@ -35,13 +35,16 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: AppColors.surfaceContainerLow,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.structuralRadius),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadii.structuralRadius,
+          side: BorderSide(color: AppColors.outlineVariant),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.emerald,
-          foregroundColor: AppColors.primary,
-          minimumSize: const Size(double.infinity, 52),
+          backgroundColor: AppColors.volt,
+          foregroundColor: AppColors.onPrimary,
+          minimumSize: const Size(double.infinity, 58),
           shape: RoundedRectangleBorder(borderRadius: AppRadii.interactiveRadius),
           elevation: 0,
           textStyle: AppTypography.labelMd,
@@ -52,38 +55,38 @@ class AppTheme {
             }
             if (states.contains(WidgetState.pressed) ||
                 states.contains(WidgetState.hovered)) {
-              return AppColors.primaryFixedDim;
+              return AppColors.voltShadow;
             }
-            return AppColors.emerald;
+            return AppColors.volt;
           }),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          minimumSize: const Size(double.infinity, 52),
-          side: BorderSide(color: AppColors.outline20),
+          minimumSize: const Size(double.infinity, 58),
+          side: BorderSide(color: AppColors.outlineVariantStrong),
           shape: RoundedRectangleBorder(borderRadius: AppRadii.interactiveRadius),
           textStyle: AppTypography.labelMd,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceContainerLowest,
+        fillColor: AppColors.surfaceContainerLow,
         border: OutlineInputBorder(
           borderRadius: AppRadii.interactiveRadius,
-          borderSide: BorderSide(color: AppColors.outlineVariant15),
+          borderSide: BorderSide(color: AppColors.outlineVariantStrong),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadii.interactiveRadius,
-          borderSide: BorderSide(color: AppColors.outlineVariant15),
+          borderSide: BorderSide(color: AppColors.outlineVariantStrong),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadii.interactiveRadius,
-          borderSide: const BorderSide(color: AppColors.emerald),
+          borderSide: const BorderSide(color: AppColors.volt),
         ),
-        labelStyle: TextStyle(color: AppColors.outline),
-        hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.5)),
+        labelStyle: TextStyle(color: AppColors.outlineMuted),
+        hintStyle: TextStyle(color: AppColors.outlineFaint),
       ),
     );
   }

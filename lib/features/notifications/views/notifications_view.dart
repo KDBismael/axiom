@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency.dart';
 import '../controllers/notification_controller.dart';
@@ -25,7 +26,46 @@ const _typeLabels = {
   'quest_deletion_requested': 'Suppression de quête demandée',
   'quest_deletion_approved': 'Suppression approuvée',
   'quest_deletion_rejected': 'Suppression rejetée',
+  'quest_group_invite_received': 'Invitation à une quête collective',
+  'quest_group_member_joined': 'Un membre a rejoint la quête',
+  'quest_group_invite_declined': 'Invitation refusée',
+  'quest_pause_requested': 'Demande de pause à valider',
+  'quest_pause_decided': 'Verdict sur votre pause',
 };
+
+/// Category accent color per notification family — matches the "Ndeli —
+/// Arène" palette's semantic colors (social=violet, success=volt,
+/// failure=error, time-sensitive=amber, money=wave cyan).
+Color _accentFor(String type) {
+  if (type.startsWith('ally_')) return AppColors.violet;
+  if (type.startsWith('quest_ally_invite') ||
+      type.startsWith('quest_group_invite') ||
+      type.startsWith('quest_owner_invite')) {
+    return AppColors.violet;
+  }
+  if (type == 'quest_completed' || type == 'validation_decided') return AppColors.volt;
+  if (type == 'quest_failed' || type.contains('rejected') || type == 'payment_failed') {
+    return AppColors.error;
+  }
+  if (type == 'quest_deadline_reminder' || type.contains('pause')) return AppColors.amber;
+  if (type.startsWith('payment_') || type.contains('payout') || type.contains('refund')) {
+    return AppColors.waveCyan;
+  }
+  return AppColors.outlineMuted;
+}
+
+String _relativeTime(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(local.year, local.month, local.day);
+  final diff = today.difference(day).inDays;
+  if (diff == 0) {
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+  if (diff == 1) return 'Hier';
+  return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}';
+}
 
 class NotificationsView extends GetView<NotificationController> {
   const NotificationsView({super.key});
@@ -42,23 +82,29 @@ class NotificationsView extends GetView<NotificationController> {
         children: [
           SafeArea(
             bottom: false,
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: controller.markAllRead,
-                  child: Text(
-                    'TOUT LIRE',
-                    style: AppTypography.labelMd.copyWith(
-                      color: AppColors.outline,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Notifications',
+                      style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 18),
                     ),
                   ),
-                ),
-              ],
+                  TextButton(
+                    onPressed: controller.markAllRead,
+                    child: Text(
+                      'Tout lire',
+                      style: const TextStyle(fontFamily: 'Geist', color: AppColors.volt, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -66,7 +112,7 @@ class NotificationsView extends GetView<NotificationController> {
               if (controller.isLoading.value &&
                   controller.notifications.isEmpty) {
                 return const Center(
-                  child: CircularProgressIndicator(color: AppColors.emerald),
+                  child: CircularProgressIndicator(color: AppColors.volt),
                 );
               }
               if (controller.notifications.isEmpty) {
@@ -80,7 +126,7 @@ class NotificationsView extends GetView<NotificationController> {
                 );
               }
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                 itemCount: controller.notifications.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
@@ -138,49 +184,53 @@ class _NotificationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
+    final accent = _accentFor(notification.type);
     return InkWell(
       onTap: onTap,
+      borderRadius: AppRadii.structuralRadius,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: notification.isUnread
-              ? AppColors.surfaceContainerHigh
-              : AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.outlineVariant15),
+          color: notification.isUnread ? AppColors.surfaceContainer : AppColors.surfaceContainerLowest,
+          borderRadius: AppRadii.structuralRadius,
+          border: Border.all(
+            color: notification.isUnread ? AppColors.outlineVariantStrong : AppColors.outlineVariant,
+          ),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (notification.isUnread)
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: const BoxDecoration(
-                  color: AppColors.emerald,
-                  shape: BoxShape.circle,
-                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Transform.rotate(
+                angle: 0.7853981633974483,
+                child: Container(width: 10, height: 10, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2))),
               ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _typeLabels[notification.type] ?? notification.type,
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: notification.isUnread
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          (_typeLabels[notification.type] ?? notification.type).toUpperCase(),
+                          style: AppTypography.labelMd.copyWith(color: accent, fontSize: 10.5),
+                        ),
+                      ),
+                      Text(
+                        _relativeTime(notification.createdAt),
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.outlineFaint, fontSize: 12),
+                      ),
+                    ],
                   ),
                   if (detail != null && detail.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
                       detail,
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.outline,
-                      ),
+                      style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontSize: 14),
                     ),
                   ],
                 ],

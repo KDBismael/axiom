@@ -18,7 +18,7 @@ class DecidedValidationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (request.status) {
-      ValidationDecisionStatus.approved => ('APPROUVÉE', AppColors.emerald),
+      ValidationDecisionStatus.approved => ('APPROUVÉE', AppColors.volt),
       ValidationDecisionStatus.rejected => ('REJETÉE', AppColors.error),
       ValidationDecisionStatus.cancelled => ('ANNULÉE', AppColors.outline),
       ValidationDecisionStatus.pending => ('', AppColors.outline),
@@ -226,9 +226,9 @@ class _ValidationCardState extends State<ValidationCard> {
                   color: AppColors.outlineVariant.withValues(alpha: 0.3),
                 ),
               ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-                borderSide: BorderSide(color: AppColors.primaryFixed),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadii.structuralRadius,
+                borderSide: const BorderSide(color: AppColors.volt),
               ),
             ),
           ),
@@ -249,7 +249,7 @@ class _ValidationCardState extends State<ValidationCard> {
               Expanded(
                 child: AppButton(
                   label: 'REJETER',
-                  variant: AppButtonVariant.secondary,
+                  variant: AppButtonVariant.danger,
                   onPressed: _handleReject,
                 ),
               ),
@@ -350,7 +350,7 @@ class TextProof extends StatelessWidget {
         color: AppColors.surfaceContainerLowest,
         borderRadius: AppRadii.interactiveRadius,
         border: const Border(
-          left: BorderSide(color: AppColors.emerald, width: 2),
+          left: BorderSide(color: AppColors.volt, width: 2),
         ),
       ),
       child: Text(

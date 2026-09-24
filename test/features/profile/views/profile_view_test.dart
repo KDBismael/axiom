@@ -63,6 +63,12 @@ void main() {
     when(
       () => mockQuestRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockQuestRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockQuestRepository.fetchMyPauseRequests(),
+    ).thenAnswer((_) async => []);
     Get.put<QuestListController>(QuestListController(mockQuestRepository));
 
     final mockSocialRepository = MockSocialRepository();

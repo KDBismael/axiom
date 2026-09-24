@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_effects.dart';
 import '../../theme/app_radii.dart';
 import '../../theme/app_typography.dart';
 
-enum AppButtonVariant { primary, lustre, secondary }
+enum AppButtonVariant { primary, secondary, danger, amber }
 
-/// The "Instrument" style button from the Monolith Architect design system.
+/// The thick-pressable button from the "Ndeli — Arène" design system.
+///
+/// `primary`/`danger`/`amber` are flat-filled CTAs sitting on a solid drop
+/// shadow that collapses on press (see [AppPressable]). `secondary` is the
+/// flat outlined dark button used for Google/Apple and other binary choices.
 class AppButton extends StatelessWidget {
   const AppButton({
     super.key,
@@ -26,177 +31,106 @@ class AppButton extends StatelessWidget {
   final bool fullWidth;
   final bool loading;
 
-  static const _minHeight = 52.0;
+  static const minHeight = 58.0;
   static const _padding = EdgeInsets.symmetric(horizontal: 24, vertical: 16);
 
   @override
   Widget build(BuildContext context) {
     final effectiveOnPressed = loading ? null : onPressed;
+    final disabled = effectiveOnPressed == null;
 
     switch (variant) {
       case AppButtonVariant.secondary:
-        return OutlinedButton(
-          onPressed: effectiveOnPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            minimumSize: Size(fullWidth ? double.infinity : 88, _minHeight),
-            padding: _padding,
-            side: BorderSide(color: AppColors.outline20),
-            shape: RoundedRectangleBorder(borderRadius: AppRadii.interactiveRadius),
+        return SizedBox(
+          width: fullWidth ? double.infinity : null,
+          height: minHeight,
+          child: Material(
+            color: AppColors.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadii.interactiveRadius,
+              side: BorderSide(color: AppColors.outlineVariantStrong),
+            ),
+            child: InkWell(
+              onTap: effectiveOnPressed,
+              borderRadius: AppRadii.interactiveRadius,
+              child: Padding(
+                padding: _padding,
+                child: Center(
+                  child: _content(
+                    textStyle: TextStyle(
+                      fontFamily: 'Geist',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: disabled ? AppColors.outlineFaint : AppColors.primary,
+                    ),
+                    iconColor: disabled ? AppColors.outlineFaint : AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
           ),
-          child: _content(),
-        );
-      case AppButtonVariant.lustre:
-        return _LustreButton(
-          label: label,
-          onPressed: effectiveOnPressed,
-          leadingIcon: leadingIcon,
-          trailingIcon: trailingIcon,
-          fullWidth: fullWidth,
-          loading: loading,
         );
       case AppButtonVariant.primary:
-        return ElevatedButton(
-          onPressed: effectiveOnPressed,
-          style: ElevatedButton.styleFrom(
-            minimumSize: Size(fullWidth ? double.infinity : 88, _minHeight),
-            padding: _padding,
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: AppRadii.interactiveRadius),
-          ).copyWith(
-            backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return AppColors.surfaceContainerHighest;
-              }
-              if (states.contains(WidgetState.pressed) ||
-                  states.contains(WidgetState.hovered)) {
-                return AppColors.primaryFixedDim;
-              }
-              return AppColors.emerald;
-            }),
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return AppColors.outline;
-              }
-              return AppColors.primary;
-            }),
+      case AppButtonVariant.danger:
+      case AppButtonVariant.amber:
+        final (fill, shadow, onFill) = switch (variant) {
+          AppButtonVariant.danger => (AppColors.error, AppColors.errorShadow, const Color(0xFF1A0505)),
+          AppButtonVariant.amber => (AppColors.amber, AppColors.amberShadow, const Color(0xFF1A1405)),
+          _ => (AppColors.volt, AppColors.voltShadow, AppColors.onPrimary),
+        };
+        return SizedBox(
+          width: fullWidth ? double.infinity : null,
+          height: minHeight,
+          child: AppPressable(
+            color: disabled ? AppColors.surfaceContainerHighest : fill,
+            shadowColor: disabled ? const Color(0xFF0A0A0C) : shadow,
+            onTap: effectiveOnPressed,
+            enabled: !disabled,
+            child: Padding(
+              padding: _padding,
+              child: Center(
+                child: _content(
+                  textStyle: AppTypography.labelMd.copyWith(
+                    fontFamily: 'Unbounded',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    letterSpacing: 0.05 * 13,
+                    color: disabled ? AppColors.outlineFaint : onFill,
+                  ),
+                  iconColor: disabled ? AppColors.outlineFaint : onFill,
+                ),
+              ),
+            ),
           ),
-          child: _content(),
         );
     }
   }
 
-  Widget _content() {
+  Widget _content({required TextStyle textStyle, required Color iconColor}) {
     if (loading) {
-      return const SizedBox(
+      return SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+        child: CircularProgressIndicator(strokeWidth: 2, color: iconColor),
       );
     }
-    final text = Text(label, style: AppTypography.labelMd);
+    final text = Text(label, style: textStyle);
     if (leadingIcon == null && trailingIcon == null) return text;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (leadingIcon != null) ...[
-          Icon(leadingIcon, size: 18),
+          Icon(leadingIcon, size: 18, color: iconColor),
           const SizedBox(width: 8),
         ],
         Flexible(
-          child: Text(label, style: AppTypography.labelMd, overflow: TextOverflow.ellipsis),
+          child: Text(label, style: textStyle, overflow: TextOverflow.ellipsis),
         ),
         if (trailingIcon != null) ...[
           const SizedBox(width: 8),
-          Icon(trailingIcon, size: 18),
+          Icon(trailingIcon, size: 18, color: iconColor),
         ],
       ],
-    );
-  }
-}
-
-/// Optional premium gradient CTA treatment — not expressible via
-/// [ElevatedButton.styleFrom] since it needs a [LinearGradient] fill.
-class _LustreButton extends StatelessWidget {
-  const _LustreButton({
-    required this.label,
-    required this.onPressed,
-    required this.leadingIcon,
-    required this.trailingIcon,
-    required this.fullWidth,
-    required this.loading,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final IconData? leadingIcon;
-  final IconData? trailingIcon;
-  final bool fullWidth;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = onPressed == null;
-    return SizedBox(
-      width: fullWidth ? double.infinity : null,
-      height: AppButton._minHeight,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: AppRadii.interactiveRadius,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: AppRadii.interactiveRadius,
-            gradient: disabled
-                ? null
-                : const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [AppColors.primaryFixed, AppColors.primaryFixedDim],
-                  ),
-            color: disabled ? AppColors.surfaceContainerHighest : null,
-          ),
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: AppRadii.interactiveRadius,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Center(
-                child: loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primary,
-                        ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (leadingIcon != null) ...[
-                            Icon(leadingIcon, size: 18, color: AppColors.primary),
-                            const SizedBox(width: 8),
-                          ],
-                          Flexible(
-                            child: Text(
-                              label,
-                              style: AppTypography.labelMd.copyWith(
-                                color: AppColors.primary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (trailingIcon != null) ...[
-                            const SizedBox(width: 8),
-                            Icon(trailingIcon, size: 18, color: AppColors.primary),
-                          ],
-                        ],
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

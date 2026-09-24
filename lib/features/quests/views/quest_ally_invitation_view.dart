@@ -21,7 +21,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
           if (controller.isLoading.value &&
               controller.invitation.value == null) {
             return const Center(
-              child: CircularProgressIndicator(color: AppColors.emerald),
+              child: CircularProgressIndicator(color: AppColors.volt),
             );
           }
           final invitation = controller.invitation.value;
@@ -76,7 +76,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                             const Icon(
                               Icons.person_outline,
                               size: 18,
-                              color: AppColors.emerald,
+                              color: AppColors.volt,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -114,7 +114,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                           borderRadius: AppRadii.structuralRadius,
                           border: const Border(
                             left: BorderSide(
-                              color: AppColors.emerald,
+                              color: AppColors.volt,
                               width: 4,
                             ),
                           ),
@@ -147,7 +147,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                         _InfoRow(
                           label: 'Enjeu',
                           value: formatXof(invitation.stakeAmountXof ?? 0),
-                          valueColor: AppColors.emerald,
+                          valueColor: AppColors.volt,
                         ),
                         const SizedBox(height: 8),
                         _InfoRow(
@@ -187,7 +187,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                       borderRadius: AppRadii.structuralRadius,
                       border: Border.all(
                         color: invitation.status == QuestAllyStatus.accepted
-                            ? AppColors.emerald.withValues(alpha: 0.3)
+                            ? AppColors.volt.withValues(alpha: 0.3)
                             : AppColors.outlineVariant15,
                       ),
                     ),
@@ -198,7 +198,7 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyMd.copyWith(
                         color: invitation.status == QuestAllyStatus.accepted
-                            ? AppColors.emerald
+                            ? AppColors.volt
                             : AppColors.outline,
                         fontWeight: FontWeight.w600,
                       ),

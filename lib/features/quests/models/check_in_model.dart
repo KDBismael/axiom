@@ -55,6 +55,7 @@ class Evidence {
     this.textContent,
     this.description,
     this.reviewComment,
+    this.reviewedBy,
   });
 
   final String id;
@@ -71,7 +72,11 @@ class Evidence {
   /// The ally's comment left when approving/rejecting this evidence, if any.
   final String? reviewComment;
 
+  /// The ally who approved/rejected this evidence, if it's been decided.
+  final EvidenceReviewer? reviewedBy;
+
   factory Evidence.fromJson(Map<String, dynamic> json) {
+    final rawReviewer = json['reviewedBy'] as Map<String, dynamic>?;
     return Evidence(
       id: json['id'] as String,
       proofType: ProofType.fromJson(json['proofType'] as String),
@@ -81,6 +86,34 @@ class Evidence {
       description: json['description'] as String?,
       status: EvidenceStatus.fromJson(json['status'] as String),
       reviewComment: json['reviewComment'] as String?,
+      reviewedBy: rawReviewer == null
+          ? null
+          : EvidenceReviewer.fromJson(rawReviewer),
+    );
+  }
+}
+
+class EvidenceReviewer {
+  const EvidenceReviewer({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    this.avatarUrl,
+  });
+
+  final String id;
+  final String firstName;
+  final String lastName;
+  final String? avatarUrl;
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory EvidenceReviewer.fromJson(Map<String, dynamic> json) {
+    return EvidenceReviewer(
+      id: json['id'] as String,
+      firstName: json['firstName'] as String,
+      lastName: json['lastName'] as String,
+      avatarUrl: json['avatarUrl'] as String?,
     );
   }
 }

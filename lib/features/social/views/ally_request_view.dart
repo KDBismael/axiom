@@ -147,7 +147,7 @@ class _AllyRequestViewState extends State<AllyRequestView> {
                         : 'Demande refusée.',
                     textAlign: TextAlign.center,
                     style: AppTypography.bodyMd.copyWith(
-                      color: _accepted! ? AppColors.emerald : AppColors.outline,
+                      color: _accepted! ? AppColors.volt : AppColors.outline,
                     ),
                   ),
                 )

@@ -294,6 +294,77 @@ void main() {
     });
   });
 
+  group('QuestCreateController.isCollective', () {
+    test('stepCount drops the stake step (4 steps, no invitee/stake)', () {
+      controller.isCollective.value = true;
+      expect(controller.stepCount, 4);
+    });
+
+    test('submit posts to createQuestGroup, with no stake fields and memberUserIds instead of allyUserIds', () async {
+      when(
+        () => mockRepository.createQuestGroup(any()),
+      ).thenAnswer((_) async => quest());
+
+      controller.isCollective.value = true;
+      controller.titleController.text = 'Défi 30 jours';
+      controller.descriptionController.text = 'On se motive ensemble';
+      controller.toggleAlly('user-2');
+      controller.toggleAlly('user-3');
+      controller.hasStake.value = true; // must be ignored for a collective quest
+      controller.stakeController.text = '5000';
+
+      final ok = await controller.submit();
+
+      verifyNever(() => mockRepository.createQuest(any()));
+      final captured =
+          verify(
+                () => mockRepository.createQuestGroup(captureAny()),
+              ).captured.single
+              as Map;
+      expect(captured['title'], 'Défi 30 jours');
+      expect(captured['description'], 'On se motive ensemble');
+      expect(captured['memberUserIds'], containsAll(['user-2', 'user-3']));
+      expect(captured.containsKey('allyUserIds'), isFalse);
+      expect(captured.containsKey('hasStake'), isFalse);
+      expect(captured.containsKey('stakeAmountXof'), isFalse);
+      expect(captured.containsKey('inviteeId'), isFalse);
+      expect(ok, isTrue);
+    });
+
+    test('submit omits memberUserIds when no one is selected', () async {
+      when(
+        () => mockRepository.createQuestGroup(any()),
+      ).thenAnswer((_) async => quest());
+
+      controller.isCollective.value = true;
+      controller.titleController.text = 'Défi solo pour le moment';
+      await controller.submit();
+
+      final captured =
+          verify(
+                () => mockRepository.createQuestGroup(captureAny()),
+              ).captured.single
+              as Map;
+      expect(captured.containsKey('memberUserIds'), isFalse);
+    });
+
+    test(
+      'surfaces the backend French error and returns false on failure',
+      () async {
+        when(
+          () => mockRepository.createQuestGroup(any()),
+        ).thenThrow(QuestException('Titre invalide'));
+
+        controller.isCollective.value = true;
+        controller.titleController.text = 'Défi 30 jours';
+        final ok = await controller.submit();
+
+        expect(ok, isFalse);
+        expect(controller.errorMessage.value, 'Titre invalide');
+      },
+    );
+  });
+
   group('QuestCreateController tolerated absences', () {
     test('derives the default daily allowance from the 80 percent rule', () {
       expect(controller.expectedPeriods, 30);

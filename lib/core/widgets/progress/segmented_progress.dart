@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
-/// Segmented Monolith progress bar: flex blocks, filled = emerald.
+/// Segmented Arène progress bar: flex blocks, filled = volt.
 class SegmentedProgress extends StatelessWidget {
   const SegmentedProgress({
     super.key,
@@ -26,7 +26,7 @@ class SegmentedProgress extends StatelessWidget {
               margin: EdgeInsets.only(right: index == segments - 1 ? 0 : 4),
               decoration: BoxDecoration(
                 color: index < filled
-                    ? AppColors.emerald
+                    ? AppColors.volt
                     : AppColors.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(2),
               ),

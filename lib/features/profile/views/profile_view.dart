@@ -104,7 +104,7 @@ class _ProfileViewState extends State<ProfileView> {
                         ),
                       ),
                       trailing: entry.key == current
-                          ? const Icon(Icons.check, color: AppColors.emerald)
+                          ? const Icon(Icons.check, color: AppColors.volt)
                           : null,
                       onTap: () {
                         onSelected(entry.key);
@@ -136,7 +136,7 @@ class _ProfileViewState extends State<ProfileView> {
               if (controller.isLoading.value &&
                   controller.profile.value == null) {
                 return const Center(
-                  child: CircularProgressIndicator(color: AppColors.emerald),
+                  child: CircularProgressIndicator(color: AppColors.volt),
                 );
               }
               final hasUnsavedChanges = controller.hasUnsavedChanges;
@@ -299,8 +299,7 @@ class _ProfileViewState extends State<ProfileView> {
                                                       .notificationsEnabled
                                                       .value =
                                                   value,
-                                          activeThumbColor:
-                                              AppColors.primaryFixed,
+                                          activeThumbColor: AppColors.volt,
                                         ),
                                       ),
                                     ],
@@ -600,7 +599,7 @@ class _ProfileSaveBar extends StatelessWidget {
                 minimumSize: const Size(0, 40),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                backgroundColor: AppColors.emerald,
+                backgroundColor: AppColors.volt,
                 foregroundColor: AppColors.primary,
                 disabledBackgroundColor: AppColors.surfaceContainerHighest,
                 shape: RoundedRectangleBorder(
@@ -659,9 +658,9 @@ class _ProfileField extends StatelessWidget {
               borderRadius: AppRadii.interactiveRadius,
               borderSide: BorderSide(color: AppColors.outlineVariant15),
             ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-              borderSide: BorderSide(color: AppColors.emerald),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadii.interactiveRadius,
+              borderSide: const BorderSide(color: AppColors.volt),
             ),
           ),
         ),

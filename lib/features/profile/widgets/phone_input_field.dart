@@ -51,7 +51,7 @@ class PhoneInputField extends StatelessWidget {
                         style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
                       ),
                       trailing: option == country.value
-                          ? const Icon(Icons.check, color: AppColors.emerald)
+                          ? const Icon(Icons.check, color: AppColors.volt)
                           : null,
                       onTap: () {
                         country.value = option;
@@ -124,7 +124,7 @@ class PhoneInputField extends StatelessWidget {
                   ),
                   focusedBorder: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(8)),
-                    borderSide: BorderSide(color: AppColors.emerald),
+                    borderSide: BorderSide(color: AppColors.volt),
                   ),
                 ),
               ),

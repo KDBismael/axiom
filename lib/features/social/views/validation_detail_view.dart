@@ -33,27 +33,31 @@ class ValidationDetailView extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back, color: AppColors.primary),
                 ),
+                const Text(
+                  'Validation',
+                  style: TextStyle(
+                    fontFamily: 'Unbounded',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: AppColors.primary,
+                  ),
+                ),
                 const Spacer(),
               ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Validation',
-                    style: AppTypography.displayLg.copyWith(color: AppColors.primary),
-                  ),
-                  const SizedBox(height: 24),
                   Obx(() {
                     if (controller.isLoading.value && controller.validations.isEmpty) {
                       return const Center(
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
-                          child: CircularProgressIndicator(color: AppColors.emerald),
+                          child: CircularProgressIndicator(color: AppColors.volt),
                         ),
                       );
                     }
@@ -114,7 +118,7 @@ class _NotFoundState extends StatelessWidget {
           onPressed: onSeeAll,
           child: Text(
             'VOIR TOUTES LES VALIDATIONS',
-            style: AppTypography.labelMd.copyWith(color: AppColors.emerald),
+            style: AppTypography.labelMd.copyWith(color: AppColors.volt),
           ),
         ),
       ],

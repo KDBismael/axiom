@@ -77,6 +77,7 @@ enum QuestStatus {
   pendingPayment,
   pendingOwnerAcceptance,
   active,
+  paused,
   completed,
   failed,
   cancelled;
@@ -89,6 +90,8 @@ enum QuestStatus {
         return QuestStatus.pendingOwnerAcceptance;
       case 'active':
         return QuestStatus.active;
+      case 'paused':
+        return QuestStatus.paused;
       case 'completed':
         return QuestStatus.completed;
       case 'failed':
@@ -122,6 +125,21 @@ enum QuestOwnerInvitationStatus {
 
   factory QuestOwnerInvitationStatus.fromJson(String value) =>
       QuestOwnerInvitationStatus.values.firstWhere((v) => v.name == value);
+
+  String toJson() => name;
+}
+
+/// An invite to join a collective quest — distinct from both
+/// [QuestAllyStatus] and [QuestOwnerInvitationStatus]: accepting makes the
+/// invitee a full co-participant (their own Quest, with identical rules)
+/// AND a validator for every other member, never the quest's owner.
+enum QuestGroupInvitationStatus {
+  pending,
+  accepted,
+  declined;
+
+  factory QuestGroupInvitationStatus.fromJson(String value) =>
+      QuestGroupInvitationStatus.values.firstWhere((v) => v.name == value);
 
   String toJson() => name;
 }
@@ -176,6 +194,7 @@ class QuestModel {
     this.stakeAmountXof,
     this.fundsDistribution,
     this.allies = const [],
+    this.groupId,
   });
 
   final String id;
@@ -214,10 +233,21 @@ class QuestModel {
   /// Only populated by `GET /quests/:id` — the list endpoint omits it.
   final List<QuestAllyRef> allies;
 
+  /// Set only for a collective quest: every participant has their own Quest
+  /// row with identical rules, linked by this id. Use it to fetch the
+  /// group's aggregated member progress (`GET /quests/groups/:groupId/progress`).
+  final String? groupId;
+
+  bool get isCollective => groupId != null;
+
   bool get isPendingPayment => status == QuestStatus.pendingPayment;
   bool get isPendingOwnerAcceptance =>
       status == QuestStatus.pendingOwnerAcceptance;
   bool get isActive => status == QuestStatus.active;
+
+  /// "Sick mode" — check-ins are blocked and the deadline stopped moving
+  /// until the owner resumes; see QuestPausesService.
+  bool get isPaused => status == QuestStatus.paused;
 
   /// Completed, failed, or cancelled — a terminal state shown in History.
   bool get isFinished =>
@@ -253,6 +283,7 @@ class QuestModel {
           : (json['allies'] as List)
                 .map((a) => QuestAllyRef.fromJson(a as Map<String, dynamic>))
                 .toList(),
+      groupId: json['groupId'] as String?,
     );
   }
 
@@ -287,6 +318,7 @@ class QuestModel {
       streakDays: streakDays ?? this.streakDays,
       creatorId: creatorId,
       allies: allies,
+      groupId: groupId,
     );
   }
 }

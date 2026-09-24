@@ -28,8 +28,12 @@ class QuestCreateController extends GetxController {
   final PaymentFeatureConfig _paymentConfig;
 
   /// Title/Description → [Invitee, if sponsoring] → Schedule & Rules →
-  /// Allies (optional) → Stake (optional) → Review.
-  int get stepCount => createForSomeoneElse.value ? 6 : 5;
+  /// Allies/Members (optional) → [Stake (optional), skipped when collective]
+  /// → Review.
+  int get stepCount =>
+      4 +
+      (createForSomeoneElse.value ? 1 : 0) +
+      (isCollective.value ? 0 : 1);
   bool get paymentsEnabled => _paymentConfig.isEnabled;
 
   final currentStep = 0.obs;
@@ -56,6 +60,13 @@ class QuestCreateController extends GetxController {
         ? null
         : userId;
   }
+
+  /// A collective quest: everyone selected in [selectedAllyIds] joins as a
+  /// full co-participant (their own Quest, identical rules) and validator
+  /// for every other member, not a proof-only ally. Mutually exclusive with
+  /// [createForSomeoneElse] — a quest can't be both sponsored to one person
+  /// and shared by a group.
+  final isCollective = false.obs;
 
   final frequency = QuestFrequency.daily.obs;
   final startDate = Rx<DateTime>(DateTime.now());
@@ -142,6 +153,34 @@ class QuestCreateController extends GetxController {
     isSubmitting.value = true;
     errorMessage.value = null;
     try {
+      if (isCollective.value) {
+        final payload = <String, dynamic>{
+          'title': titleController.text.trim(),
+          'description': descriptionController.text.trim(),
+          'frequency': frequency.value.toJson(),
+          'durationDays': int.tryParse(durationController.text) ?? 30,
+          'targetPerPeriod': int.tryParse(targetPerPeriodController.text) ?? 1,
+          'startDate': startDate.value.toIso8601String(),
+          'deadline': deadline.value.toIso8601String(),
+          'gracePeriodDays': math.max(
+            0,
+            int.tryParse(gracePeriodController.text) ?? 0,
+          ),
+          'riskLevel': riskLevel.value.toJson(),
+          'requiresProof': requiresProof.value,
+          'successThresholdPercent': successThresholdPercent.value,
+          if (selectedAllyIds.isNotEmpty)
+            'memberUserIds': selectedAllyIds.toList(),
+        };
+        final created = await _listController.createQuestGroup(payload);
+        if (created == null) {
+          errorMessage.value = _listController.errorMessage.value;
+          return false;
+        }
+        createdQuest.value = created;
+        return true;
+      }
+
       final payload = <String, dynamic>{
         'title': titleController.text.trim(),
         'description': descriptionController.text.trim(),

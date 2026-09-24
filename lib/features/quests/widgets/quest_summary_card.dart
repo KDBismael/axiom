@@ -32,11 +32,11 @@ class QuestSummaryCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             decoration: BoxDecoration(
               color: AppColors.surfaceContainerLow,
-              borderRadius: AppRadii.interactiveRadius,
+              borderRadius: AppRadii.structuralRadius,
               border: Border.all(
                 color: quest.isPendingPayment
-                    ? AppColors.emerald.withValues(alpha: 0.2)
-                    : AppColors.outlineVariant15,
+                    ? AppColors.volt.withValues(alpha: 0.2)
+                    : AppColors.outlineVariant,
               ),
             ),
             child: Column(
@@ -51,7 +51,11 @@ class QuestSummaryCard extends StatelessWidget {
                         children: [
                           Text(
                             quest.title,
-                            style: AppTypography.headlineMd.copyWith(
+                            style: const TextStyle(
+                              fontFamily: 'Unbounded',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                              height: 1.2,
                               color: AppColors.primary,
                             ),
                           ),
@@ -62,6 +66,42 @@ class QuestSummaryCard extends StatelessWidget {
                               style: AppTypography.bodyMd.copyWith(
                                 color: AppColors.outline,
                               ),
+                            ),
+                          ],
+                          if (quest.streakDays > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Transform.rotate(
+                                  angle: 0.7853981633974483,
+                                  child: Container(
+                                    width: 9,
+                                    height: 9,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.ember,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 7),
+                                Text(
+                                  '${quest.streakDays}',
+                                  style: AppTypography.bodyMd.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  quest.streakDays > 1 ? 'jours' : 'jour',
+                                  style: AppTypography.bodyMd.copyWith(
+                                    color: AppColors.outline,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ],

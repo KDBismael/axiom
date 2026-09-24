@@ -20,7 +20,7 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
           if (controller.isLoading.value &&
               controller.invitation.value == null) {
             return const Center(
-              child: CircularProgressIndicator(color: AppColors.emerald),
+              child: CircularProgressIndicator(color: AppColors.volt),
             );
           }
           final invitation = controller.invitation.value;
@@ -75,7 +75,7 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                             const Icon(
                               Icons.card_giftcard,
                               size: 18,
-                              color: AppColors.emerald,
+                              color: AppColors.volt,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -113,7 +113,7 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                           borderRadius: AppRadii.structuralRadius,
                           border: const Border(
                             left: BorderSide(
-                              color: AppColors.emerald,
+                              color: AppColors.volt,
                               width: 4,
                             ),
                           ),
@@ -146,7 +146,7 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                         _InfoRow(
                           label: 'Enjeu déjà financé',
                           value: formatXof(invitation.stakeAmountXof ?? 0),
-                          valueColor: AppColors.emerald,
+                          valueColor: AppColors.volt,
                         ),
                       ],
                     ],
@@ -179,7 +179,7 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                         color:
                             invitation.status ==
                                 QuestOwnerInvitationStatus.accepted
-                            ? AppColors.emerald.withValues(alpha: 0.3)
+                            ? AppColors.volt.withValues(alpha: 0.3)
                             : AppColors.outlineVariant15,
                       ),
                     ),
@@ -192,7 +192,7 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                         color:
                             invitation.status ==
                                 QuestOwnerInvitationStatus.accepted
-                            ? AppColors.emerald
+                            ? AppColors.volt
                             : AppColors.outline,
                         fontWeight: FontWeight.w600,
                       ),

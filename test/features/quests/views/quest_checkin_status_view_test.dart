@@ -51,6 +51,12 @@ void main() {
     when(
       () => mockRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyPauseRequests(),
+    ).thenAnswer((_) async => []);
     when(() => mockRepository.fetchCheckIns('1')).thenAnswer(
       (_) async => [CheckIn(id: 'ci-1', questId: '1', date: DateTime.now())],
     );

@@ -4,8 +4,6 @@ abstract class AppRoutes {
   static const questCreate = '/quest-create';
   static const onboarding = '/onboarding';
   static const login = '/login';
-  static const register = '/register';
-  static const forgotPassword = '/forgot-password';
   static const questValidation = '/quest-validation';
   static const questCheckinStatus = '/quest-checkin-status';
   static const inviteFriends = '/invite-friends';
@@ -17,6 +15,8 @@ abstract class AppRoutes {
   static const notifications = '/notifications';
   static const questAllyInvitation = '/quest-ally-invitation';
   static const questOwnerInvitation = '/quest-owner-invitation';
+  static const questGroupInvitation = '/quest-group-invitation';
+  static const questPauseDecision = '/quest-pause-decision';
   static const questDeletionVote = '/quest-deletion-vote';
   static const questPayment = '/quest-payment';
   static const questFocusTimer = '/quest-focus-timer';

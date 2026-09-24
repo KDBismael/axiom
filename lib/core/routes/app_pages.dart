@@ -1,12 +1,12 @@
 import 'package:get/get.dart';
-import '../../features/auth/views/login_view.dart';
-import '../../features/auth/views/register_view.dart';
-import '../../features/auth/views/forgot_password_view.dart';
+import '../../features/auth/views/auth_view.dart';
 import '../../features/notifications/views/notifications_view.dart';
 import '../../features/onboarding/controllers/onboarding_controller.dart';
 import '../../features/onboarding/views/onboarding_view.dart';
 import '../../features/quests/controllers/quest_ally_invitation_controller.dart';
 import '../../features/quests/controllers/quest_owner_invitation_controller.dart';
+import '../../features/quests/controllers/quest_group_invitation_controller.dart';
+import '../../features/quests/controllers/quest_pause_decision_controller.dart';
 import '../../features/quests/controllers/quest_create_controller.dart';
 import '../../features/quests/controllers/quest_deletion_vote_controller.dart';
 import '../../features/quests/controllers/quest_list_controller.dart';
@@ -16,6 +16,8 @@ import '../../features/quests/services/focus_session_draft_store.dart';
 import '../../features/quests/views/quest_focus_timer_view.dart';
 import '../../features/quests/views/quest_ally_invitation_view.dart';
 import '../../features/quests/views/quest_owner_invitation_view.dart';
+import '../../features/quests/views/quest_group_invitation_view.dart';
+import '../../features/quests/views/quest_pause_decision_view.dart';
 import '../../features/quests/views/quest_create_view.dart';
 import '../../features/quests/views/quest_deletion_vote_view.dart';
 import '../../features/quests/views/quest_detail_view.dart';
@@ -45,12 +47,7 @@ class AppPages {
         Get.lazyPut<OnboardingController>(() => OnboardingController());
       }),
     ),
-    GetPage(name: AppRoutes.login, page: () => const LoginView()),
-    GetPage(name: AppRoutes.register, page: () => const RegisterView()),
-    GetPage(
-      name: AppRoutes.forgotPassword,
-      page: () => const ForgotPasswordView(),
-    ),
+    GetPage(name: AppRoutes.login, page: () => const AuthView()),
     GetPage(
       name: AppRoutes.home,
       page: () => const MainShellView(),
@@ -136,12 +133,38 @@ class AppPages {
       }),
     ),
     GetPage(
+      name: AppRoutes.questGroupInvitation,
+      page: () => const QuestGroupInvitationView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<QuestGroupInvitationController>(
+          () => QuestGroupInvitationController(
+            Get.find<QuestRepository>(),
+            Get.arguments as String,
+          ),
+        );
+      }),
+    ),
+    GetPage(
       name: AppRoutes.questDeletionVote,
       page: () => const QuestDeletionVoteView(),
       binding: BindingsBuilder(() {
         final args = Get.arguments as Map<String, String>;
         Get.lazyPut<QuestDeletionVoteController>(
           () => QuestDeletionVoteController(
+            Get.find<QuestRepository>(),
+            args['questId']!,
+            args['requestId']!,
+          ),
+        );
+      }),
+    ),
+    GetPage(
+      name: AppRoutes.questPauseDecision,
+      page: () => const QuestPauseDecisionView(),
+      binding: BindingsBuilder(() {
+        final args = Get.arguments as Map<String, String>;
+        Get.lazyPut<QuestPauseDecisionController>(
+          () => QuestPauseDecisionController(
             Get.find<QuestRepository>(),
             args['questId']!,
             args['requestId']!,

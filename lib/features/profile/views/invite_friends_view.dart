@@ -277,7 +277,7 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
                                   ),
                                   focusedBorder: const OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: AppColors.primaryFixedDim,
+                                      color: AppColors.volt,
                                     ),
                                   ),
                                 ),
@@ -343,7 +343,7 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
                                   ),
                                   focusedBorder: const OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: AppColors.primaryFixedDim,
+                                      color: AppColors.volt,
                                     ),
                                   ),
                                 ),
@@ -420,7 +420,7 @@ class _InviteFriendsViewState extends State<InviteFriendsView> {
                       focusedBorder: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12)),
                         borderSide: BorderSide(
-                          color: AppColors.primaryFixedDim,
+                          color: AppColors.volt,
                         ),
                       ),
                     ),
@@ -573,13 +573,13 @@ class _AllyRow extends StatelessWidget {
               const Icon(
                 Icons.check_circle,
                 size: 16,
-                color: AppColors.emerald,
+                color: AppColors.volt,
               ),
               const SizedBox(width: 4),
               Text(
                 'ALLIÉ',
                 style: AppTypography.labelMd.copyWith(
-                  color: AppColors.emerald,
+                  color: AppColors.volt,
                   fontSize: 10,
                 ),
               ),
@@ -655,7 +655,7 @@ class _SearchResultRow extends StatelessWidget {
               onPressed: () => onAccept(request!),
               icon: const Icon(
                 Icons.check_circle,
-                color: AppColors.emerald,
+                color: AppColors.volt,
                 size: 20,
               ),
             ),
@@ -670,11 +670,11 @@ class _SearchResultRow extends StatelessWidget {
                 ),
                 foregroundColor: request != null
                     ? AppColors.outline
-                    : AppColors.primaryFixedDim,
+                    : AppColors.volt,
                 side: BorderSide(
                   color: request != null
                       ? AppColors.outlineVariant
-                      : AppColors.primaryFixedDim,
+                      : AppColors.volt,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadii.interactiveRadius,
@@ -787,7 +787,7 @@ class _IncomingRequestRow extends StatelessWidget {
             onPressed: onAccept,
             icon: const Icon(
               Icons.check_circle,
-              color: AppColors.emerald,
+              color: AppColors.volt,
               size: 20,
             ),
           ),

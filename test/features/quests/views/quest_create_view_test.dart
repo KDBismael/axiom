@@ -79,6 +79,12 @@ void main() {
     when(
       () => mockRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyPauseRequests(),
+    ).thenAnswer((_) async => []);
     when(() => mockRepository.createQuest(any())).thenAnswer(
       (invocation) async => createdQuest(
         invocation.positionalArguments.single as Map<String, dynamic>,
@@ -174,6 +180,12 @@ void main() {
     when(
       () => mockRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyPauseRequests(),
+    ).thenAnswer((_) async => []);
     putAlliesController();
     final listController = Get.put<QuestListController>(
       QuestListController(mockRepository),
@@ -223,6 +235,12 @@ void main() {
     ).thenAnswer((_) async => []);
     when(
       () => mockRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyPauseRequests(),
     ).thenAnswer((_) async => []);
     putAlliesController();
     final listController = Get.put<QuestListController>(
@@ -281,6 +299,12 @@ void main() {
       ).thenAnswer((_) async => []);
     when(
       () => mockRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyPauseRequests(),
     ).thenAnswer((_) async => []);
       when(() => mockRepository.createQuest(any())).thenAnswer(
         (invocation) async => createdQuest(
@@ -355,6 +379,12 @@ void main() {
     when(
       () => mockRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockRepository.fetchMyPauseRequests(),
+    ).thenAnswer((_) async => []);
     final listController = Get.put<QuestListController>(
       QuestListController(mockRepository),
     );
@@ -392,6 +422,12 @@ void main() {
     ).thenAnswer((_) async => []);
     when(
       () => questRepository.fetchMyOwnerInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => questRepository.fetchMyGroupInvitations(),
+    ).thenAnswer((_) async => []);
+    when(
+      () => questRepository.fetchMyPauseRequests(),
     ).thenAnswer((_) async => []);
     final socialRepository = MockSocialRepository();
     when(() => socialRepository.fetchAllies()).thenAnswer((_) async => []);
@@ -446,6 +482,12 @@ void main() {
       when(
         () => questRepository.fetchMyOwnerInvitations(),
       ).thenAnswer((_) async => []);
+      when(
+        () => questRepository.fetchMyGroupInvitations(),
+      ).thenAnswer((_) async => []);
+      when(
+        () => questRepository.fetchMyPauseRequests(),
+      ).thenAnswer((_) async => []);
       when(() => questRepository.createQuest(any())).thenAnswer(
         (invocation) async => createdQuest(
           invocation.positionalArguments.single as Map<String, dynamic>,
@@ -479,8 +521,8 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, 'Cadeau sport');
       await tester.pump();
-      await tester.ensureVisible(find.byType(Switch));
-      await tester.tap(find.byType(Switch));
+      await tester.ensureVisible(find.byType(Switch).first);
+      await tester.tap(find.byType(Switch).first);
       await tester.pump();
       expect(createController.createForSomeoneElse.value, isTrue);
       expect(createController.stepCount, 6);

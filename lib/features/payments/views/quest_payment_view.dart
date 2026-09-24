@@ -75,7 +75,7 @@ class _InitialState extends StatelessWidget {
       children: [
         Text(
           quest?.title ?? '',
-          style: AppTypography.displayLg.copyWith(color: AppColors.primary),
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 24),
         ),
         const SizedBox(height: 24),
         _SummaryCard(quest: quest, topUp: controller.topUp),
@@ -135,7 +135,7 @@ class _WaitingState extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Center(
-          child: CircularProgressIndicator(color: AppColors.emerald),
+          child: CircularProgressIndicator(color: AppColors.volt),
         ),
         const SizedBox(height: 24),
         Text(
@@ -178,7 +178,7 @@ class _PendingState extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Center(
-          child: Icon(Icons.hourglass_top, color: AppColors.emerald, size: 64),
+          child: Icon(Icons.hourglass_top, color: AppColors.volt, size: 64),
         ),
         const SizedBox(height: 24),
         Text(
@@ -261,7 +261,7 @@ class _SuccessState extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.check_circle, color: AppColors.emerald, size: 64),
+        const Icon(Icons.check_circle, color: AppColors.volt, size: 64),
         const SizedBox(height: 24),
         Text(
           'Paiement confirmé !',
@@ -301,17 +301,23 @@ class _FeeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final valueStyle = emphasize
-        ? AppTypography.titleLg.copyWith(color: AppColors.primary)
+        ? const TextStyle(fontFamily: 'Unbounded', fontWeight: FontWeight.w800, fontSize: 22, color: AppColors.volt)
         : AppTypography.bodyMd.copyWith(color: AppColors.primary);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-        ),
-        Text(amount != null ? formatXof(amount!) : '—', style: valueStyle),
-      ],
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: emphasize ? 8 : 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: emphasize
+                ? AppTypography.bodyMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)
+                : AppTypography.bodyMd.copyWith(color: AppColors.outline),
+          ),
+          Text(amount != null ? formatXof(amount!) : '—', style: valueStyle),
+        ],
+      ),
     );
   }
 }

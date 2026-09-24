@@ -17,7 +17,7 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
           padding: const EdgeInsets.all(24),
           child: Obx(() {
             if (controller.isLoading.value && controller.request.value == null) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.emerald));
+              return const Center(child: CircularProgressIndicator(color: AppColors.volt));
             }
             final request = controller.request.value;
             if (request == null) {

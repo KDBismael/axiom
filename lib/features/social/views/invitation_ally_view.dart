@@ -54,7 +54,7 @@ class InvitationAllyView extends StatelessWidget {
                       color: AppColors.surfaceContainerLow,
                       borderRadius: AppRadii.structuralRadius,
                       border: const Border(
-                        left: BorderSide(color: AppColors.emerald, width: 4),
+                        left: BorderSide(color: AppColors.volt, width: 4),
                       ),
                     ),
                     child: Text(

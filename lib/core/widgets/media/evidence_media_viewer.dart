@@ -69,7 +69,7 @@ class _ZoomableAuthenticatedImage extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(
-            child: CircularProgressIndicator(color: AppColors.emerald),
+            child: CircularProgressIndicator(color: AppColors.volt),
           );
         }
         final (url, headers) = snapshot.data!;
@@ -191,7 +191,7 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
           children: [
             Center(
               child: _loading
-                  ? const CircularProgressIndicator(color: AppColors.emerald)
+                  ? const CircularProgressIndicator(color: AppColors.volt)
                   : _error != null
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
@@ -246,7 +246,7 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
                   controller,
                   allowScrubbing: true,
                   colors: const VideoProgressColors(
-                    playedColor: AppColors.emerald,
+                    playedColor: AppColors.volt,
                   ),
                 ),
               ),

@@ -99,7 +99,7 @@ class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: AppColors.primaryFixed.withValues(alpha: 0.2),
+                                      color: AppColors.volt.withValues(alpha: 0.2),
                                     ),
                                   ),
                                 ),
@@ -110,13 +110,13 @@ class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
                                     color: AppColors.surfaceContainerLow,
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: AppColors.primaryFixed.withValues(alpha: 0.4),
+                                      color: AppColors.volt.withValues(alpha: 0.4),
                                       width: 2,
                                     ),
                                   ),
                                   child: const Icon(
                                     Icons.check_circle,
-                                    color: AppColors.primaryFixed,
+                                    color: AppColors.volt,
                                     size: 48,
                                   ),
                                 ),
@@ -142,7 +142,7 @@ class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
                                       "${quest.frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}.",
                               textAlign: TextAlign.center,
                               style: AppTypography.bodyMd.copyWith(
-                                color: AppColors.primaryFixed,
+                                color: AppColors.volt,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

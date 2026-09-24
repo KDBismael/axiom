@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/progress/segmented_progress.dart';
+import '../../../core/widgets/sheets/app_bottom_sheet.dart';
 import '../../social/controllers/allies_controller.dart';
 import '../../social/models/ally.dart';
 import '../../social/models/user_search_result.dart';
@@ -15,7 +16,9 @@ import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
 import '../models/focus_session_model.dart';
 import '../models/quest_deletion_request.dart';
+import '../models/quest_group_progress.dart';
 import '../models/quest_model.dart';
+import '../models/quest_pause_request.dart';
 
 class QuestDetailView extends StatefulWidget {
   const QuestDetailView({super.key});
@@ -34,6 +37,7 @@ class _QuestDetailViewState extends State<QuestDetailView> {
     questId = Get.arguments as String;
     controller.refreshQuest(questId);
     controller.loadDeletionRequest(questId);
+    controller.loadPauseRequest(questId);
   }
 
   @override
@@ -83,6 +87,7 @@ class _QuestDetailBody extends GetView<QuestListController> {
   static const _statusLabels = {
     QuestStatus.pendingPayment: 'EN ATTENTE DE PAIEMENT',
     QuestStatus.active: 'QUÊTE ACTIVE',
+    QuestStatus.paused: 'QUÊTE EN PAUSE',
     QuestStatus.completed: 'QUÊTE RÉUSSIE',
     QuestStatus.failed: 'QUÊTE ÉCHOUÉE',
   };
@@ -95,14 +100,11 @@ class _QuestDetailBody extends GetView<QuestListController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _statusLabels[quest.status] ?? '',
-            style: AppTypography.labelMd.copyWith(color: AppColors.emerald),
-          ),
-          const SizedBox(height: 8),
+          _StatusPill(status: quest.status, label: _statusLabels[quest.status] ?? ''),
+          const SizedBox(height: 16),
           Text(
             quest.title,
-            style: AppTypography.displayLg.copyWith(color: AppColors.primary),
+            style: AppTypography.headlineMd.copyWith(color: AppColors.primary),
           ),
           const SizedBox(height: 16),
           Text(
@@ -115,7 +117,7 @@ class _QuestDetailBody extends GetView<QuestListController> {
               onTap: () => _editDescription(context, quest),
               child: Text(
                 'MODIFIER LA DESCRIPTION',
-                style: AppTypography.labelMd.copyWith(color: AppColors.emerald),
+                style: AppTypography.labelMd.copyWith(color: AppColors.volt),
               ),
             ),
           ],
@@ -131,12 +133,29 @@ class _QuestDetailBody extends GetView<QuestListController> {
               child: _PendingDeletionBanner(quest: quest, request: request),
             );
           }),
+          Obx(() {
+            final pause = controller.pauseRequests[quest.id];
+            if (quest.isPaused) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _PausedBanner(quest: quest, controller: controller),
+              );
+            }
+            if (pause != null &&
+                pause.status == QuestPauseRequestStatus.pending) {
+              return const Padding(
+                padding: EdgeInsets.only(bottom: 24),
+                child: _PendingPauseBanner(),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'VÉLOCITÉ ACTUELLE',
+                'PROGRESSION',
                 style: AppTypography.labelMd.copyWith(color: AppColors.outline),
               ),
               Text(
@@ -185,13 +204,26 @@ class _QuestDetailBody extends GetView<QuestListController> {
                         : null,
                   ),
                 ],
+                if (quest.isActive &&
+                    !isPendingDeletion &&
+                    controller.pauseRequests[quest.id]?.status !=
+                        QuestPauseRequestStatus.pending) ...[
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: 'METTRE EN PAUSE',
+                    leadingIcon: Icons.sick_outlined,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => _requestPause(context, quest),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 // Temporarily disabled — grayed out until the timer feature
                 // is ready to ship.
-                OutlinedButton.icon(
+                AppButton(
+                  label: 'MINUTEUR DE FOCUS',
+                  leadingIcon: Icons.timer_outlined,
+                  variant: AppButtonVariant.secondary,
                   onPressed: null,
-                  icon: const Icon(Icons.timer_outlined),
-                  label: const Text('MINUTEUR DE FOCUS'),
                 ),
               ],
             );
@@ -204,7 +236,7 @@ class _QuestDetailBody extends GetView<QuestListController> {
                 Expanded(
                   child: _BentoCard(
                     icon: Icons.payments,
-                    iconColor: AppColors.emerald,
+                    iconColor: AppColors.volt,
                     title: 'LES ENJEUX',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +302,7 @@ class _QuestDetailBody extends GetView<QuestListController> {
             trailing: Text(
               'SÉRIE : ${quest.streakDays} JOURS',
               style: AppTypography.labelMd.copyWith(
-                color: AppColors.emerald,
+                color: AppColors.volt,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -307,57 +339,67 @@ class _QuestDetailBody extends GetView<QuestListController> {
           _MetadataRow(
             label: 'Rattrapage après échéance',
             value: '${quest.gracePeriodDays} jour(s)',
-            valueColor: AppColors.emerald,
+            valueColor: AppColors.volt,
           ),
           const SizedBox(height: 40),
           _SectionCard(
             icon: Icons.groups,
-            title: 'ALLIÉS DE LA QUÊTE',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (quest.allies.isEmpty)
-                  Text(
-                    'Aucun allié sur cette quête pour le moment.',
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.outline,
-                    ),
-                  )
-                else
-                  for (final ally in quest.allies) ...[
-                    _MetadataRow(
-                      label: '${ally.firstName} ${ally.lastName}',
-                      value: switch (ally.status) {
-                        QuestAllyStatus.accepted => 'Accepté',
-                        QuestAllyStatus.pending => 'En attente',
-                        QuestAllyStatus.declined => 'Refusé',
-                      },
-                      valueColor: ally.status == QuestAllyStatus.accepted
-                          ? AppColors.emerald
-                          : null,
-                    ),
-                    if (ally != quest.allies.last) const SizedBox(height: 8),
-                  ],
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => _inviteAllies(context, quest),
-                  child: Text(
-                    'INVITER UN ALLIÉ',
-                    style: AppTypography.labelMd.copyWith(
-                      color: AppColors.emerald,
-                    ),
+            title: quest.isCollective
+                ? 'MEMBRES DU GROUPE'
+                : 'ALLIÉS DE LA QUÊTE',
+            child: quest.isCollective
+                ? _GroupMembersSection(quest: quest, controller: controller)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (quest.allies.isEmpty)
+                        Text(
+                          'Aucun allié sur cette quête pour le moment.',
+                          style: AppTypography.bodyMd.copyWith(
+                            color: AppColors.outline,
+                          ),
+                        )
+                      else
+                        for (final ally in quest.allies) ...[
+                          _MetadataRow(
+                            label: '${ally.firstName} ${ally.lastName}',
+                            value: switch (ally.status) {
+                              QuestAllyStatus.accepted => 'Accepté',
+                              QuestAllyStatus.pending => 'En attente',
+                              QuestAllyStatus.declined => 'Refusé',
+                            },
+                            valueColor: ally.status == QuestAllyStatus.accepted
+                                ? AppColors.volt
+                                : null,
+                          ),
+                          if (ally != quest.allies.last)
+                            const SizedBox(height: 8),
+                        ],
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => _inviteAllies(context, quest),
+                        child: Text(
+                          'INVITER UN ALLIÉ',
+                          style: AppTypography.labelMd.copyWith(
+                            color: AppColors.volt,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
           if (!quest.isFinished) ...[
             const SizedBox(height: 40),
             OutlinedButton(
               onPressed: () => _confirmDeletion(context, quest),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                side: const BorderSide(color: AppColors.errorShadow),
+                shape: RoundedRectangleBorder(borderRadius: AppRadii.interactiveRadius),
+              ),
               child: Text(
-                'SUPPRIMER LA QUÊTE',
-                style: AppTypography.labelMd.copyWith(color: AppColors.error),
+                'Supprimer la quête',
+                style: const TextStyle(fontFamily: 'Geist', fontWeight: FontWeight.w600, color: AppColors.errorSoft),
               ),
             ),
           ],
@@ -369,10 +411,8 @@ class _QuestDetailBody extends GetView<QuestListController> {
   void _inviteAllies(BuildContext context, QuestModel quest) {
     final allies = Get.find<AlliesController>();
     final alreadyOnQuest = quest.allies.map((a) => a.userId).toSet();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surfaceContainerLow,
+    showAppBottomSheet(
+      context,
       builder: (context) => _InviteAlliesSheet(
         questId: quest.id,
         excludedUserIds: alreadyOnQuest,
@@ -385,20 +425,24 @@ class _QuestDetailBody extends GetView<QuestListController> {
   }
 
   void _addStake(BuildContext context, QuestModel quest) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surfaceContainerLow,
+    showAppBottomSheet(
+      context,
       builder: (context) => _AddStakeSheet(quest: quest),
+    );
+  }
+
+  void _requestPause(BuildContext context, QuestModel quest) {
+    showAppBottomSheet(
+      context,
+      builder: (context) =>
+          _RequestPauseSheet(quest: quest, controller: controller),
     );
   }
 
   void _editDescription(BuildContext context, QuestModel quest) {
     final textController = TextEditingController(text: quest.description);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surfaceContainerLow,
+    showAppBottomSheet(
+      context,
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
@@ -490,6 +534,45 @@ class _QuestDetailBody extends GetView<QuestListController> {
 
   String _formatDate(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status, required this.label});
+
+  final QuestStatus status;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, border, dot) = switch (status) {
+      QuestStatus.active || QuestStatus.completed => (
+          const Color(0xFF1A2210),
+          const Color(0xFF2F3F14),
+          AppColors.volt,
+        ),
+      QuestStatus.failed => (const Color(0xFF220F10), const Color(0xFF4A2525), AppColors.error),
+      _ => (AppColors.surfaceContainerLow, AppColors.outlineVariant, AppColors.outlineMuted),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: AppTypography.labelMd.copyWith(color: dot, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AddStakeSheet extends StatefulWidget {
@@ -645,7 +728,7 @@ class _FundsChoiceOption extends StatelessWidget {
           borderRadius: AppRadii.interactiveRadius,
           border: Border.all(
             color: selected
-                ? AppColors.primaryFixed
+                ? AppColors.volt
                 : AppColors.outlineVariant15,
             width: selected ? 2 : 1,
           ),
@@ -758,7 +841,7 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
                       color: AppColors.primary,
                     ),
                   ),
-                  activeColor: AppColors.emerald,
+                  activeColor: AppColors.volt,
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -803,7 +886,7 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
                             color: AppColors.primary,
                           ),
                         ),
-                        activeColor: AppColors.emerald,
+                        activeColor: AppColors.volt,
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
@@ -811,7 +894,7 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
                   if (query.length >= 2 && allies.isSearching.value)
                     const Center(
                       child: CircularProgressIndicator(
-                        color: AppColors.emerald,
+                        color: AppColors.volt,
                       ),
                     ),
                   if (query.length >= 2 &&
@@ -846,6 +929,295 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
   }
 }
 
+/// Every member's progress for a collective quest — fetches once on mount
+/// and caches the result on the controller (keyed by groupId), same
+/// rationale as [QuestListController.loadDeletionRequest].
+class _GroupMembersSection extends StatefulWidget {
+  const _GroupMembersSection({required this.quest, required this.controller});
+
+  final QuestModel quest;
+  final QuestListController controller;
+
+  @override
+  State<_GroupMembersSection> createState() => _GroupMembersSectionState();
+}
+
+class _GroupMembersSectionState extends State<_GroupMembersSection> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.loadGroupProgress(widget.quest.groupId!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final progress = widget.controller.groupProgress[widget.quest.groupId];
+      if (progress == null) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final member in progress.members) ...[
+            _GroupMemberRow(member: member),
+            if (member != progress.members.last) const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => _inviteMembers(context, progress),
+            child: Text(
+              'INVITER UN MEMBRE',
+              style: AppTypography.labelMd.copyWith(color: AppColors.volt),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  void _inviteMembers(BuildContext context, QuestGroupProgress progress) {
+    final allies = Get.find<AlliesController>();
+    final alreadyMembers = progress.members.map((m) => m.userId).toSet();
+    showAppBottomSheet(
+      context,
+      builder: (context) => _InviteGroupMembersSheet(
+        groupId: widget.quest.groupId!,
+        excludedUserIds: alreadyMembers,
+        candidates: allies.allies
+            .where((a) => !alreadyMembers.contains(a.id))
+            .toList(),
+        controller: widget.controller,
+      ),
+    );
+  }
+}
+
+class _GroupMemberRow extends StatelessWidget {
+  const _GroupMemberRow({required this.member});
+
+  final QuestGroupMemberProgress member;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            member.name.isEmpty ? 'Membre' : member.name,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: SegmentedProgress(ratio: member.progress, height: 10),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          '${member.streakDays}j',
+          style: AppTypography.labelMd.copyWith(
+            color: AppColors.volt,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InviteGroupMembersSheet extends StatefulWidget {
+  const _InviteGroupMembersSheet({
+    required this.groupId,
+    required this.excludedUserIds,
+    required this.candidates,
+    required this.controller,
+  });
+
+  final String groupId;
+  final Set<String> excludedUserIds;
+  final List<Ally> candidates;
+  final QuestListController controller;
+
+  @override
+  State<_InviteGroupMembersSheet> createState() =>
+      _InviteGroupMembersSheetState();
+}
+
+class _InviteGroupMembersSheetState extends State<_InviteGroupMembersSheet> {
+  final _selectedIds = <String>{};
+  final _searchController = TextEditingController();
+  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Get.find<AlliesController>().clearSearch();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (_selectedIds.isEmpty) return;
+    setState(() => _isSending = true);
+    final ok = await widget.controller.inviteGroupMembers(
+      widget.groupId,
+      _selectedIds.toList(),
+    );
+    if (!mounted) return;
+    setState(() => _isSending = false);
+    if (ok) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'INVITER UN MEMBRE SUR CETTE QUÊTE COLLECTIVE',
+              style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                Get.find<AlliesController>().search(value);
+              },
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Rechercher un membre Ndeli…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (widget.candidates.isNotEmpty) ...[
+              Text(
+                'VOS ALLIÉS',
+                style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+              ),
+              for (final ally in widget.candidates)
+                CheckboxListTile(
+                  value: _selectedIds.contains(ally.id),
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) {
+                      _selectedIds.add(ally.id);
+                    } else {
+                      _selectedIds.remove(ally.id);
+                    }
+                  }),
+                  title: Text(
+                    '${ally.firstName} ${ally.lastName}',
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  activeColor: AppColors.volt,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+            ],
+            Obx(() {
+              final allies = Get.find<AlliesController>();
+              final query = allies.searchQuery.value;
+              final acceptedIds = widget.candidates
+                  .map((ally) => ally.id)
+                  .toSet();
+              final members = query.length < 2
+                  ? const <UserSearchResult>[]
+                  : allies.searchResults
+                        .where(
+                          (user) =>
+                              !widget.excludedUserIds.contains(user.id) &&
+                              !acceptedIds.contains(user.id),
+                        )
+                        .toList();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (members.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'AUTRES MEMBRES',
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                    for (final user in members)
+                      CheckboxListTile(
+                        value: _selectedIds.contains(user.id),
+                        onChanged: (checked) => setState(() {
+                          checked == true
+                              ? _selectedIds.add(user.id)
+                              : _selectedIds.remove(user.id);
+                        }),
+                        title: Text(
+                          '${user.firstName} ${user.lastName}',
+                          style: AppTypography.bodyMd.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        activeColor: AppColors.volt,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                  ],
+                  if (query.length >= 2 && allies.isSearching.value)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.volt,
+                      ),
+                    ),
+                  if (query.length >= 2 &&
+                      !allies.isSearching.value &&
+                      members.isEmpty)
+                    Text(
+                      'Aucun autre membre trouvé.',
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                ],
+              );
+            }),
+            const SizedBox(height: 12),
+            Text(
+              'En acceptant, cette personne rejoindra votre quête collective avec sa propre quête et validera les vôtres.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            ),
+            ...[
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'ENVOYER LES INVITATIONS',
+                loading: _isSending,
+                onPressed: _selectedIds.isEmpty || _isSending ? null : _send,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PendingDeletionBanner extends StatelessWidget {
   const _PendingDeletionBanner({required this.quest, required this.request});
 
@@ -857,16 +1229,231 @@ class _PendingDeletionBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: AppRadii.interactiveRadius,
-        border: const Border(
-          left: BorderSide(color: AppColors.error, width: 4),
-        ),
+        color: const Color(0xFF220F10),
+        borderRadius: AppRadii.structuralRadius,
+        border: Border.all(color: const Color(0xFF4A2525)),
       ),
-      child: Text(
-        'Suppression en attente d\'approbation '
-        '(${request.votes.approved}/${request.votes.total} alliés)',
-        style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'VOTE DE SUPPRESSION',
+            style: AppTypography.labelMd.copyWith(color: AppColors.errorSoft, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Suppression en attente d\'approbation '
+            '(${request.votes.approved}/${request.votes.total} alliés)',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingPauseBanner extends StatelessWidget {
+  const _PendingPauseBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF221C0C),
+        borderRadius: AppRadii.structuralRadius,
+        border: Border.all(color: const Color(0xFF4A3B12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PAUSE EN ATTENTE D\'UN ALLIÉ',
+            style: AppTypography.labelMd.copyWith(color: AppColors.amber, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Demande de pause en attente de validation par un allié.',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PausedBanner extends StatefulWidget {
+  const _PausedBanner({required this.quest, required this.controller});
+
+  final QuestModel quest;
+  final QuestListController controller;
+
+  @override
+  State<_PausedBanner> createState() => _PausedBannerState();
+}
+
+class _PausedBannerState extends State<_PausedBanner> {
+  bool _resuming = false;
+  String? _error;
+
+  Future<void> _resume() async {
+    setState(() {
+      _resuming = true;
+      _error = null;
+    });
+    final ok = await widget.controller.resumeQuest(widget.quest.id);
+    if (!mounted) return;
+    setState(() {
+      _resuming = false;
+      if (!ok) _error = widget.controller.errorMessage.value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadii.structuralRadius,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'QUÊTE EN PAUSE',
+            style: AppTypography.labelMd.copyWith(color: AppColors.outlineMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Quête en pause — les pointages sont suspendus et l\'échéance '
+            'sera repoussée d\'autant à la reprise.',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+            ),
+          ],
+          const SizedBox(height: 12),
+          AppButton(
+            label: _resuming ? 'REPRISE…' : 'REPRENDRE',
+            variant: AppButtonVariant.secondary,
+            fullWidth: false,
+            onPressed: _resuming ? null : _resume,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Text-only proof for v1 — "sick mode" is meant for a quick, low-friction
+/// exception; photo/video proof is already supported by the backend
+/// (CreatePauseRequestDto mirrors CreateEvidenceDto) but isn't wired up here
+/// yet since reviewing a photo/video proof needs its own file-streaming
+/// bridge for the deciding ally (the check-in proof one is Evidence-specific
+/// and this feature deliberately doesn't reuse Evidence).
+class _RequestPauseSheet extends StatefulWidget {
+  const _RequestPauseSheet({required this.quest, required this.controller});
+
+  final QuestModel quest;
+  final QuestListController controller;
+
+  @override
+  State<_RequestPauseSheet> createState() => _RequestPauseSheetState();
+}
+
+class _RequestPauseSheetState extends State<_RequestPauseSheet> {
+  final _reasonController = TextEditingController();
+  bool _sending = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final reason = _reasonController.text.trim();
+    if (reason.isEmpty) {
+      setState(() => _error = 'Merci d\'indiquer la raison de la pause.');
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    final ok = await widget.controller.requestPause(
+      widget.quest.id,
+      reason: reason,
+    );
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _sending = false;
+      _error = widget.controller.errorMessage.value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'METTRE LA QUÊTE EN PAUSE',
+              style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.quest.allies.isEmpty
+                  ? 'Aucun allié sur cette quête : la pause prend effet immédiatement.'
+                  : 'Un allié devra valider cette pause avant qu\'elle ne prenne effet.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _reasonController,
+              maxLines: 3,
+              autofocus: true,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+              decoration: const InputDecoration(
+                hintText: 'Raison de la pause (ex : maladie)...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+              ),
+            ],
+            const SizedBox(height: 16),
+            AppButton(
+              label: 'ENVOYER LA DEMANDE',
+              loading: _sending,
+              onPressed: _sending ? null : _send,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -897,13 +1484,15 @@ class _CheckInHistory extends StatelessWidget {
             style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           );
         }
-        return Column(
-          children: [
-            for (final checkIn in checkIns.reversed) ...[
-              _CheckInRow(checkIn: checkIn),
-              if (checkIn != checkIns.first) const SizedBox(height: 8),
-            ],
-          ],
+        final reversed = checkIns.reversed.toList();
+        return SizedBox(
+          height: 420,
+          child: ListView.separated(
+            itemCount: reversed.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) =>
+                _CheckInRow(checkIn: reversed[index]),
+          ),
         );
       },
     );
@@ -939,7 +1528,7 @@ class _FocusSessionHistory extends StatelessWidget {
             Text(
               '${history.todayMinutes} minute(s) de focus aujourd\'hui',
               style: AppTypography.bodyMd.copyWith(
-                color: AppColors.emerald,
+                color: AppColors.volt,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1004,6 +1593,7 @@ class _CheckInRow extends StatelessWidget {
         : null;
     final reviewComment = latestEvidence?.reviewComment;
     final hasReviewComment = reviewComment != null && reviewComment.isNotEmpty;
+    final reviewer = latestEvidence?.reviewedBy;
     final submitterComment = latestEvidence?.description;
     final hasSubmitterComment =
         submitterComment != null && submitterComment.isNotEmpty;
@@ -1029,9 +1619,9 @@ class _CheckInRow extends StatelessWidget {
                       },
                 size: 16,
                 color: latestEvidence == null
-                    ? AppColors.emerald
+                    ? AppColors.volt
                     : switch (latestEvidence.status) {
-                        EvidenceStatus.approved => AppColors.emerald,
+                        EvidenceStatus.approved => AppColors.volt,
                         EvidenceStatus.rejected => AppColors.error,
                         EvidenceStatus.pending => AppColors.outline,
                       },
@@ -1054,7 +1644,7 @@ class _CheckInRow extends StatelessWidget {
                   },
                   style: AppTypography.labelMd.copyWith(
                     color: switch (latestEvidence.status) {
-                      EvidenceStatus.approved => AppColors.emerald,
+                      EvidenceStatus.approved => AppColors.volt,
                       EvidenceStatus.rejected => AppColors.error,
                       EvidenceStatus.pending => AppColors.outline,
                     },
@@ -1074,7 +1664,24 @@ class _CheckInRow extends StatelessWidget {
                 ),
               ),
             ),
-          if (hasReviewComment)
+          if (reviewer != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 28),
+              child: Text(
+                hasReviewComment
+                    ? '${reviewer.fullName} : $reviewComment'
+                    : switch (latestEvidence?.status) {
+                        EvidenceStatus.rejected =>
+                          '${reviewer.fullName} a rejeté cette preuve',
+                        _ => '${reviewer.fullName} a validé cette preuve',
+                      },
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.outline,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            )
+          else if (hasReviewComment)
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 28),
               child: Text(

@@ -5,9 +5,14 @@ import '../models/focus_session_model.dart';
 import '../models/quest_ally_invitation.dart';
 import '../models/quest_ally_invitation_summary.dart';
 import '../models/quest_deletion_request.dart';
+import '../models/quest_group_invitation.dart';
+import '../models/quest_group_invitation_summary.dart';
+import '../models/quest_group_progress.dart';
 import '../models/quest_model.dart';
 import '../models/quest_owner_invitation.dart';
 import '../models/quest_owner_invitation_summary.dart';
+import '../models/quest_pause_request.dart';
+import '../models/quest_pause_request_summary.dart';
 import '../services/evidence_picker_service.dart';
 
 /// Thrown when the backend rejects a quest/check-in request; [message] is
@@ -165,6 +170,138 @@ class QuestRepository {
     if (!response.isOk) {
       throw QuestException(_extractMessage(response.body));
     }
+  }
+
+  Future<QuestModel> createQuestGroup(Map<String, dynamic> payload) async {
+    final response = await _client.post('/quests/groups', payload);
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestModel.fromJson(response.body as Map<String, dynamic>);
+  }
+
+  Future<List<QuestGroupInvitationSummary>> fetchMyGroupInvitations() async {
+    final response = await _client.get('/quests/groups/invitations');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list
+        .map(
+          (e) => QuestGroupInvitationSummary.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<QuestGroupInvitation> fetchGroupInvitation(String groupId) async {
+    final response = await _client.get('/quests/groups/$groupId/invitation');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestGroupInvitation.fromJson(response.body as Map<String, dynamic>);
+  }
+
+  Future<void> respondToGroupInvitation(
+    String groupId, {
+    required bool accept,
+  }) async {
+    final response = await _client.post(
+      '/quests/groups/$groupId/invitation/respond',
+      {'decision': accept ? 'accept' : 'decline'},
+    );
+    if (!response.isOk) {
+      throw QuestException(_extractMessage(response.body));
+    }
+  }
+
+  Future<void> inviteGroupMembers(
+    String groupId,
+    List<String> memberUserIds,
+  ) async {
+    final response = await _client.post(
+      '/quests/groups/$groupId/members',
+      {'memberUserIds': memberUserIds},
+    );
+    if (!response.isOk) {
+      throw QuestException(_extractMessage(response.body));
+    }
+  }
+
+  Future<QuestGroupProgress> fetchGroupProgress(String groupId) async {
+    final response = await _client.get('/quests/groups/$groupId/progress');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestGroupProgress.fromJson(response.body as Map<String, dynamic>);
+  }
+
+  Future<QuestPauseRequest> requestPause(
+    String questId, {
+    required ProofType proofType,
+    String? fileId,
+    List<String>? fileIds,
+    String? textContent,
+    String? description,
+  }) async {
+    final response = await _client.post('/quests/$questId/pause-request', {
+      'proofType': proofType.toJson(),
+      if (fileId != null) 'fileId': fileId,
+      if (fileIds != null && fileIds.isNotEmpty) 'fileIds': fileIds,
+      if (textContent != null) 'textContent': textContent,
+      if (description != null) 'description': description,
+    });
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestPauseRequest.fromJson(response.body as Map<String, dynamic>);
+  }
+
+  Future<QuestPauseRequest?> fetchPauseRequest(String questId) async {
+    final response = await _client.get('/quests/$questId/pause-request');
+    if (!response.isOk) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    if (response.body == null) return null;
+    return QuestPauseRequest.fromJson(response.body as Map<String, dynamic>);
+  }
+
+  Future<List<QuestPauseRequestSummary>> fetchMyPauseRequests() async {
+    final response = await _client.get('/quests/pause-requests');
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    final list = response.body as List<dynamic>;
+    return list
+        .map(
+          (e) => QuestPauseRequestSummary.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<void> decidePauseRequest(
+    String questId,
+    String requestId, {
+    required bool approve,
+    String? comment,
+  }) async {
+    final response = await _client.post(
+      '/quests/$questId/pause-request/$requestId/decide',
+      {
+        'decision': approve ? 'approve' : 'reject',
+        if (comment != null) 'comment': comment,
+      },
+    );
+    if (!response.isOk) {
+      throw QuestException(_extractMessage(response.body));
+    }
+  }
+
+  Future<QuestModel> resumeQuest(String questId) async {
+    final response = await _client.post('/quests/$questId/resume', {});
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestModel.fromJson(response.body as Map<String, dynamic>);
   }
 
   Future<CheckInResult> checkIn(

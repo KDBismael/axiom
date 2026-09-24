@@ -7,8 +7,12 @@ import 'package:axiom/features/quests/models/check_in_model.dart';
 import 'package:axiom/features/quests/models/focus_session_model.dart';
 import 'package:axiom/features/quests/models/quest_ally_invitation_summary.dart';
 import 'package:axiom/features/quests/models/quest_deletion_request.dart';
+import 'package:axiom/features/quests/models/quest_group_invitation_summary.dart';
+import 'package:axiom/features/quests/models/quest_group_progress.dart';
 import 'package:axiom/features/quests/models/quest_model.dart';
 import 'package:axiom/features/quests/models/quest_owner_invitation_summary.dart';
+import 'package:axiom/features/quests/models/quest_pause_request.dart';
+import 'package:axiom/features/quests/models/quest_pause_request_summary.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
@@ -473,12 +477,13 @@ void main() {
 
   group('QuestListController.activeQuests / historyQuests', () {
     test(
-      'activeQuests includes active, pending-payment, and pending-owner-acceptance quests',
+      'activeQuests includes active, paused, pending-payment, and pending-owner-acceptance quests',
       () {
         controller.quests
           ..clear()
           ..addAll([
             quest(id: 'q-active', status: QuestStatus.active),
+            quest(id: 'q-paused', status: QuestStatus.paused),
             quest(id: 'q-pending', status: QuestStatus.pendingPayment),
             quest(
               id: 'q-pending-owner',
@@ -491,9 +496,9 @@ void main() {
 
         expect(
           controller.activeQuests.map((q) => q.id),
-          containsAll(['q-active', 'q-pending', 'q-pending-owner']),
+          containsAll(['q-active', 'q-paused', 'q-pending', 'q-pending-owner']),
         );
-        expect(controller.activeQuests, hasLength(3));
+        expect(controller.activeQuests, hasLength(4));
       },
     );
 
@@ -639,6 +644,314 @@ void main() {
 
       expect(controller.errorMessage.value, 'Non authentifié');
       expect(controller.pendingOwnerInvitations, isEmpty);
+    });
+  });
+
+  group('QuestListController.createQuestGroup', () {
+    test('sends the payload and appends the created quest', () async {
+      when(
+        () => mockRepository.createQuestGroup(any()),
+      ).thenAnswer((_) async => quest(id: 'group-quest-1'));
+
+      final created = await controller.createQuestGroup({
+        'title': 'Défi 30 jours',
+      });
+
+      final captured =
+          verify(
+                () => mockRepository.createQuestGroup(captureAny()),
+              ).captured.single
+              as Map;
+      expect(captured['title'], 'Défi 30 jours');
+      expect(controller.findById('group-quest-1'), isNotNull);
+      expect(created?.id, 'group-quest-1');
+    });
+
+    test('returns null and does not add a quest on failure', () async {
+      when(
+        () => mockRepository.createQuestGroup(any()),
+      ).thenThrow(QuestException('Requête invalide'));
+
+      final created = await controller.createQuestGroup({
+        'title': 'Défi 30 jours',
+      });
+
+      expect(created, isNull);
+      expect(controller.errorMessage.value, 'Requête invalide');
+      expect(controller.quests, isEmpty);
+    });
+  });
+
+  group('QuestListController.loadGroupProgress', () {
+    test('populates groupProgress on success', () async {
+      when(() => mockRepository.fetchGroupProgress('group-1')).thenAnswer(
+        (_) async => const QuestGroupProgress(
+          groupId: 'group-1',
+          groupTitle: 'Défi 30 jours',
+          creatorId: 'user-1',
+          members: [
+            QuestGroupMemberProgress(
+              userId: 'user-1',
+              questId: 'q-1',
+              status: QuestStatus.active,
+              progress: 0.5,
+              streakDays: 3,
+            ),
+          ],
+        ),
+      );
+
+      await controller.loadGroupProgress('group-1');
+
+      expect(controller.groupProgress['group-1']?.members, hasLength(1));
+      expect(
+        controller.groupProgress['group-1']?.members.single.streakDays,
+        3,
+      );
+    });
+
+    test('surfaces the backend error on failure', () async {
+      when(
+        () => mockRepository.fetchGroupProgress('group-1'),
+      ).thenThrow(QuestException('Vous ne faites pas partie de ce groupe'));
+
+      await controller.loadGroupProgress('group-1');
+
+      expect(
+        controller.errorMessage.value,
+        'Vous ne faites pas partie de ce groupe',
+      );
+      expect(controller.groupProgress.containsKey('group-1'), isFalse);
+    });
+  });
+
+  group('QuestListController.inviteGroupMembers', () {
+    test('invites and returns true', () async {
+      when(
+        () => mockRepository.inviteGroupMembers('group-1', ['user-2']),
+      ).thenAnswer((_) async {});
+
+      final ok = await controller.inviteGroupMembers('group-1', ['user-2']);
+
+      expect(ok, isTrue);
+      verify(
+        () => mockRepository.inviteGroupMembers('group-1', ['user-2']),
+      ).called(1);
+    });
+
+    test('surfaces the backend error and returns false on failure', () async {
+      when(() => mockRepository.inviteGroupMembers(any(), any())).thenThrow(
+        QuestException(
+          'Un ou plusieurs utilisateurs font déjà partie de cette quête collective',
+        ),
+      );
+
+      final ok = await controller.inviteGroupMembers('group-1', ['user-2']);
+
+      expect(ok, isFalse);
+      expect(
+        controller.errorMessage.value,
+        'Un ou plusieurs utilisateurs font déjà partie de cette quête collective',
+      );
+    });
+  });
+
+  group('QuestListController.loadPendingGroupInvitations', () {
+    test('populates pendingGroupInvitations on success', () async {
+      when(() => mockRepository.fetchMyGroupInvitations()).thenAnswer(
+        (_) async => [
+          QuestGroupInvitationSummary(
+            groupId: 'group-1',
+            groupTitle: 'Défi 30 jours',
+            invitedAt: DateTime(2026, 7, 1),
+          ),
+        ],
+      );
+
+      await controller.loadPendingGroupInvitations();
+
+      expect(controller.pendingGroupInvitations, hasLength(1));
+      expect(
+        controller.pendingGroupInvitations.single.groupTitle,
+        'Défi 30 jours',
+      );
+    });
+
+    test('surfaces the backend error on failure', () async {
+      when(
+        () => mockRepository.fetchMyGroupInvitations(),
+      ).thenThrow(QuestException('Non authentifié'));
+
+      await controller.loadPendingGroupInvitations();
+
+      expect(controller.errorMessage.value, 'Non authentifié');
+      expect(controller.pendingGroupInvitations, isEmpty);
+    });
+  });
+
+  group('QuestListController.requestPause', () {
+    test('sends a text-proof pause request, caches it, and refreshes the quest', () async {
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1')]);
+      when(
+        () => mockRepository.requestPause(
+          'q-1',
+          proofType: ProofType.text,
+          textContent: 'Grippe',
+        ),
+      ).thenAnswer(
+        (_) async => QuestPauseRequest(
+          id: 'pr-1',
+          status: QuestPauseRequestStatus.approved,
+          createdAt: DateTime(2026, 7, 1),
+        ),
+      );
+      when(
+        () => mockRepository.fetchQuest('q-1'),
+      ).thenAnswer((_) async => quest(id: 'q-1', status: QuestStatus.paused));
+
+      final ok = await controller.requestPause('q-1', reason: 'Grippe');
+
+      expect(ok, isTrue);
+      expect(controller.pauseRequests['q-1']?.id, 'pr-1');
+      expect(controller.findById('q-1')!.status, QuestStatus.paused);
+    });
+
+    test('surfaces the backend error and returns false on failure', () async {
+      when(
+        () => mockRepository.requestPause(
+          any(),
+          proofType: any(named: 'proofType'),
+          textContent: any(named: 'textContent'),
+        ),
+      ).thenThrow(QuestException('Une demande de pause est déjà en attente'));
+
+      final ok = await controller.requestPause('q-1', reason: 'Grippe');
+
+      expect(ok, isFalse);
+      expect(
+        controller.errorMessage.value,
+        'Une demande de pause est déjà en attente',
+      );
+    });
+  });
+
+  group('QuestListController.decidePauseRequest', () {
+    test('decides then reloads pending pause requests, returning true', () async {
+      when(
+        () => mockRepository.decidePauseRequest(
+          'q-1',
+          'pr-1',
+          approve: true,
+          comment: null,
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockRepository.fetchMyPauseRequests(),
+      ).thenAnswer((_) async => []);
+
+      final ok = await controller.decidePauseRequest(
+        'q-1',
+        'pr-1',
+        approve: true,
+      );
+
+      expect(ok, isTrue);
+      verify(() => mockRepository.fetchMyPauseRequests()).called(1);
+    });
+
+    test('surfaces the backend error and returns false on failure', () async {
+      when(
+        () => mockRepository.decidePauseRequest(
+          any(),
+          any(),
+          approve: any(named: 'approve'),
+          comment: any(named: 'comment'),
+        ),
+      ).thenThrow(QuestException('Cette demande a déjà été traitée'));
+
+      final ok = await controller.decidePauseRequest(
+        'q-1',
+        'pr-1',
+        approve: true,
+      );
+
+      expect(ok, isFalse);
+      expect(
+        controller.errorMessage.value,
+        'Cette demande a déjà été traitée',
+      );
+    });
+  });
+
+  group('QuestListController.resumeQuest', () {
+    test('replaces the quest in place and clears its cached pause request', () async {
+      controller.quests
+        ..clear()
+        ..addAll([quest(id: 'q-1', status: QuestStatus.paused)]);
+      controller.pauseRequests['q-1'] = QuestPauseRequest(
+        id: 'pr-1',
+        status: QuestPauseRequestStatus.approved,
+        createdAt: DateTime(2026, 7, 1),
+      );
+      when(() => mockRepository.resumeQuest('q-1')).thenAnswer(
+        (_) async => quest(id: 'q-1', status: QuestStatus.active),
+      );
+
+      final ok = await controller.resumeQuest('q-1');
+
+      expect(ok, isTrue);
+      expect(controller.findById('q-1')!.status, QuestStatus.active);
+      expect(controller.pauseRequests.containsKey('q-1'), isFalse);
+    });
+
+    test('surfaces the backend error and returns false on failure', () async {
+      when(() => mockRepository.resumeQuest(any())).thenThrow(
+        QuestException("Cette quête n'est pas en pause"),
+      );
+
+      final ok = await controller.resumeQuest('q-1');
+
+      expect(ok, isFalse);
+      expect(
+        controller.errorMessage.value,
+        "Cette quête n'est pas en pause",
+      );
+    });
+  });
+
+  group('QuestListController.loadPendingPauseRequests', () {
+    test('populates pendingPauseRequests on success', () async {
+      when(() => mockRepository.fetchMyPauseRequests()).thenAnswer(
+        (_) async => [
+          QuestPauseRequestSummary(
+            requestId: 'pr-1',
+            questId: 'q-1',
+            questTitle: 'Courir tous les jours',
+            createdAt: DateTime(2026, 7, 1),
+          ),
+        ],
+      );
+
+      await controller.loadPendingPauseRequests();
+
+      expect(controller.pendingPauseRequests, hasLength(1));
+      expect(
+        controller.pendingPauseRequests.single.questTitle,
+        'Courir tous les jours',
+      );
+    });
+
+    test('surfaces the backend error on failure', () async {
+      when(
+        () => mockRepository.fetchMyPauseRequests(),
+      ).thenThrow(QuestException('Non authentifié'));
+
+      await controller.loadPendingPauseRequests();
+
+      expect(controller.errorMessage.value, 'Non authentifié');
+      expect(controller.pendingPauseRequests, isEmpty);
     });
   });
 }

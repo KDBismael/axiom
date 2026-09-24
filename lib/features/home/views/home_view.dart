@@ -8,9 +8,12 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/navigation/glass_chrome.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../../notifications/controllers/notification_controller.dart';
 import '../../quests/controllers/quest_list_controller.dart';
 import '../../quests/models/quest_ally_invitation_summary.dart';
+import '../../quests/models/quest_group_invitation_summary.dart';
+import '../../quests/models/quest_pause_request_summary.dart';
 import '../../quests/widgets/quest_summary_card.dart';
 
 /// L'onglet "Tableau de bord" — rendu à l'intérieur du shell à navigation
@@ -56,23 +59,13 @@ class HomeView extends GetView<QuestListController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'STATUT ACTUEL',
-                    style: AppTypography.labelMd.copyWith(
-                      color: AppColors.outline,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'TABLEAU DE BORD',
-                    style: AppTypography.displayLg.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                  _StatsRow(controller: controller),
-                  const SizedBox(height: 48),
-                  if (controller.pendingAllyInvitations.isNotEmpty) ...[
+                  const _Greeting(),
+                  const SizedBox(height: 24),
+                  _StakeAndRiskCard(controller: controller),
+                  const SizedBox(height: 32),
+                  if (controller.pendingAllyInvitations.isNotEmpty ||
+                      controller.pendingGroupInvitations.isNotEmpty ||
+                      controller.pendingPauseRequests.isNotEmpty) ...[
                     Text(
                       'INVITATIONS EN ATTENTE',
                       style: AppTypography.titleLg.copyWith(
@@ -83,6 +76,15 @@ class HomeView extends GetView<QuestListController> {
                     for (final invitation
                         in controller.pendingAllyInvitations) ...[
                       _PendingAllyInvitationCard(invitation: invitation),
+                      const SizedBox(height: 16),
+                    ],
+                    for (final invitation
+                        in controller.pendingGroupInvitations) ...[
+                      _PendingGroupInvitationCard(invitation: invitation),
+                      const SizedBox(height: 16),
+                    ],
+                    for (final request in controller.pendingPauseRequests) ...[
+                      _PendingPauseRequestCard(request: request),
                       const SizedBox(height: 16),
                     ],
                     const SizedBox(height: 32),
@@ -151,7 +153,7 @@ class HomeView extends GetView<QuestListController> {
                                 width: 8,
                                 height: 8,
                                 decoration: const BoxDecoration(
-                                  color: AppColors.emerald,
+                                  color: AppColors.volt,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -187,7 +189,7 @@ class _PendingAllyInvitationCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLow,
           borderRadius: AppRadii.interactiveRadius,
-          border: Border.all(color: AppColors.emerald.withValues(alpha: 0.2)),
+          border: Border.all(color: AppColors.volt.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -232,8 +234,8 @@ class _PendingAllyInvitationCard extends StatelessWidget {
                   horizontal: 16,
                   vertical: 8,
                 ),
-                foregroundColor: AppColors.emerald,
-                side: const BorderSide(color: AppColors.emerald),
+                foregroundColor: AppColors.volt,
+                side: const BorderSide(color: AppColors.volt),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadii.interactiveRadius,
                 ),
@@ -250,78 +252,285 @@ class _PendingAllyInvitationCard extends StatelessWidget {
   }
 }
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.controller});
+class _PendingGroupInvitationCard extends StatelessWidget {
+  const _PendingGroupInvitationCard({required this.invitation});
 
-  final QuestListController controller;
+  final QuestGroupInvitationSummary invitation;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 7,
-            child: _StatCard(
-              background: AppColors.surfaceContainerLow,
-              labelColor: AppColors.outline,
-              valueColor: AppColors.primary,
-              label: 'ENJEUX TOTAUX',
-              value: formatXof(controller.totalStakeAmount),
+    return GestureDetector(
+      onTap: () => Get.toNamed(
+        AppRoutes.questGroupInvitation,
+        arguments: invitation.groupId,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(color: AppColors.volt.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'INVITATION À UNE QUÊTE COLLECTIVE',
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    invitation.groupTitle,
+                    style: AppTypography.headlineMd.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  if (invitation.inviterName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Invité par ${invitation.inviterName}',
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 5,
-            child: _StatCard(
-              background: AppColors.primary,
-              labelColor: Colors.black,
-              valueColor: Colors.black,
-              label: 'NIVEAU DE RISQUE',
-              value: controller.riskLevel,
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => Get.toNamed(
+                AppRoutes.questGroupInvitation,
+                arguments: invitation.groupId,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(64, 36),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                foregroundColor: AppColors.volt,
+                side: const BorderSide(color: AppColors.volt),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadii.interactiveRadius,
+                ),
+              ),
+              child: Text(
+                'RÉPONDRE',
+                style: AppTypography.labelMd.copyWith(fontSize: 10),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.background,
-    required this.labelColor,
-    required this.valueColor,
-    required this.label,
-    required this.value,
-  });
+class _PendingPauseRequestCard extends StatelessWidget {
+  const _PendingPauseRequestCard({required this.request});
 
-  final Color background;
-  final Color labelColor;
-  final Color valueColor;
-  final String label;
-  final String value;
+  final QuestPauseRequestSummary request;
+
+  void _open() => Get.toNamed(
+    AppRoutes.questPauseDecision,
+    arguments: {'questId': request.questId, 'requestId': request.requestId},
+  );
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: AppRadii.interactiveRadius,
-        border: background == AppColors.surfaceContainerLow
-            ? Border.all(color: AppColors.outlineVariant15)
-            : null,
+    return GestureDetector(
+      onTap: _open,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadii.interactiveRadius,
+          border: Border.all(color: AppColors.volt.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'DEMANDE DE PAUSE',
+                    style: AppTypography.labelMd.copyWith(
+                      color: AppColors.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    request.questTitle,
+                    style: AppTypography.headlineMd.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  if (request.requesterName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Demandée par ${request.requesterName}',
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: _open,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(64, 36),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                foregroundColor: AppColors.volt,
+                side: const BorderSide(color: AppColors.volt),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadii.interactiveRadius,
+                ),
+              ),
+              child: Text(
+                'RÉPONDRE',
+                style: AppTypography.labelMd.copyWith(fontSize: 10),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+class _Greeting extends StatelessWidget {
+  const _Greeting();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Get.find<AuthController>();
+    return Obx(() {
+      final user = auth.user.value;
+      final firstName = user?.firstName.trim();
+      final initials = (firstName != null && firstName.isNotEmpty)
+          ? firstName.substring(0, 1).toUpperCase()
+          : '?';
+      return Row(
         children: [
-          Text(label, style: AppTypography.labelMd.copyWith(color: labelColor)),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: AppTypography.headlineMd.copyWith(color: valueColor),
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: AppColors.volt, borderRadius: AppRadii.interactiveRadius),
+            child: Text(
+              initials,
+              style: const TextStyle(
+                fontFamily: 'Unbounded',
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppColors.onPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TABLEAU DE BORD',
+                style: AppTypography.labelMd.copyWith(color: AppColors.outlineMuted),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                firstName == null || firstName.isEmpty ? 'Salut !' : 'Salut, $firstName',
+                style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 20),
+              ),
+            ],
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _StakeAndRiskCard extends StatelessWidget {
+  const _StakeAndRiskCard({required this.controller});
+
+  final QuestListController controller;
+
+  static const _riskBarsByLevel = {'FAIBLE': 1, 'MODÉRÉ': 2, 'ÉLEVÉ': 3};
+
+  @override
+  Widget build(BuildContext context) {
+    final filledBars = _riskBarsByLevel[controller.riskLevel] ?? 1;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadii.structuralRadius,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TOTAL EN JEU',
+                  style: AppTypography.labelMd.copyWith(fontSize: 10.5, color: AppColors.outlineMuted),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      formatXof(controller.totalStakeAmount),
+                      style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 24),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'XOF',
+                      style: AppTypography.labelMd.copyWith(color: AppColors.outlineMuted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: List.generate(3, (i) {
+                  final filled = i < filledBars;
+                  return Container(
+                    width: 8,
+                    height: 8.0 + i * 5,
+                    margin: const EdgeInsets.only(left: 3),
+                    decoration: BoxDecoration(
+                      color: filled ? AppColors.ember : AppColors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                controller.riskLevel,
+                style: AppTypography.labelMd.copyWith(color: AppColors.emberLight, fontSize: 11),
+              ),
+            ],
           ),
         ],
       ),

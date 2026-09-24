@@ -52,6 +52,9 @@ void main() {
       when(
         () => mockRepository.fetchDeletionRequest('1'),
       ).thenAnswer((_) async => null);
+      when(
+        () => mockRepository.fetchPauseRequest('1'),
+      ).thenAnswer((_) async => null);
       when(() => mockRepository.fetchCheckIns('1')).thenAnswer((_) async => []);
       when(() => mockRepository.fetchFocusSessions('1')).thenAnswer(
         (_) async => const FocusSessionHistory(sessions: [], todayMinutes: 0),
@@ -61,6 +64,12 @@ void main() {
       ).thenAnswer((_) async => []);
       when(
         () => mockRepository.fetchMyOwnerInvitations(),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockRepository.fetchMyGroupInvitations(),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockRepository.fetchMyPauseRequests(),
       ).thenAnswer((_) async => []);
 
       Get.put<ShellController>(ShellController());

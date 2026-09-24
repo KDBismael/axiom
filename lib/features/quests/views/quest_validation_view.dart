@@ -317,7 +317,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
             Text(
               'Session de focus : '
               '${_focusDraft!.endedAt.difference(_focusDraft!.startedAt).inMinutes} min',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.emerald),
+              style: AppTypography.bodyMd.copyWith(color: AppColors.volt),
             ),
           ],
           if (!_loadingHistory && _periodComplete) ...[
@@ -455,7 +455,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
               ),
               focusedBorder: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(12)),
-                borderSide: BorderSide(color: AppColors.primaryFixed),
+                borderSide: BorderSide(color: AppColors.volt),
               ),
             ),
           ),
@@ -525,7 +525,6 @@ class _ValidationBodyState extends State<_ValidationBody> {
           const SizedBox(height: 24),
           AppButton(
             label: 'SOUMETTRE POUR VALIDATION',
-            variant: AppButtonVariant.lustre,
             trailingIcon: Icons.verified,
             loading: _submitting,
             onPressed: disabled ? null : _submit,
@@ -562,7 +561,7 @@ class _EvidenceCard extends StatelessWidget {
           borderRadius: AppRadii.structuralRadius,
           border: Border.all(
             color: selected
-                ? AppColors.primaryFixed
+                ? AppColors.volt
                 : AppColors.outlineVariant15,
           ),
         ),

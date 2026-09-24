@@ -8,7 +8,9 @@
 /// quest_owner_invite_received, quest_owner_invite_accepted,
 /// quest_owner_invite_declined, quest_owner_invite_expired,
 /// quest_deletion_requested, quest_deletion_approved,
-/// quest_deletion_rejected.
+/// quest_deletion_rejected, quest_group_invite_received,
+/// quest_group_member_joined, quest_group_invite_declined,
+/// quest_pause_requested, quest_pause_decided.
 class AppNotification {
   const AppNotification({
     required this.id,

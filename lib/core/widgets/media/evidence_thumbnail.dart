@@ -76,7 +76,7 @@ class EvidenceVideoThumbnail extends StatelessWidget {
           borderRadius: AppRadii.interactiveRadius,
         ),
         child: const Center(
-          child: Icon(Icons.play_circle_fill, color: AppColors.emerald, size: 48),
+          child: Icon(Icons.play_circle_fill, color: AppColors.volt, size: 48),
         ),
       ),
     );

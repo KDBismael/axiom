@@ -25,21 +25,25 @@ class ValidationHistoryView extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back, color: AppColors.primary),
                 ),
+                const Text(
+                  'Historique',
+                  style: TextStyle(
+                    fontFamily: 'Unbounded',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: AppColors.primary,
+                  ),
+                ),
                 const Spacer(),
               ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Historique',
-                    style: AppTypography.displayLg.copyWith(color: AppColors.primary),
-                  ),
-                  const SizedBox(height: 8),
                   Text(
                     'QUÊTES APPROUVÉES OU REJETÉES',
                     style: AppTypography.labelMd.copyWith(color: AppColors.outline),

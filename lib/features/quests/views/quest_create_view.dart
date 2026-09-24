@@ -70,7 +70,7 @@ class QuestCreateView extends GetView<QuestCreateController> {
                                   right: i == controller.stepCount - 1 ? 0 : 4,
                                 ),
                                 color: i <= step
-                                    ? AppColors.primary
+                                    ? AppColors.volt
                                     : AppColors.surfaceContainerHighest,
                               ),
                             );
@@ -115,7 +115,7 @@ class QuestCreateView extends GetView<QuestCreateController> {
         _InviteeStep(controller: controller),
       _ScheduleRulesStep(controller: controller),
       _AlliesStep(controller: controller),
-      _StakeStep(controller: controller),
+      if (!controller.isCollective.value) _StakeStep(controller: controller),
       _ReviewStep(controller: controller),
     ];
     return steps[step.clamp(0, steps.length - 1)];
@@ -177,6 +177,13 @@ class _Footer extends StatelessWidget {
                                   'Quête envoyée',
                                   "Invitation envoyée. La quête sera activée dès son acceptation.",
                                 );
+                              } else if (controller.isCollective.value) {
+                                Get.snackbar(
+                                  'Quête collective créée',
+                                  controller.selectedAllyIds.isEmpty
+                                      ? 'Votre quête a été créée.'
+                                      : 'Vos invitations ont été envoyées. Vos coéquipiers rejoindront dès qu\'ils accepteront.',
+                                );
                               }
                               Get.back();
                             }
@@ -206,7 +213,7 @@ class _TitleStep extends StatelessWidget {
       children: [
         Text(
           'DÉFINIR LA QUÊTE',
-          style: AppTypography.displayLg.copyWith(color: AppColors.primary),
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 24),
         ),
         const SizedBox(height: 32),
         Text(
@@ -233,7 +240,7 @@ class _TitleStep extends StatelessWidget {
               ),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.emerald),
+              borderSide: BorderSide(color: AppColors.volt),
             ),
           ),
         ),
@@ -263,7 +270,7 @@ class _TitleStep extends StatelessWidget {
               borderSide: BorderSide(color: AppColors.outlineVariant15),
             ),
             focusedBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: AppColors.emerald),
+              borderSide: BorderSide(color: AppColors.volt),
             ),
           ),
         ),
@@ -272,12 +279,41 @@ class _TitleStep extends StatelessWidget {
           () => _ToggleRow(
             label: 'Créer cette quête pour quelqu’un d’autre',
             value: controller.createForSomeoneElse.value,
-            onChanged: (value) {
-              controller.createForSomeoneElse.value = value;
-              if (!value) controller.selectedInviteeId.value = null;
-            },
+            onChanged: controller.isCollective.value
+                ? null
+                : (value) {
+                    controller.createForSomeoneElse.value = value;
+                    if (!value) controller.selectedInviteeId.value = null;
+                  },
           ),
         ),
+        const SizedBox(height: 16),
+        Obx(() {
+          final collective = controller.isCollective.value;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ToggleRow(
+                label: 'Quête collective',
+                value: collective,
+                onChanged: controller.createForSomeoneElse.value
+                    ? null
+                    : (value) => controller.isCollective.value = value,
+              ),
+              if (collective) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Les personnes que vous inviterez feront la quête avec '
+                  'vous et valideront vos preuves respectives — vous ne '
+                  'pourrez jamais valider les vôtres.',
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.outline,
+                  ),
+                ),
+              ],
+            ],
+          );
+        }),
       ],
     );
   }
@@ -446,7 +482,7 @@ class _ScheduleRulesStep extends StatelessWidget {
                   min: 0,
                   max: (expected - 1).toDouble(),
                   divisions: expected - 1,
-                  activeColor: AppColors.emerald,
+                  activeColor: AppColors.volt,
                   inactiveColor: AppColors.outlineVariant15,
                   label: '$missed $unit toléré${missed > 1 ? 's' : ''}',
                   onChanged: (value) => controller.setMissedPeriodsAllowed(
@@ -519,7 +555,7 @@ class _ScheduleRulesStep extends StatelessWidget {
               borderSide: BorderSide(color: AppColors.outlineVariant15),
             ),
             focusedBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: AppColors.emerald),
+              borderSide: BorderSide(color: AppColors.volt),
             ),
           ),
         ),
@@ -580,7 +616,7 @@ class _ToggleRow extends StatelessWidget {
 
   final String label;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -595,7 +631,7 @@ class _ToggleRow extends StatelessWidget {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeThumbColor: AppColors.primaryFixed,
+          activeThumbColor: AppColors.volt,
         ),
       ],
     );
@@ -629,10 +665,7 @@ class _InviteeStepState extends State<_InviteeStep> {
       children: [
         Text(
           'POUR QUI EST CETTE QUÊTE ?',
-          style: AppTypography.displayLg.copyWith(
-            color: AppColors.primary,
-            fontSize: 32,
-          ),
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 24),
         ),
         const SizedBox(height: 12),
         Text(
@@ -676,7 +709,7 @@ class _InviteeStepState extends State<_InviteeStep> {
               ],
               if (query.length >= 2 && allies.isSearching.value)
                 const Center(
-                  child: CircularProgressIndicator(color: AppColors.emerald),
+                  child: CircularProgressIndicator(color: AppColors.volt),
                 ),
               if (query.length >= 2 &&
                   !allies.isSearching.value &&
@@ -717,21 +750,24 @@ class _AlliesStepState extends State<_AlliesStep> {
   @override
   Widget build(BuildContext context) {
     final allies = Get.find<AlliesController>();
+    final collective = widget.controller.isCollective.value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'ALLIÉS DE LA QUÊTE',
-          style: AppTypography.displayLg.copyWith(
-            color: AppColors.primary,
-            fontSize: 32,
-          ),
+          collective ? 'MEMBRES DE LA QUÊTE COLLECTIVE' : 'ALLIÉS DE LA QUÊTE',
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 24),
         ),
         const SizedBox(height: 12),
         Text(
-          "Invitez des amis à devenir alliés de cette quête : ils devront valider vos preuves, "
-          "approuver une éventuelle suppression, et pourraient recevoir votre mise si vous échouez. "
-          "Ils doivent accepter avant de compter comme alliés.",
+          collective
+              ? "Invitez des amis à faire cette quête avec vous : ils auront "
+                    "leur propre quête, avec les mêmes règles, et valideront "
+                    "vos preuves — vous ne pourrez jamais valider les vôtres. "
+                    "Ils doivent accepter avant de rejoindre."
+              : "Invitez des amis à devenir alliés de cette quête : ils devront valider vos preuves, "
+                    "approuver une éventuelle suppression, et pourraient recevoir votre mise si vous échouez. "
+                    "Ils doivent accepter avant de compter comme alliés.",
           style: AppTypography.bodyMd.copyWith(
             color: AppColors.outline,
             height: 1.5,
@@ -806,7 +842,7 @@ class _AlliesStepState extends State<_AlliesStep> {
               ],
               if (query.length >= 2 && allies.isSearching.value)
                 const Center(
-                  child: CircularProgressIndicator(color: AppColors.emerald),
+                  child: CircularProgressIndicator(color: AppColors.volt),
                 ),
               if (query.length >= 2 &&
                   !allies.isSearching.value &&
@@ -819,7 +855,9 @@ class _AlliesStepState extends State<_AlliesStep> {
                 ),
               const SizedBox(height: 12),
               Text(
-                'En acceptant, cette personne rejoindra votre quête et deviendra votre alliée.',
+                collective
+                    ? 'En acceptant, cette personne rejoindra votre quête collective avec ses propres pointages et validera les vôtres.'
+                    : 'En acceptant, cette personne rejoindra votre quête et deviendra votre alliée.',
                 style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
               ),
             ],
@@ -882,7 +920,7 @@ class _StakeStep extends StatelessWidget {
                     onChanged: controller.paymentsEnabled
                         ? (value) => controller.hasStake.value = value
                         : null,
-                    activeThumbColor: AppColors.primaryFixed,
+                    activeThumbColor: AppColors.volt,
                   ),
                 ],
               ),
@@ -1037,7 +1075,7 @@ class _DistributionOption extends StatelessWidget {
           borderRadius: AppRadii.interactiveRadius,
           border: Border.all(
             color: selected
-                ? AppColors.primaryFixed
+                ? AppColors.volt
                 : AppColors.outlineVariant15,
             width: selected ? 2 : 1,
           ),
@@ -1092,10 +1130,7 @@ class _ReviewStep extends StatelessWidget {
       children: [
         Text(
           'RÉCAPITULATIF',
-          style: AppTypography.displayLg.copyWith(
-            color: AppColors.primary,
-            fontSize: 40,
-          ),
+          style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 24),
         ),
         const SizedBox(height: 32),
         Obx(() {
@@ -1116,6 +1151,10 @@ class _ReviewStep extends StatelessWidget {
                   label: 'Destinataire',
                   value: 'Invitation envoyée à l’acceptation',
                 ),
+              ],
+              if (controller.isCollective.value) ...[
+                const SizedBox(height: 8),
+                const _ReviewRow(label: 'Type', value: 'Quête collective'),
               ],
               const SizedBox(height: 8),
               _ReviewRow(
@@ -1151,11 +1190,13 @@ class _ReviewStep extends StatelessWidget {
               _ReviewRow(
                 label: 'Enjeu',
                 value: stake == null ? 'Aucun' : formatXof(stake),
-                valueColor: stake == null ? null : AppColors.emerald,
+                valueColor: stake == null ? null : AppColors.volt,
               ),
               const SizedBox(height: 8),
               _ReviewRow(
-                label: 'Alliés invités',
+                label: controller.isCollective.value
+                    ? 'Membres invités'
+                    : 'Alliés invités',
                 value: controller.selectedAllyIds.isEmpty
                     ? 'Aucun'
                     : '${controller.selectedAllyIds.length} (invitation en attente)',
