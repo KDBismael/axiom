@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import '../../../core/api/api_client.dart';
 import '../../../core/api/token_storage.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
@@ -52,9 +53,16 @@ class AuthController extends GetxService {
     }
     try {
       user.value = await _authRepository.fetchMe();
-    } catch (_) {
+    } on AuthException {
+      // The backend actually looked at this session and rejected it —
+      // the stored tokens are genuinely no good anymore.
       await _tokenStorage.clear();
       user.value = null;
+    } catch (_) {
+      // Couldn't reach the backend at all (timeout, offline, a 5xx) — this
+      // says nothing about whether the session is still valid, so leave the
+      // tokens and current user alone rather than forcing a logout over a
+      // transient problem. The next launch/request will simply try again.
     }
   }
 
@@ -147,6 +155,13 @@ class AuthController extends GetxService {
         refresh: result.refreshToken,
       );
       user.value = result.user;
+      // A fresh manual login always means the session is good again — clear
+      // any stale "already logged out" latch left over from a previous
+      // forced logout, or a later genuine refresh failure would silently
+      // no-op instead of redirecting to login.
+      if (Get.isRegistered<ApiClient>()) {
+        Get.find<ApiClient>().resetLoggedOutState();
+      }
     } on AuthException catch (e) {
       errorMessage.value = e.message;
     } on GoogleAuthException catch (e) {

@@ -11,7 +11,6 @@ abstract class AppRoutes {
   static const invitationAlly = '/invitation-allie';
   static const allyValidations = '/ally-validations';
   static const validationDetail = '/validation-detail';
-  static const validationHistory = '/validation-history';
   static const notifications = '/notifications';
   static const questAllyInvitation = '/quest-ally-invitation';
   static const questOwnerInvitation = '/quest-owner-invitation';

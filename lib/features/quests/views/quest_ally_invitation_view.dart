@@ -211,7 +211,9 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: AppButton(
+                          label: 'REFUSER',
+                          variant: AppButtonVariant.danger,
                           onPressed: controller.isResponding.value
                               ? null
                               : () async {
@@ -224,7 +226,6 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                                     Get.back();
                                   }
                                 },
-                          child: const Text('REFUSER'),
                         ),
                       ),
                       const SizedBox(width: 16),

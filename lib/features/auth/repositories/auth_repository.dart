@@ -12,6 +12,23 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+/// Thrown when a request couldn't be answered at all — a connection error
+/// or a 5xx — as opposed to [AuthException], which means the backend
+/// actually looked at the request and rejected it. Callers that would
+/// otherwise treat "any failure" as "the session is invalid" (like
+/// `AuthController.restoreSession`) need this distinction: a timeout or a
+/// backend outage says nothing about whether the stored tokens are still
+/// good, so it must never trigger a forced logout the way an [AuthException]
+/// does.
+class AuthUnavailableException implements Exception {
+  AuthUnavailableException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class AuthResult {
   const AuthResult({
     required this.user,
@@ -103,6 +120,9 @@ class AuthRepository {
 
   Future<User> fetchMe() async {
     final response = await _client.get('/auth/me');
+    if (response.status.connectionError || response.status.isServerError) {
+      throw AuthUnavailableException(_extractMessage(response.body));
+    }
     if (!response.isOk || response.body == null) {
       throw AuthException(_extractMessage(response.body));
     }

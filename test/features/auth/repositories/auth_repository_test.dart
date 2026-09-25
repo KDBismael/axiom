@@ -177,5 +177,27 @@ void main() {
         throwsA(isA<AuthException>().having((e) => e.message, 'message', 'Non authentifié')),
       );
     });
+
+    test(
+      'fetchMe throws AuthUnavailableException (not AuthException) on a 5xx',
+      () async {
+        when(() => mockClient.get<dynamic>('/auth/me')).thenAnswer(
+          (_) async => const Response(statusCode: 503, body: null),
+        );
+
+        expect(() => repository.fetchMe(), throwsA(isA<AuthUnavailableException>()));
+      },
+    );
+
+    test(
+      'fetchMe throws AuthUnavailableException (not AuthException) on a connection error',
+      () async {
+        when(() => mockClient.get<dynamic>('/auth/me')).thenAnswer(
+          (_) async => const Response(statusCode: null, body: null),
+        );
+
+        expect(() => repository.fetchMe(), throwsA(isA<AuthUnavailableException>()));
+      },
+    );
   });
 }

@@ -1,16 +1,25 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/badges/app_rank_progress_card.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/progress/segmented_progress.dart';
+import '../../rank/controllers/rank_controller.dart';
 import '../controllers/quest_list_controller.dart';
+import '../models/check_in_model.dart';
 import '../models/quest_model.dart';
-import '../utils/period_progress.dart';
 
-/// Shown right after a successful check-in submission — a terminal
-/// confirmation state, not a tab (reached only via [QuestValidationView]).
+/// The "Celebration" screen — shown immediately after every check-in
+/// submission (mockup's `isDone` state). Points are never awarded by the
+/// backend at submission time (only later, on approval — see
+/// `GamificationService`), so this screen shows the check-in's own +20 as
+/// provisional/pending for a proof-required quest, and no points line at
+/// all for a no-proof quest.
 class QuestCheckinStatusView extends StatefulWidget {
   const QuestCheckinStatusView({super.key});
 
@@ -19,175 +28,329 @@ class QuestCheckinStatusView extends StatefulWidget {
 }
 
 class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
-  int _currentPeriodCount = 0;
-  bool _loading = true;
+  bool _visible = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final questId = Get.arguments as String;
-    final controller = Get.find<QuestListController>();
-    final quest = controller.findById(questId);
-    if (quest == null) {
-      setState(() => _loading = false);
-      return;
-    }
-    final checkIns = await controller.fetchCheckIns(questId);
-    setState(() {
-      _currentPeriodCount = countCheckInsInCurrentPeriod(
-        checkIns,
-        quest.frequency,
-        DateTime.now(),
-      );
-      _loading = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _visible = true);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<QuestListController>();
-    final String questId = Get.arguments as String;
+    final args = Get.arguments as Map<String, dynamic>;
+    final questId = args['questId'] as String;
+    final requiresProof = args['requiresProof'] as bool;
+    final result = args['result'] as CheckInResult;
+
+    final questController = Get.find<QuestListController>();
+    final quest = questController.findById(questId);
+    final periodComplete = result.currentPeriodCount >= result.targetPerPeriod;
 
     return Scaffold(
-      body: Column(
-        children: [
-          SafeArea(
-            bottom: false,
-            child: Row(
+      backgroundColor: AppColors.surface,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0, -0.36),
+            radius: 0.9,
+            colors: [Color(0xFF3A1A08), AppColors.surface],
+            stops: [0, 0.6],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+            child: Column(
               children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _EmberBurst(streakDays: result.streakDays),
+                          const SizedBox(height: 26),
+                          AnimatedOpacity(
+                            opacity: _visible ? 1 : 0,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeOut,
+                            child: _CelebrationText(
+                              periodComplete: periodComplete,
+                              result: result,
+                              quest: quest,
+                              requiresProof: requiresProof,
+                            ),
+                          ),
+                          const SizedBox(height: 26),
+                          AnimatedOpacity(
+                            opacity: _visible ? 1 : 0,
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.easeOut,
+                            child: _RankCard(
+                              requiresProof: requiresProof,
+                              evidenceStatus: result.evidence?.status,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                const Spacer(),
+                AppButton(
+                  label: 'CONTINUER',
+                  onPressed: () => Get.offAllNamed(AppRoutes.home),
+                ),
               ],
             ),
           ),
-          Expanded(
-            child: Obx(() {
-              final quest = controller.findById(questId);
-              if (quest == null) {
-                return Center(
-                  child: Text(
-                    'Quête introuvable.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-                  ),
-                );
-              }
-              final periodComplete =
-                  _loading || _currentPeriodCount >= quest.targetPerPeriod;
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Container(
-                                  width: 128,
-                                  height: 128,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.volt.withValues(alpha: 0.2),
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  width: 96,
-                                  height: 96,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceContainerLow,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.volt.withValues(alpha: 0.4),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.check_circle,
-                                    color: AppColors.volt,
-                                    size: 48,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 48),
-                            Text(
-                              periodComplete
-                                  ? "TERMINÉ POUR AUJOURD'HUI"
-                                  : 'POINTAGE $_currentPeriodCount/${quest.targetPerPeriod}',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.displayLg.copyWith(
-                                color: AppColors.primary,
-                                fontSize: 36,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              periodComplete
-                                  ? 'Preuve soumise et en attente de validation par vos alliés.'
-                                  : "Encore ${quest.targetPerPeriod - _currentPeriodCount} pointage"
-                                      "${quest.targetPerPeriod - _currentPeriodCount > 1 ? 's' : ''} "
-                                      "${quest.frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}.",
-                              textAlign: TextAlign.center,
-                              style: AppTypography.bodyMd.copyWith(
-                                color: AppColors.volt,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            Text(
-                              'SÉRIE : ${quest.streakDays} JOURS',
-                              style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-                            ),
-                            const SizedBox(height: 16),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: SegmentedProgress(ratio: quest.progress, height: 12),
-                            ),
-                            if (!_loading && quest.targetPerPeriod > 1) ...[
-                              const SizedBox(height: 16),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                child: SegmentedProgress(
-                                  ratio: _currentPeriodCount / quest.targetPerPeriod,
-                                  height: 6,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 32),
-                            Text(
-                              '"La précision est le fondement de la cohérence."',
-                              textAlign: TextAlign.center,
-                              style: AppTypography.bodyMd.copyWith(
-                                color: AppColors.outline.withValues(alpha: 0.6),
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CelebrationText extends StatelessWidget {
+  const _CelebrationText({
+    required this.periodComplete,
+    required this.result,
+    required this.quest,
+    required this.requiresProof,
+  });
+
+  final bool periodComplete;
+  final CheckInResult result;
+  final QuestModel? quest;
+  final bool requiresProof;
+
+  @override
+  Widget build(BuildContext context) {
+    final frequency = quest?.frequency ?? QuestFrequency.daily;
+    final String eyebrow;
+    final String title;
+    if (periodComplete) {
+      eyebrow = 'SÉRIE PROLONGÉE · +1';
+      title = 'Combo ×${result.streakDays}';
+    } else {
+      eyebrow = 'POINTAGE ENREGISTRÉ';
+      title = '${result.currentPeriodCount}/${result.targetPerPeriod}'
+          ' ${frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}';
+    }
+
+    final String message;
+    if (!requiresProof) {
+      message = 'Check-in enregistré. Continue comme ça.';
+    } else if (result.evidence?.status == EvidenceStatus.approved) {
+      message = 'Preuve approuvée automatiquement.';
+    } else {
+      final validators = (quest?.allies ?? const [])
+          .where((a) => a.status == QuestAllyStatus.accepted)
+          .map((a) => a.firstName)
+          .where((name) => name.isNotEmpty)
+          .toList();
+      message = validators.isEmpty
+          ? 'Preuve envoyée. Tes alliés vont la juger.'
+          : 'Preuve envoyée. ${validators.join(' ou ')} va la juger.';
+    }
+
+    return Column(
+      children: [
+        Text(
+          eyebrow,
+          style: AppTypography.labelMd.copyWith(
+            fontSize: 12,
+            letterSpacing: 0.16 * 12,
+            color: AppColors.emberLight,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Unbounded',
+            fontWeight: FontWeight.w800,
+            fontSize: 28,
+            height: 1.1,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 300),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyMd.copyWith(
+              fontSize: 14.5,
+              height: 1.5,
+              color: AppColors.outline,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankCard extends StatelessWidget {
+  const _RankCard({required this.requiresProof, required this.evidenceStatus});
+
+  final bool requiresProof;
+  final EvidenceStatus? evidenceStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final rankController = Get.find<RankController>();
+    return Obx(() {
+      final rank = rankController.rank.value;
+      if (rank == null) return const SizedBox.shrink();
+
+      Widget? pointsLine;
+      if (requiresProof) {
+        final pending = evidenceStatus != EvidenceStatus.rejected;
+        pointsLine = Text(
+          pending ? '+20 PTS · EN ATTENTE' : '',
+          style: TextStyle(
+            fontFamily: 'Geist Mono',
+            fontSize: 12,
+            color: pending ? AppColors.outline : AppColors.volt,
+          ),
+        );
+      }
+
+      return SizedBox(
+        width: double.infinity,
+        child: AppRankProgressCard(rank: rank, pointsLine: pointsLine),
+      );
+    });
+  }
+}
+
+/// The spark-burst + centered ember square, reproducing the mockup's
+/// `ndPop`/`ndSpark` keyframes: the square pops in with an overshoot, while
+/// a ring of small diamonds bursts outward and fades.
+class _EmberBurst extends StatefulWidget {
+  const _EmberBurst({required this.streakDays});
+
+  final int streakDays;
+
+  @override
+  State<_EmberBurst> createState() => _EmberBurstState();
+}
+
+class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  static const _sparkColors = [
+    AppColors.emberBright,
+    AppColors.ember,
+    AppColors.gold,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      height: 240,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return Stack(
+                alignment: Alignment.center,
+                children: List.generate(12, (i) {
+                  final angle = (2 * math.pi / 12) * i;
+                  final delay = (i % 4) * 0.08;
+                  final t = ((_controller.value - delay) / 0.5).clamp(0.0, 1.0);
+                  final scale = t < 0.35
+                      ? (t / 0.35) * 1.4
+                      : 1.4 - ((t - 0.35) / 0.65) * 1.0;
+                  final opacity = t <= 0 ? 0.0 : (1 - t).clamp(0.0, 1.0);
+                  final distance = 70 + (i % 3) * 12;
+                  return Transform.translate(
+                    offset: Offset(
+                      math.cos(angle) * distance,
+                      math.sin(angle) * distance,
+                    ),
+                    child: Opacity(
+                      opacity: opacity,
+                      child: Transform.scale(
+                        scale: scale.clamp(0.0, 1.6),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _sparkColors[i % _sparkColors.length],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
                     ),
-                    AppButton(
-                      label: 'TABLEAU DE BORD',
-                      variant: AppButtonVariant.secondary,
-                      onPressed: () => Get.offAllNamed(AppRoutes.home),
-                    ),
-                  ],
-                ),
+                  );
+                }),
               );
-            }),
+            },
+          ),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.3, end: 1),
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.elasticOut,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFFFD166),
+                    AppColors.ember,
+                    Color(0xFFE0401A),
+                  ],
+                  stops: [0, 0.55, 1],
+                ),
+                borderRadius: AppRadii.structuralRadius,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.ember.withValues(alpha: 0.55),
+                    blurRadius: 60,
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${widget.streakDays}',
+                style: const TextStyle(
+                  fontFamily: 'Unbounded',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 44,
+                  color: Color(0xFF1A0A02),
+                ),
+              ),
+            ),
           ),
         ],
       ),

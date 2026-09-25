@@ -116,6 +116,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     tester.takeException();
 
-    expect(find.text('FIN DES VALIDATIONS URGENTES'), findsOneWidget);
+    expect(find.text('Tout est jugé'), findsOneWidget);
   });
 }

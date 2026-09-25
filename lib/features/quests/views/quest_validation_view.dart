@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../rank/controllers/rank_controller.dart';
 import '../controllers/focus_timer_controller.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
@@ -240,7 +243,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
         _EvidenceType.text => ProofType.text,
       };
 
-      await controller.checkIn(
+      final result = await controller.checkIn(
         widget.quest.id,
         proofType:
             (fileId != null ||
@@ -263,7 +266,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
       );
 
       if (!mounted) return;
-      if (controller.errorMessage.value != null) {
+      if (controller.errorMessage.value != null || result == null) {
         setState(() => _error = controller.errorMessage.value);
         return;
       }
@@ -278,7 +281,20 @@ class _ValidationBodyState extends State<_ValidationBody> {
         }
       }
 
-      Get.offNamed(AppRoutes.questCheckinStatus, arguments: widget.quest.id);
+      // A crossed streak milestone is awarded synchronously by the backend
+      // check-in endpoint, so the rank snapshot may already be stale by the
+      // time the Celebration screen renders it — refresh it now rather than
+      // waiting for the next scheduled reload.
+      unawaited(Get.find<RankController>().loadAll());
+
+      Get.offNamed(
+        AppRoutes.questCheckinStatus,
+        arguments: {
+          'questId': widget.quest.id,
+          'requiresProof': widget.quest.requiresProof,
+          'result': result,
+        },
+      );
     } on QuestException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);

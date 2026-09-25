@@ -71,11 +71,36 @@ class QuestCreateController extends GetxController {
   final frequency = QuestFrequency.daily.obs;
   final startDate = Rx<DateTime>(DateTime.now());
   final deadline = Rx<DateTime>(DateTime.now().add(const Duration(days: 30)));
-  final riskLevel = QuestRiskLevel.medium.obs;
   final requiresProof = false.obs;
   final successThresholdPercent = 80.obs;
   final hasStake = false.obs;
   final fundsDistribution = FundsDistribution.allies.obs;
+
+  /// Below this many XOF (or no stake at all): [QuestRiskLevel.low]. From
+  /// here up to [_highRiskThresholdXof]: [QuestRiskLevel.medium]. At or
+  /// above [_highRiskThresholdXof]: [QuestRiskLevel.high].
+  static const _mediumRiskThresholdXof = 5000;
+  static const _highRiskThresholdXof = 20000;
+
+  static QuestRiskLevel riskLevelForStake(double? amountXof) {
+    if (amountXof == null || amountXof < _mediumRiskThresholdXof) {
+      return QuestRiskLevel.low;
+    }
+    if (amountXof < _highRiskThresholdXof) return QuestRiskLevel.medium;
+    return QuestRiskLevel.high;
+  }
+
+  /// Set automatically from the live stake amount — no stake, or a stake
+  /// below the low threshold, is the lowest risk; the user never picks this
+  /// directly. A plain getter (not an `Rx`) so it's always in sync with
+  /// [hasStake]/[stakeText] with no separate state to keep updated —
+  /// reading it from inside an `Obx` reacts to those the same way reading
+  /// them directly would.
+  QuestRiskLevel get riskLevel => riskLevelForStake(
+        paymentsEnabled && hasStake.value
+            ? double.tryParse(stakeText.value.trim())
+            : null,
+      );
 
   /// Friends selected to be invited as this quest's accountability allies —
   /// a real invitation each must accept, not an automatic attachment.
@@ -166,7 +191,7 @@ class QuestCreateController extends GetxController {
             0,
             int.tryParse(gracePeriodController.text) ?? 0,
           ),
-          'riskLevel': riskLevel.value.toJson(),
+          'riskLevel': riskLevel.toJson(),
           'requiresProof': requiresProof.value,
           'successThresholdPercent': successThresholdPercent.value,
           if (selectedAllyIds.isNotEmpty)
@@ -193,7 +218,7 @@ class QuestCreateController extends GetxController {
           0,
           int.tryParse(gracePeriodController.text) ?? 0,
         ),
-        'riskLevel': riskLevel.value.toJson(),
+        'riskLevel': riskLevel.toJson(),
         'requiresProof': requiresProof.value,
         'successThresholdPercent': successThresholdPercent.value,
         'hasStake': paymentsEnabled && hasStake.value,

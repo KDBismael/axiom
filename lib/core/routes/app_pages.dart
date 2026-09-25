@@ -30,7 +30,6 @@ import '../../features/social/views/invitation_ally_view.dart';
 import '../../features/social/controllers/allies_controller.dart';
 import '../../features/social/repositories/social_repository.dart';
 import '../../features/social/views/validation_detail_view.dart';
-import '../../features/social/views/validation_history_view.dart';
 import '../../features/quests/views/quest_checkin_status_view.dart';
 import '../../features/quests/views/quest_validation_view.dart';
 import '../../features/shell/bindings/shell_binding.dart';
@@ -99,10 +98,6 @@ class AppPages {
     GetPage(
       name: AppRoutes.validationDetail,
       page: () => const ValidationDetailView(),
-    ),
-    GetPage(
-      name: AppRoutes.validationHistory,
-      page: () => const ValidationHistoryView(),
     ),
     GetPage(
       name: AppRoutes.notifications,

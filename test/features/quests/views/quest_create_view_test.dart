@@ -521,8 +521,8 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, 'Cadeau sport');
       await tester.pump();
-      await tester.ensureVisible(find.byType(Switch).first);
-      await tester.tap(find.byType(Switch).first);
+      await tester.ensureVisible(find.text('Offerte'));
+      await tester.tap(find.text('Offerte'));
       await tester.pump();
       expect(createController.createForSomeoneElse.value, isTrue);
       expect(createController.stepCount, 6);

@@ -98,13 +98,21 @@ class _AllyRequestViewState extends State<AllyRequestView> {
                 ),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppColors.surfaceBright,
+                    Container(
+                      width: 64,
+                      height: 64,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.violet,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                       child: Text(
                         _requesterName[0].toUpperCase(),
-                        style: AppTypography.titleLg.copyWith(
-                          color: AppColors.primary,
+                        style: const TextStyle(
+                          fontFamily: 'Unbounded',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 22,
+                          color: AppColors.onPrimary,
                         ),
                       ),
                     ),
@@ -168,15 +176,10 @@ class _AllyRequestViewState extends State<AllyRequestView> {
                   onPressed: _submitting ? null : () => _respond(accept: true),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _submitting
-                        ? null
-                        : () => _respond(accept: false),
-                    icon: const Icon(Icons.close),
-                    label: const Text('REFUSER'),
-                  ),
+                AppButton(
+                  label: 'REFUSER',
+                  variant: AppButtonVariant.danger,
+                  onPressed: _submitting ? null : () => _respond(accept: false),
                 ),
               ],
             ],

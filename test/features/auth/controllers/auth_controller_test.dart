@@ -126,6 +126,22 @@ void main() {
       expect(controller.user.value, isNull);
       verify(() => mockTokenStorage.clear()).called(1);
     });
+
+    test(
+      'when fetchMe fails with a network/backend error (not a rejection), '
+      'the session is left alone instead of being forced to log out',
+      () async {
+        when(() => mockTokenStorage.hasTokens()).thenAnswer((_) async => true);
+        when(
+          () => mockRepository.fetchMe(),
+        ).thenThrow(AuthUnavailableException('Backend indisponible'));
+
+        await controller.restoreSession();
+
+        expect(controller.user.value, isNull);
+        verifyNever(() => mockTokenStorage.clear());
+      },
+    );
   });
 
   group('AuthController.logout', () {

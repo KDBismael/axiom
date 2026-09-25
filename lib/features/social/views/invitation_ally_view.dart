@@ -98,7 +98,7 @@ class InvitationAllyView extends StatelessWidget {
                       Expanded(
                         child: AppButton(
                           label: 'REFUSER',
-                          variant: AppButtonVariant.secondary,
+                          variant: AppButtonVariant.danger,
                           onPressed: () async {
                             await controller.declineInvitation(token);
                             Get.back();

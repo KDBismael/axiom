@@ -412,4 +412,79 @@ void main() {
       expect(controller.selectedAllyIds, isEmpty);
     });
   });
+
+  group('QuestCreateController.riskLevelForStake', () {
+    test('no stake is low risk', () {
+      expect(QuestCreateController.riskLevelForStake(null), QuestRiskLevel.low);
+    });
+
+    test('below the medium threshold is low risk', () {
+      expect(QuestCreateController.riskLevelForStake(4999), QuestRiskLevel.low);
+    });
+
+    test('at the medium threshold is medium risk', () {
+      expect(QuestCreateController.riskLevelForStake(5000), QuestRiskLevel.medium);
+    });
+
+    test('just below the high threshold is medium risk', () {
+      expect(QuestCreateController.riskLevelForStake(19999), QuestRiskLevel.medium);
+    });
+
+    test('at or above the high threshold is high risk', () {
+      expect(QuestCreateController.riskLevelForStake(20000), QuestRiskLevel.high);
+      expect(QuestCreateController.riskLevelForStake(50000), QuestRiskLevel.high);
+    });
+  });
+
+  group('QuestCreateController.riskLevel (auto, from live stake state)', () {
+    late QuestCreateController stakeController;
+
+    setUp(() {
+      stakeController = QuestCreateController(
+        listController,
+        paymentConfig: const PaymentFeatureConfig(
+          payInsEnabled: true,
+          environment: 'sandbox',
+          sandboxVerified: true,
+        ),
+      );
+    });
+
+    tearDown(() => stakeController.onClose());
+
+    test('defaults to low with no stake enabled', () {
+      expect(stakeController.riskLevel, QuestRiskLevel.low);
+    });
+
+    test('updates live as the stake amount is typed', () {
+      stakeController.hasStake.value = true;
+
+      stakeController.stakeController.text = '1000';
+      expect(stakeController.riskLevel, QuestRiskLevel.low);
+
+      stakeController.stakeController.text = '5000';
+      expect(stakeController.riskLevel, QuestRiskLevel.medium);
+
+      stakeController.stakeController.text = '25000';
+      expect(stakeController.riskLevel, QuestRiskLevel.high);
+    });
+
+    test('drops back to low when the stake toggle is turned off', () {
+      stakeController.hasStake.value = true;
+      stakeController.stakeController.text = '25000';
+      expect(stakeController.riskLevel, QuestRiskLevel.high);
+
+      stakeController.hasStake.value = false;
+      expect(stakeController.riskLevel, QuestRiskLevel.low);
+    });
+
+    test('a disabled payments feature never raises the risk level', () {
+      final disabledController = QuestCreateController(listController);
+      disabledController.hasStake.value = true;
+      disabledController.stakeController.text = '50000';
+
+      expect(disabledController.riskLevel, QuestRiskLevel.low);
+      disabledController.onClose();
+    });
+  });
 }

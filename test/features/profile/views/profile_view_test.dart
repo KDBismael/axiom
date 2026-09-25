@@ -16,11 +16,18 @@ import 'package:axiom/features/profile/services/avatar_picker_service.dart';
 import 'package:axiom/features/profile/views/profile_view.dart';
 import 'package:axiom/features/quests/controllers/quest_list_controller.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
+import 'package:axiom/features/rank/controllers/rank_controller.dart';
+import 'package:axiom/features/rank/models/leaderboard_entry.dart';
+import 'package:axiom/features/rank/models/rank_summary.dart';
+import 'package:axiom/features/rank/models/trophy_item.dart';
+import 'package:axiom/features/rank/repositories/rank_repository.dart';
 import 'package:axiom/features/social/controllers/allies_controller.dart';
 import 'package:axiom/features/social/controllers/validations_controller.dart';
 import 'package:axiom/features/social/repositories/social_repository.dart';
 
 class MockProfileRepository extends Mock implements ProfileRepository {}
+
+class MockRankRepository extends Mock implements RankRepository {}
 
 class MockAvatarPickerService extends Mock implements AvatarPickerService {}
 
@@ -115,6 +122,37 @@ void main() {
       ProfileController(mockProfileRepository, MockAvatarPickerService()),
     );
 
+    final mockRankRepository = MockRankRepository();
+    when(() => mockRankRepository.fetchRank()).thenAnswer(
+      (_) async => const RankSummary(
+        totalPoints: 140,
+        tier: 'Bronze',
+        tierIndex: 0,
+        subLevel: 'I',
+        subLevelIndex: 0,
+        rankLabel: 'Bronze I',
+        pointsIntoTier: 140,
+        pointsIntoSubLevel: 140,
+        pointsToNextSubLevel: 360,
+        pointsToNextTier: 1360,
+        isMaxRank: false,
+      ),
+    );
+    when(() => mockRankRepository.fetchTrophies()).thenAnswer(
+      (_) async => const [
+        TrophyItem(
+          key: 'premiere_flamme',
+          name: 'Première flamme',
+          description: '7 jours de série',
+          earned: false,
+        ),
+      ],
+    );
+    when(
+      () => mockRankRepository.fetchLeaderboard(),
+    ).thenAnswer((_) async => const <LeaderboardEntry>[]);
+    Get.put<RankController>(RankController(mockRankRepository));
+
     await tester.pumpWidget(
       GetMaterialApp(
         theme: AppTheme.dark,
@@ -141,6 +179,6 @@ void main() {
     tester.takeException();
 
     expect(find.text('ENREGISTRER'), findsOneWidget);
-    expect(find.text('STATISTIQUES'), findsOneWidget);
+    expect(find.text('Déconnexion'), findsOneWidget);
   });
 }

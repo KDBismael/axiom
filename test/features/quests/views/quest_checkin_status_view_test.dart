@@ -9,9 +9,16 @@ import 'package:axiom/features/quests/models/check_in_model.dart';
 import 'package:axiom/features/quests/models/quest_model.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
 import 'package:axiom/features/quests/views/quest_checkin_status_view.dart';
+import 'package:axiom/features/rank/controllers/rank_controller.dart';
+import 'package:axiom/features/rank/models/leaderboard_entry.dart';
+import 'package:axiom/features/rank/models/rank_summary.dart';
+import 'package:axiom/features/rank/models/trophy_item.dart';
+import 'package:axiom/features/rank/repositories/rank_repository.dart';
 import 'package:axiom/features/shell/controllers/shell_controller.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
+
+class MockRankRepository extends Mock implements RankRepository {}
 
 void main() {
   setUpAll(() {
@@ -20,11 +27,13 @@ void main() {
 
   tearDown(Get.reset);
 
-  testWidgets('renders the confirmation state for a real quest via GetX navigation', (
-    tester,
-  ) async {
-    final mockRepository = MockQuestRepository();
-    when(() => mockRepository.fetchQuests()).thenAnswer(
+  Future<void> pumpCelebration(
+    WidgetTester tester, {
+    required bool requiresProof,
+    required CheckInResult result,
+  }) async {
+    final mockQuestRepository = MockQuestRepository();
+    when(() => mockQuestRepository.fetchQuests()).thenAnswer(
       (_) async => [
         QuestModel(
           id: '1',
@@ -38,7 +47,7 @@ void main() {
           deadline: DateTime(2026, 2, 1),
           gracePeriodDays: 0,
           riskLevel: QuestRiskLevel.medium,
-          requiresProof: false,
+          requiresProof: requiresProof,
           successThresholdPercent: 80,
           hasStake: false,
           status: QuestStatus.active,
@@ -47,26 +56,45 @@ void main() {
         ),
       ],
     );
-    when(() => mockRepository.fetchMyAllyInvitations()).thenAnswer((_) async => []);
     when(
-      () => mockRepository.fetchMyOwnerInvitations(),
+      () => mockQuestRepository.fetchMyAllyInvitations(),
     ).thenAnswer((_) async => []);
     when(
-      () => mockRepository.fetchMyGroupInvitations(),
+      () => mockQuestRepository.fetchMyOwnerInvitations(),
     ).thenAnswer((_) async => []);
     when(
-      () => mockRepository.fetchMyPauseRequests(),
+      () => mockQuestRepository.fetchMyGroupInvitations(),
     ).thenAnswer((_) async => []);
-    when(() => mockRepository.fetchCheckIns('1')).thenAnswer(
-      (_) async => [CheckIn(id: 'ci-1', questId: '1', date: DateTime.now())],
-    );
+    when(
+      () => mockQuestRepository.fetchMyPauseRequests(),
+    ).thenAnswer((_) async => []);
 
     Get.put<ShellController>(ShellController());
-    Get.put<QuestListController>(QuestListController(mockRepository));
-    // Don't `await` loadQuests directly: the mock repository's Future
-    // only fires once the widget test's fake clock is advanced via
-    // `tester.pump` — awaiting it here hangs forever (see
-    // [[getx-testwidgets-gotchas]] memory).
+    Get.put<QuestListController>(QuestListController(mockQuestRepository));
+
+    final mockRankRepository = MockRankRepository();
+    when(() => mockRankRepository.fetchRank()).thenAnswer(
+      (_) async => const RankSummary(
+        totalPoints: 140,
+        tier: 'Bronze',
+        tierIndex: 0,
+        subLevel: 'I',
+        subLevelIndex: 0,
+        rankLabel: 'Bronze I',
+        pointsIntoTier: 140,
+        pointsIntoSubLevel: 140,
+        pointsToNextSubLevel: 360,
+        pointsToNextTier: 1360,
+        isMaxRank: false,
+      ),
+    );
+    when(
+      () => mockRankRepository.fetchTrophies(),
+    ).thenAnswer((_) async => const <TrophyItem>[]);
+    when(
+      () => mockRankRepository.fetchLeaderboard(),
+    ).thenAnswer((_) async => const <LeaderboardEntry>[]);
+    Get.put<RankController>(RankController(mockRankRepository));
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -82,17 +110,80 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 350));
-    Get.toNamed('/quest-checkin-status', arguments: '1');
+    Get.toNamed(
+      '/quest-checkin-status',
+      arguments: {
+        'questId': '1',
+        'requiresProof': requiresProof,
+        'result': result,
+      },
+    );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 1500));
     tester.takeException();
+  }
 
-    expect(find.text("TERMINÉ POUR AUJOURD'HUI"), findsOneWidget);
+  testWidgets('a no-proof quest shows no points line and a plain confirmation', (
+    tester,
+  ) async {
+    final result = CheckInResult(
+      checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
+      streakDays: 12,
+      progress: 0.5,
+      currentPeriodCount: 1,
+      targetPerPeriod: 1,
+    );
+
+    await pumpCelebration(tester, requiresProof: false, result: result);
+
+    expect(find.text('Combo ×12'), findsOneWidget);
     expect(
-      find.text('Preuve soumise et en attente de validation par vos alliés.'),
+      find.text('Check-in enregistré. Continue comme ça.'),
       findsOneWidget,
     );
-    expect(find.textContaining('SÉRIE :'), findsOneWidget);
-    expect(find.text('TABLEAU DE BORD'), findsOneWidget);
+    expect(find.textContaining('PTS'), findsNothing);
+    expect(find.text('CONTINUER'), findsOneWidget);
+  });
+
+  testWidgets('a proof-required quest shows the provisional pending points line', (
+    tester,
+  ) async {
+    final result = CheckInResult(
+      checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
+      streakDays: 12,
+      progress: 0.5,
+      currentPeriodCount: 1,
+      targetPerPeriod: 1,
+      evidence: const Evidence(
+        id: 'ev-1',
+        proofType: ProofType.text,
+        status: EvidenceStatus.pending,
+        textContent: 'fait',
+      ),
+    );
+
+    await pumpCelebration(tester, requiresProof: true, result: result);
+
+    expect(find.text('Preuve envoyée. Tes alliés vont la juger.'), findsOneWidget);
+    expect(find.text('+20 PTS · EN ATTENTE'), findsOneWidget);
+  });
+
+  testWidgets('a partial multi-check-in period shows the pointage count, not a combo', (
+    tester,
+  ) async {
+    final result = CheckInResult(
+      checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
+      streakDays: 12,
+      progress: 0.5,
+      currentPeriodCount: 1,
+      targetPerPeriod: 2,
+    );
+
+    await pumpCelebration(tester, requiresProof: false, result: result);
+
+    // The fixture quest in pumpCelebration() is weekly, so the partial-
+    // period label reads "cette semaine", not "aujourd'hui".
+    expect(find.textContaining('Combo'), findsNothing);
+    expect(find.text('1/2 cette semaine'), findsOneWidget);
   });
 }

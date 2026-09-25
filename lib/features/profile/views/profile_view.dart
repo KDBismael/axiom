@@ -5,15 +5,20 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/currency.dart';
+import '../../../core/widgets/badges/app_rank_badge.dart';
+import '../../../core/widgets/badges/app_trophy_grid.dart';
+import '../../../core/widgets/sheets/app_bottom_sheet.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../quests/controllers/quest_list_controller.dart';
+import '../../rank/controllers/rank_controller.dart';
+import '../../rank/models/rank_summary.dart';
 import '../../social/controllers/allies_controller.dart';
 import '../../social/controllers/validations_controller.dart';
 import '../../social/models/ally_request.dart';
 import '../controllers/profile_controller.dart';
 import '../models/profile_model.dart';
 import '../widgets/authenticated_avatar_image.dart';
+import '../widgets/invite_friends_sheet.dart';
 import '../widgets/phone_input_field.dart';
 
 /// "Profile" tab — identity/security settings plus real quest stats.
@@ -42,82 +47,6 @@ class _ProfileViewState extends State<ProfileView> {
         backgroundColor: AppColors.surfaceContainerHigh,
         behavior: SnackBarBehavior.floating,
       ),
-    );
-  }
-
-  Future<void> _pickLanguage(ProfileController controller) {
-    return _showOptionPicker(
-      title: 'LANGUE',
-      options: const {'fr': 'Français', 'en': 'English'},
-      current: controller.language.value,
-      onSelected: (value) => controller.language.value = value,
-    );
-  }
-
-  Future<void> _pickPrivacyLevel(ProfileController controller) {
-    return _showOptionPicker(
-      title: 'CONFIDENTIALITÉ',
-      options: const {'standard': 'Standard', 'private': 'Privé'},
-      current: controller.privacyLevel.value.toJson(),
-      onSelected: (value) =>
-          controller.privacyLevel.value = ProfilePrivacyLevel.fromJson(value),
-    );
-  }
-
-  Future<void> _showOptionPicker({
-    required String title,
-    required Map<String, String> options,
-    required String current,
-    required ValueChanged<String> onSelected,
-  }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: AppRadii.structuralRadius),
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                    child: Text(
-                      title,
-                      style: AppTypography.labelMd.copyWith(
-                        color: AppColors.outline,
-                      ),
-                    ),
-                  ),
-                  for (final entry in options.entries)
-                    ListTile(
-                      title: Text(
-                        entry.value,
-                        style: AppTypography.bodyMd.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      trailing: entry.key == current
-                          ? const Icon(Icons.check, color: AppColors.volt)
-                          : null,
-                      onTap: () {
-                        onSelected(entry.key);
-                        Navigator.of(sheetContext).pop();
-                      },
-                    ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -153,6 +82,33 @@ class _ProfileViewState extends State<ProfileView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(
+                            'PROFIL',
+                            style: AppTypography.labelMd.copyWith(
+                              color: AppColors.outline,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const _RankHeroCard(),
+                          const SizedBox(height: 18),
+                          const _ProfileStatsRow(),
+                          const SizedBox(height: 32),
+                          Text(
+                            'TROPHÉES',
+                            style: AppTypography.labelMd.copyWith(
+                              color: AppColors.outline,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Builder(
+                            builder: (context) {
+                              final rank = Get.find<RankController>();
+                              return Obx(
+                                () => AppTrophyGrid(trophies: rank.trophies),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 40),
                           Center(
                             child: Column(
                               children: [
@@ -263,8 +219,10 @@ class _ProfileViewState extends State<ProfileView> {
                                 _SettingsRow(
                                   icon: Icons.person_add_alt,
                                   label: 'Inviter des amis',
-                                  onTap: () =>
-                                      Get.toNamed(AppRoutes.inviteFriends),
+                                  onTap: () => showAppBottomSheet(
+                                    context,
+                                    builder: (_) => const InviteFriendsSheet(),
+                                  ),
                                 ),
                                 Divider(
                                   height: 1,
@@ -310,15 +268,19 @@ class _ProfileViewState extends State<ProfileView> {
                                   color: AppColors.outlineVariant15,
                                 ),
                                 Obx(
-                                  () => _SettingsRow(
-                                    icon: Icons.security,
+                                  () => _SegmentedSettingRow(
                                     label: 'Confidentialité',
-                                    trailingText:
-                                        controller.privacyLevel.value ==
-                                            ProfilePrivacyLevel.private
-                                        ? 'Privé'
-                                        : 'Standard',
-                                    onTap: () => _pickPrivacyLevel(controller),
+                                    options: const {
+                                      'standard': 'Standard',
+                                      'private': 'Privé',
+                                    },
+                                    current: controller.privacyLevel.value
+                                        .toJson(),
+                                    onSelected: (value) =>
+                                        controller.privacyLevel.value =
+                                            ProfilePrivacyLevel.fromJson(
+                                              value,
+                                            ),
                                   ),
                                 ),
                                 Divider(
@@ -326,12 +288,12 @@ class _ProfileViewState extends State<ProfileView> {
                                   color: AppColors.outlineVariant15,
                                 ),
                                 Obx(
-                                  () => _SettingsRow(
-                                    icon: Icons.language,
+                                  () => _SegmentedSettingRow(
                                     label: 'Langue',
-                                    trailingText: controller.language.value
-                                        .toUpperCase(),
-                                    onTap: () => _pickLanguage(controller),
+                                    options: const {'fr': 'FR', 'en': 'EN'},
+                                    current: controller.language.value,
+                                    onSelected: (value) =>
+                                        controller.language.value = value,
                                   ),
                                 ),
                                 Divider(
@@ -478,7 +440,8 @@ class _ProfileViewState extends State<ProfileView> {
                                             'approuvée${decidedValidations.length > 1 ? 's' : ''}'
                                             ' ou rejetée${decidedValidations.length > 1 ? 's' : ''}',
                                         onTap: () => Get.toNamed(
-                                          AppRoutes.validationHistory,
+                                          AppRoutes.allyValidations,
+                                          arguments: 'done',
                                         ),
                                       ),
                                     ),
@@ -487,50 +450,6 @@ class _ProfileViewState extends State<ProfileView> {
                                 );
                               });
                             },
-                          ),
-                          Text(
-                            'STATISTIQUES',
-                            style: AppTypography.labelMd.copyWith(
-                              color: AppColors.outline,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerLow,
-                              borderRadius: AppRadii.structuralRadius,
-                              border: Border.all(
-                                color: AppColors.outlineVariant15,
-                              ),
-                            ),
-                            child: Builder(
-                              builder: (context) {
-                                final questController =
-                                    Get.find<QuestListController>();
-                                return Obx(
-                                  () => Column(
-                                    children: [
-                                      _StatRow(
-                                        label: 'Quêtes actives',
-                                        value:
-                                            '${questController.activeQuests.length}',
-                                      ),
-                                      _StatRow(
-                                        label: 'Total misé',
-                                        value: formatXof(
-                                          questController.totalStakeAmount,
-                                        ),
-                                      ),
-                                      _StatRow(
-                                        label: 'Niveau de risque',
-                                        value: questController.riskLevel,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
                           ),
                         ],
                       ),
@@ -705,17 +624,85 @@ class _ReadOnlyField extends StatelessWidget {
   }
 }
 
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    required this.icon,
+/// A settings row whose value is picked inline via a 2-option segmented
+/// pill track, rather than opening a bottom sheet (Langue/Confidentialité).
+class _SegmentedSettingRow extends StatelessWidget {
+  const _SegmentedSettingRow({
     required this.label,
-    this.trailingText,
-    this.onTap,
+    required this.options,
+    required this.current,
+    required this.onSelected,
   });
+
+  final String label;
+  final Map<String, String> options;
+  final String current;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, color: AppColors.outline),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final entry in options.entries)
+                  GestureDetector(
+                    onTap: () => onSelected(entry.key),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: entry.key == current
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        entry.value,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: entry.key == current
+                              ? AppColors.onPrimary
+                              : AppColors.outline,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
-  final String? trailingText;
   final VoidCallback? onTap;
 
   @override
@@ -737,13 +724,6 @@ class _SettingsRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (trailingText != null) ...[
-              Text(
-                trailingText!,
-                style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-              ),
-              const SizedBox(width: 4),
-            ],
             const Icon(
               Icons.chevron_right,
               color: AppColors.outlineVariant,
@@ -803,28 +783,184 @@ class _AllyRequestRow extends StatelessWidget {
   }
 }
 
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
+class _RankHeroCard extends StatelessWidget {
+  const _RankHeroCard();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
+    final rankController = Get.find<RankController>();
+    final profileController = Get.find<ProfileController>();
+    return Obx(() {
+      final rank = rankController.rank.value;
+      if (rank == null) return const SizedBox.shrink();
+      final profile = profileController.profile.value;
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.rankCardGoldBg, AppColors.surfaceContainerLow],
+            stops: [0, 0.65],
+          ),
+          borderRadius: AppRadii.sheetRadius,
+          border: Border.all(color: AppColors.rankCardGoldBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AppRankBadge(
+                  tier: rank.tier,
+                  subLevel: rank.subLevel,
+                  width: 72,
+                  height: 80,
+                  fontSize: 22,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile == null
+                            ? ''
+                            : '${profile.firstName} ${profile.lastName}',
+                        style: const TextStyle(
+                          fontFamily: 'Unbounded',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                          height: 1.15,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'RANG ${rank.rankLabel.toUpperCase()} · '
+                        '${rank.isMaxRank ? "MAXIMUM" : "${rank.pointsToNextSubLevel} PTS VERS ${rank.nextMilestoneLabel.toUpperCase()}"}',
+                        style: const TextStyle(
+                          fontFamily: 'Geist Mono',
+                          fontSize: 12,
+                          letterSpacing: 0.12 * 12,
+                          color: AppColors.gold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                for (var i = 0; i < rankTiers.length; i++)
+                  Expanded(
+                    child: Opacity(
+                      opacity: i <= rank.tierIndex ? 1 : 0.35,
+                      child: Column(
+                        children: [
+                          AppRankBadge(
+                            tier: rankTiers[i],
+                            subLevel: '',
+                            width: 30,
+                            height: 34,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            rankTiers[i],
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFFD8D8DE),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _ProfileStatsRow extends StatelessWidget {
+  const _ProfileStatsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final questController = Get.find<QuestListController>();
+    return Obx(
+      () => Row(
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+            child: _StatTile(
+              value: '${questController.activeQuests.length}',
+              label: 'quêtes actives',
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatTile(
+              value: questController.totalStakeAmount.toStringAsFixed(0),
+              label: 'XOF engagés',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatTile(
+              value: questController.riskLevel,
+              label: 'niveau de risque',
+              valueColor: AppColors.emberLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.value,
+    required this.label,
+    this.valueColor = AppColors.primary,
+  });
+
+  final String value;
+  final String label;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadii.structuralRadius,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
             value,
-            style: AppTypography.titleLg.copyWith(color: AppColors.primary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Unbounded',
+              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              color: valueColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11.5, color: AppColors.outline),
           ),
         ],
       ),

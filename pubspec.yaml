@@ -56,6 +56,7 @@ dependencies:
   # variant excludes it from the compile classpath and bundleRelease fails
   # with "package net.jonhanson.flutter_native_splash does not exist".
   flutter_native_splash: ^2.4.7
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

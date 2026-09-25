@@ -46,6 +46,42 @@ class AppColors {
   static const gold = Color(0xFFF6DC8A);
   static const goldDim = Color(0xFFB8862E);
 
+  // Rank tier diamond-badge gradients (Bronze -> Obsidienne), and the two
+  // hero-card backgrounds ("RANG"/profile) that key off the same gold.
+  static const bronzeLight = Color(0xFFE2A878);
+  static const bronzeDark = Color(0xFF8A5530);
+  static const argentLight = Color(0xFFEEF1F5);
+  static const argentDark = Color(0xFF8E96A3);
+  static const platineLight = Color(0xFFC8F5F2);
+  static const platineDark = Color(0xFF4FA8A3);
+  static const obsidienneLight = Color(0xFFB3A8FF);
+  static const obsidienneDark = Color(0xFF3A2C8A);
+
+  static const rankCardGoldBg = Color(0xFF2A2310);
+  static const rankCardGoldBorder = Color(0xFF3A3118);
+  static const rankTrackGold = Color(0xFF2C2616);
+  static const rankCaptionGold = Color(0xFFB8A873);
+  static const streakCardEmberBg = Color(0xFF2E1608);
+  static const streakCardEmberBorder = Color(0xFF3F2112);
+  static const streakCaptionEmber = Color(0xFFC98C6A);
+
+  /// The gradient stops for a rank tier's diamond badge, lightest first.
+  static List<Color> rankTierGradient(String tier) {
+    switch (tier) {
+      case 'Bronze':
+        return [bronzeLight, bronzeDark];
+      case 'Argent':
+        return [argentLight, argentDark];
+      case 'Platine':
+        return [platineLight, platineDark];
+      case 'Obsidienne':
+        return [obsidienneLight, obsidienneDark];
+      case 'Or':
+      default:
+        return [gold, goldDim];
+    }
+  }
+
   // Amber — pause / caution ("mode malade").
   static const amber = Color(0xFFF6C85A);
   static const amberShadow = Color(0xFF8A6A1A);

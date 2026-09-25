@@ -275,46 +275,136 @@ class _TitleStep extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        Obx(
-          () => _ToggleRow(
-            label: 'Créer cette quête pour quelqu’un d’autre',
-            value: controller.createForSomeoneElse.value,
-            onChanged: controller.isCollective.value
-                ? null
-                : (value) {
-                    controller.createForSomeoneElse.value = value;
-                    if (!value) controller.selectedInviteeId.value = null;
-                  },
-          ),
+        Text(
+          'QUEL TYPE DE DÉFI ?',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Obx(() {
           final collective = controller.isCollective.value;
+          final sponsored = controller.createForSomeoneElse.value;
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ToggleRow(
-                label: 'Quête collective',
-                value: collective,
-                onChanged: controller.createForSomeoneElse.value
-                    ? null
-                    : (value) => controller.isCollective.value = value,
+              _QuestTypeTile(
+                icon: Icons.person,
+                iconColor: AppColors.volt,
+                label: 'Solo',
+                description: 'Tu es seul·e responsable, tes alliés valident tes preuves.',
+                selected: !collective && !sponsored,
+                onTap: () {
+                  controller.isCollective.value = false;
+                  controller.createForSomeoneElse.value = false;
+                  controller.selectedInviteeId.value = null;
+                },
               ),
-              if (collective) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Les personnes que vous inviterez feront la quête avec '
-                  'vous et valideront vos preuves respectives — vous ne '
-                  'pourrez jamais valider les vôtres.',
-                  style: AppTypography.bodyMd.copyWith(
-                    color: AppColors.outline,
-                  ),
-                ),
-              ],
+              const SizedBox(height: 10),
+              _QuestTypeTile(
+                icon: Icons.groups,
+                iconColor: AppColors.violet,
+                label: 'Collective',
+                description:
+                    'Chacun a sa propre quête ; vous vous validez mutuellement.',
+                selected: collective,
+                onTap: () {
+                  controller.isCollective.value = true;
+                  controller.createForSomeoneElse.value = false;
+                  controller.selectedInviteeId.value = null;
+                },
+              ),
+              const SizedBox(height: 10),
+              _QuestTypeTile(
+                icon: Icons.card_giftcard,
+                iconColor: AppColors.waveCyan,
+                label: 'Offerte',
+                description:
+                    "Tu la crées et la finances, quelqu'un d'autre la réalise.",
+                selected: sponsored,
+                onTap: () {
+                  controller.createForSomeoneElse.value = true;
+                  controller.isCollective.value = false;
+                },
+              ),
             ],
           );
         }),
       ],
+    );
+  }
+}
+
+class _QuestTypeTile extends StatelessWidget {
+  const _QuestTypeTile({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: AppRadii.sheetRadius,
+          color: selected ? AppColors.voltTint() : AppColors.surfaceContainerLow,
+          border: Border.all(
+            color: selected ? AppColors.volt : AppColors.outlineVariantStrong,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: iconColor,
+                borderRadius: AppRadii.interactiveRadius,
+              ),
+              child: Icon(icon, color: AppColors.onPrimary, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Unbounded',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: AppColors.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -337,16 +427,22 @@ class _ScheduleRulesStep extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: controller.durationController,
-                keyboardType: TextInputType.number,
-                style: AppTypography.displayLg.copyWith(
-                  color: AppColors.primary,
-                  fontSize: 48,
+            IntrinsicWidth(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44),
+                child: TextField(
+                  controller: controller.durationController,
+                  keyboardType: TextInputType.number,
+                  style: AppTypography.displayLg.copyWith(
+                    color: AppColors.primary,
+                    fontSize: 48,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-                decoration: const InputDecoration(border: InputBorder.none),
               ),
             ),
             Padding(
@@ -393,16 +489,22 @@ class _ScheduleRulesStep extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: controller.targetPerPeriodController,
-                keyboardType: TextInputType.number,
-                style: AppTypography.displayLg.copyWith(
-                  color: AppColors.primary,
-                  fontSize: 48,
+            IntrinsicWidth(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44),
+                child: TextField(
+                  controller: controller.targetPerPeriodController,
+                  keyboardType: TextInputType.number,
+                  style: AppTypography.displayLg.copyWith(
+                    color: AppColors.primary,
+                    fontSize: 48,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-                decoration: const InputDecoration(border: InputBorder.none),
               ),
             ),
             Padding(
@@ -420,33 +522,6 @@ class _ScheduleRulesStep extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 32),
-        Text(
-          'NIVEAU DE RISQUE',
-          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-        ),
-        const SizedBox(height: 12),
-        Obx(
-          () => Row(
-            children: [
-              for (final level in QuestRiskLevel.values) ...[
-                Expanded(
-                  child: _SelectOption(
-                    label: switch (level) {
-                      QuestRiskLevel.low => 'Faible',
-                      QuestRiskLevel.medium => 'Modéré',
-                      QuestRiskLevel.high => 'Élevé',
-                    },
-                    selected: controller.riskLevel.value == level,
-                    onTap: () => controller.riskLevel.value = level,
-                  ),
-                ),
-                if (level != QuestRiskLevel.values.last)
-                  const SizedBox(width: 8),
-              ],
-            ],
-          ),
         ),
         const SizedBox(height: 32),
         Obx(
@@ -973,6 +1048,8 @@ class _StakeStep extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
+              _RiskLevelIndicator(level: controller.riskLevel),
+              const SizedBox(height: 16),
               const _StakeInfo(
                 icon: Icons.info_outline,
                 message:
@@ -1011,6 +1088,49 @@ class _StakeStep extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+/// Live "Faible / Modéré / Élevé" readout, computed automatically from the
+/// stake amount (see `QuestCreateController.riskLevelForStake`) — the user
+/// no longer picks this directly, so it's shown read-only here and again on
+/// the review step.
+class _RiskLevelIndicator extends StatelessWidget {
+  const _RiskLevelIndicator({required this.level});
+
+  final QuestRiskLevel level;
+
+  static const _labels = {
+    QuestRiskLevel.low: 'Faible',
+    QuestRiskLevel.medium: 'Modéré',
+    QuestRiskLevel.high: 'Élevé',
+  };
+
+  static const _colors = {
+    QuestRiskLevel.low: AppColors.volt,
+    QuestRiskLevel.medium: AppColors.amber,
+    QuestRiskLevel.high: AppColors.error,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          'NIVEAU DE RISQUE',
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline, fontSize: 10.5),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _labels[level]!,
+          style: AppTypography.labelMd.copyWith(
+            color: _colors[level],
+            fontWeight: FontWeight.w700,
+            fontSize: 10.5,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1191,6 +1311,12 @@ class _ReviewStep extends StatelessWidget {
                 label: 'Enjeu',
                 value: stake == null ? 'Aucun' : formatXof(stake),
                 valueColor: stake == null ? null : AppColors.volt,
+              ),
+              const SizedBox(height: 8),
+              _ReviewRow(
+                label: 'Niveau de risque',
+                value: _RiskLevelIndicator._labels[controller.riskLevel]!,
+                valueColor: _RiskLevelIndicator._colors[controller.riskLevel],
               ),
               const SizedBox(height: 8),
               _ReviewRow(

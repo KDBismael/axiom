@@ -12,6 +12,8 @@ import '../../notifications/controllers/notification_controller.dart';
 import '../../notifications/repositories/notification_repository.dart';
 import '../../payments/repositories/payment_repository.dart';
 import '../../payments/services/url_opener.dart';
+import '../../rank/controllers/rank_controller.dart';
+import '../../rank/repositories/rank_repository.dart';
 import '../controllers/shell_controller.dart';
 
 class ShellBinding extends Bindings {
@@ -65,5 +67,11 @@ class ShellBinding extends Bindings {
     Get.lazyPut<NotificationController>(
       () => NotificationController(Get.find()),
     );
+    if (!Get.isRegistered<RankRepository>()) {
+      Get.lazyPut<RankRepository>(() => RankRepository(Get.find()), fenix: true);
+    }
+    if (!Get.isRegistered<RankController>()) {
+      Get.put<RankController>(RankController(Get.find()), permanent: true);
+    }
   }
 }

@@ -19,6 +19,7 @@ import 'features/notifications/repositories/notification_repository.dart';
 import 'features/notifications/services/push_notification_service.dart';
 import 'features/quests/controllers/quest_list_controller.dart';
 import 'features/payments/controllers/quest_payment_controller.dart';
+import 'features/rank/controllers/rank_controller.dart';
 import 'features/social/controllers/allies_controller.dart';
 import 'features/social/controllers/validations_controller.dart';
 
@@ -133,6 +134,9 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
       if (currentQuestId is String) {
         quests.refreshQuest(currentQuestId);
       }
+    }
+    if (Get.isRegistered<RankController>()) {
+      Get.find<RankController>().loadAll();
     }
   }
 

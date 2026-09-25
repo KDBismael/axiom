@@ -3,8 +3,10 @@ import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_effects.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/avatar_colors.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/progress/segmented_progress.dart';
@@ -181,49 +183,89 @@ class _QuestDetailBody extends GetView<QuestListController> {
                     Get.toNamed(AppRoutes.questPayment, arguments: quest.id),
               );
             }
+            final canAct = quest.isActive && !isPendingDeletion;
+            final pausePending =
+                controller.pauseRequests[quest.id]?.status ==
+                QuestPauseRequestStatus.pending;
             return Column(
               children: [
-                AppButton(
-                  label: 'VALIDER AVEC PREUVE',
-                  leadingIcon: Icons.task_alt,
-                  onPressed: quest.isActive && !isPendingDeletion
-                      ? () => Get.toNamed(
-                          AppRoutes.questValidation,
-                          arguments: quest.id,
-                        )
-                      : null,
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: AppPressable(
+                    color: canAct ? AppColors.volt : AppColors.surfaceContainerHighest,
+                    shadowColor: canAct ? AppColors.voltShadow : const Color(0xFF0A0A0C),
+                    shadowThickness: 5,
+                    enabled: canAct,
+                    onTap: () => Get.toNamed(
+                      AppRoutes.questValidation,
+                      arguments: quest.id,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'VALIDER AVEC PREUVE',
+                        style: TextStyle(
+                          fontFamily: 'Unbounded',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          letterSpacing: 0.06 * 14,
+                          color: canAct ? AppColors.onPrimary : AppColors.outlineFaint,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                if (!quest.hasStake) ...[
-                  const SizedBox(height: 12),
-                  AppButton(
-                    label: 'AJOUTER UN ENJEU',
-                    leadingIcon: Icons.add_card,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: quest.isActive && !isPendingDeletion
-                        ? () => _addStake(context, quest)
-                        : null,
-                  ),
-                ],
-                if (quest.isActive &&
-                    !isPendingDeletion &&
-                    controller.pauseRequests[quest.id]?.status !=
-                        QuestPauseRequestStatus.pending) ...[
-                  const SizedBox(height: 12),
-                  AppButton(
-                    label: 'METTRE EN PAUSE',
-                    leadingIcon: Icons.sick_outlined,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => _requestPause(context, quest),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                // Temporarily disabled — grayed out until the timer feature
-                // is ready to ship.
-                AppButton(
-                  label: 'MINUTEUR DE FOCUS',
-                  leadingIcon: Icons.timer_outlined,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: null,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SecondaryActionButton(
+                        label: 'Ajouter un enjeu',
+                        glyph: Text(
+                          '+',
+                          style: AppTypography.headlineMd.copyWith(
+                            fontSize: 15,
+                            color: AppColors.volt,
+                          ),
+                        ),
+                        onTap: (canAct && !quest.hasStake)
+                            ? () => _addStake(context, quest)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SecondaryActionButton(
+                        label: 'Mode malade',
+                        glyph: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(width: 4, height: 13, color: AppColors.amber),
+                            const SizedBox(width: 3),
+                            Container(width: 4, height: 13, color: AppColors.amber),
+                          ],
+                        ),
+                        onTap: (canAct && !pausePending)
+                            ? () => _requestPause(context, quest)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SecondaryActionButton(
+                        label: 'Focus · bientôt',
+                        glyph: Container(
+                          width: 13,
+                          height: 13,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.outlineFaint, width: 2),
+                          ),
+                        ),
+                        onTap: null,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -234,58 +276,98 @@ class _QuestDetailBody extends GetView<QuestListController> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: _BentoCard(
-                    icon: Icons.payments,
-                    iconColor: AppColors.volt,
-                    title: 'LES ENJEUX',
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2210),
+                      borderRadius: AppRadii.structuralRadius,
+                      border: Border.all(color: const Color(0xFF2F3F14)),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          'EN JEU',
+                          style: AppTypography.labelMd.copyWith(
+                            fontSize: 10.5,
+                            color: const Color(0xFFA9CF4A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           quest.stakeAmountXof != null
                               ? formatXof(quest.stakeAmountXof!)
                               : 'Aucun enjeu',
-                          style: AppTypography.headlineMd.copyWith(
-                            color: AppColors.primary,
+                          style: const TextStyle(
+                            fontFamily: 'Unbounded',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20,
+                            color: AppColors.volt,
                           ),
                         ),
-                        if (quest.fundsDistribution != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            quest.fundsDistribution == FundsDistribution.allies
-                                ? "En cas d'échec, reversé aux alliés."
-                                : "En cas d'échec, reversé à une association caritative.",
-                            style: AppTypography.bodyMd.copyWith(
-                              color: AppColors.outline,
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          quest.stakeAmountXof == null
+                              ? 'Aucune mise sur cette quête.'
+                              : (quest.fundsDistribution == FundsDistribution.allies
+                                    ? "En cas d'échec, reversé aux alliés."
+                                    : "En cas d'échec, reversé à une association."),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: Color(0xFFA9B98A),
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: _BentoCard(
-                    icon: Icons.shield_moon,
-                    iconColor: AppColors.outline,
-                    title: 'NIVEAU DE RISQUE',
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: AppRadii.structuralRadius,
+                      border: Border.all(color: AppColors.outlineVariant),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _riskLabels[quest.riskLevel] ?? '',
-                          style: AppTypography.headlineMd.copyWith(
-                            color: AppColors.primary,
+                          'RISQUE DÉCLARÉ',
+                          style: AppTypography.labelMd.copyWith(
+                            fontSize: 10.5,
+                            color: AppColors.outlineMuted,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(3, (i) {
+                            final filled = i < _riskBarCount[quest.riskLevel]!;
+                            return Container(
+                              width: 12,
+                              height: 8.0 + i * 8,
+                              margin: EdgeInsets.only(right: i == 2 ? 0 : 4),
+                              decoration: BoxDecoration(
+                                color: filled
+                                    ? AppColors.ember
+                                    : AppColors.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
-                          quest.requiresProof
-                              ? 'Preuve requise'
-                              : 'Sur l\'honneur',
-                          style: AppTypography.bodyMd.copyWith(
-                            color: AppColors.outline,
+                          _riskLabels[quest.riskLevel] ?? '',
+                          style: const TextStyle(
+                            fontFamily: 'Unbounded',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: AppColors.emberLight,
                           ),
                         ),
                       ],
@@ -530,6 +612,12 @@ class _QuestDetailBody extends GetView<QuestListController> {
     QuestRiskLevel.low: 'FAIBLE',
     QuestRiskLevel.medium: 'MODÉRÉ',
     QuestRiskLevel.high: 'ÉLEVÉ',
+  };
+
+  static const _riskBarCount = {
+    QuestRiskLevel.low: 1,
+    QuestRiskLevel.medium: 2,
+    QuestRiskLevel.high: 3,
   };
 
   String _formatDate(DateTime date) =>
@@ -959,14 +1047,14 @@ class _GroupMembersSectionState extends State<_GroupMembersSection> {
           child: Center(child: CircularProgressIndicator(strokeWidth: 1)),
         );
       }
+      final ranked = [...progress.members]
+        ..sort((a, b) => b.progress.compareTo(a.progress));
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final member in progress.members) ...[
-            _GroupMemberRow(member: member),
-            if (member != progress.members.last) const SizedBox(height: 12),
-          ],
-          const SizedBox(height: 12),
+          for (var i = 0; i < ranked.length; i++)
+            _GroupMemberRow(position: i + 1, member: ranked[i]),
+          const SizedBox(height: 4),
           GestureDetector(
             onTap: () => _inviteMembers(context, progress),
             child: Text(
@@ -996,37 +1084,113 @@ class _GroupMembersSectionState extends State<_GroupMembersSection> {
   }
 }
 
-class _GroupMemberRow extends StatelessWidget {
-  const _GroupMemberRow({required this.member});
+const _positionColors = [
+  AppColors.gold,
+  Color(0xFFD8D8DE),
+  AppColors.bronzeLight,
+];
 
+class _GroupMemberRow extends StatelessWidget {
+  const _GroupMemberRow({required this.position, required this.member});
+
+  final int position;
   final QuestGroupMemberProgress member;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            member.name.isEmpty ? 'Membre' : member.name,
-            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-            overflow: TextOverflow.ellipsis,
+    final color = avatarColorForId(member.userId);
+    final positionColor = position <= 3
+        ? _positionColors[position - 1]
+        : AppColors.outlineMuted;
+    final name = member.name.isEmpty ? 'Membre' : member.name;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            child: Text(
+              '$position',
+              style: TextStyle(
+                fontFamily: 'Unbounded',
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: positionColor,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 3,
-          child: SegmentedProgress(ratio: member.progress, height: 10),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          '${member.streakDays}j',
-          style: AppTypography.labelMd.copyWith(
-            color: AppColors.volt,
-            fontWeight: FontWeight.w700,
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(11)),
+            child: Text(
+              initialsFor(member.firstName ?? '', member.lastName ?? ''),
+              style: const TextStyle(
+                fontFamily: 'Unbounded',
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                color: AppColors.onPrimary,
+              ),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Text(
+                      '${(member.progress * 100).round()}%',
+                      style: const TextStyle(
+                        fontFamily: 'Geist Mono',
+                        fontSize: 12,
+                        color: AppColors.outline,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: member.progress,
+                    minHeight: 6,
+                    backgroundColor: AppColors.surfaceContainerHighest,
+                    valueColor: AlwaysStoppedAnimation(color),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Transform.rotate(
+                  angle: 0.7853981633974483,
+                  child: Container(width: 7, height: 7, color: AppColors.ember),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '${member.streakDays}',
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.emberLight),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1698,48 +1862,49 @@ class _CheckInRow extends StatelessWidget {
   }
 }
 
-class _BentoCard extends StatelessWidget {
-  const _BentoCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.child,
+class _SecondaryActionButton extends StatelessWidget {
+  const _SecondaryActionButton({
+    required this.label,
+    required this.glyph,
+    this.onTap,
   });
 
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final Widget child;
+  final String label;
+  final Widget glyph;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: AppRadii.interactiveRadius,
-        border: Border.all(color: AppColors.outlineVariant15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    final enabled = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.4,
+        child: Container(
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: AppRadii.interactiveRadius,
+            border: Border.all(color: AppColors.outlineVariantStrong),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.labelMd.copyWith(
-                    color: AppColors.outline,
-                  ),
+              glyph,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          child,
-        ],
+        ),
       ),
     );
   }

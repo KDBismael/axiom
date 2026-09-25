@@ -134,9 +134,7 @@ class _WaitingState extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Center(
-          child: CircularProgressIndicator(color: AppColors.volt),
-        ),
+        const Center(child: _WavePulse()),
         const SizedBox(height: 24),
         Text(
           'En attente de confirmation du paiement…',
@@ -251,6 +249,91 @@ class _FailedState extends StatelessWidget {
   }
 }
 
+/// Three concentric rings expanding and fading out of the Wave "W" mark,
+/// staggered — the mockup's `ndRing` keyframe (scale .45→1.9, opacity .9→0).
+class _WavePulse extends StatefulWidget {
+  const _WavePulse();
+
+  @override
+  State<_WavePulse> createState() => _WavePulseState();
+}
+
+class _WavePulseState extends State<_WavePulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      height: 140,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              for (final delay in [0.0, 1 / 3, 2 / 3])
+                _pulseRing((_controller.value + delay) % 1.0),
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.waveCyan,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Text(
+                  'W',
+                  style: TextStyle(
+                    fontFamily: 'Unbounded',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: AppColors.onPrimary,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _pulseRing(double t) {
+    final scale = 0.45 + t * (1.9 - 0.45);
+    final opacity = (0.9 * (1 - t)).clamp(0.0, 0.9);
+    return Opacity(
+      opacity: opacity,
+      child: Transform.scale(
+        scale: scale,
+        child: Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.waveCyan, width: 2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SuccessState extends StatelessWidget {
   const _SuccessState({required this.quest});
 
@@ -261,7 +344,7 @@ class _SuccessState extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.check_circle, color: AppColors.volt, size: 64),
+        const _SuccessBurst(),
         const SizedBox(height: 24),
         Text(
           'Paiement confirmé !',
@@ -283,6 +366,51 @@ class _SuccessState extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+/// A rotated volt diamond popping in with an overshoot — the mockup's
+/// `ndPop` keyframe — with a glowing volt shadow and a checkmark rotated
+/// back upright inside it.
+class _SuccessBurst extends StatelessWidget {
+  const _SuccessBurst();
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.2, end: 1),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Transform.rotate(
+        angle: 0.7853981633974483,
+        child: Container(
+          width: 90,
+          height: 90,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.volt,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(color: AppColors.volt.withValues(alpha: 0.4), blurRadius: 50),
+            ],
+          ),
+          child: Transform.rotate(
+            angle: -0.7853981633974483,
+            child: const Text(
+              '✓',
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: AppColors.onPrimary,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

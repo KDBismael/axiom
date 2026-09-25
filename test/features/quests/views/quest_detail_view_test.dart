@@ -100,8 +100,8 @@ void main() {
 
       expect(find.text('Salle de sport 3x/semaine'), findsOneWidget);
       expect(find.text('VALIDER AVEC PREUVE'), findsOneWidget);
-      expect(find.text('LES ENJEUX'), findsOneWidget);
-      expect(find.text('NIVEAU DE RISQUE'), findsOneWidget);
+      expect(find.text('EN JEU'), findsOneWidget);
+      expect(find.text('RISQUE DÉCLARÉ'), findsOneWidget);
       expect(find.textContaining('REGISTRE D\'INTÉGRITÉ'), findsOneWidget);
       expect(find.text('PARAMÈTRES OPÉRATIONNELS'), findsOneWidget);
       expect(find.text('Absences tolérées'), findsOneWidget);

@@ -25,6 +25,10 @@ class _FakeBackend {
   /// invalid refresh token).
   bool refreshSucceeds = true;
 
+  /// When true, /auth/refresh returns a 500 instead of a 401 — simulating a
+  /// backend outage rather than an actual rejection of the refresh token.
+  bool refreshUnavailable = false;
+
   static Future<_FakeBackend> start() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final backend = _FakeBackend(server);
@@ -39,7 +43,9 @@ class _FakeBackend {
         // Let concurrent callers actually overlap in time rather than
         // resolving synchronously in request order.
         await Future.delayed(const Duration(milliseconds: 20));
-        if (refreshSucceeds) {
+        if (refreshUnavailable) {
+          request.response.statusCode = 500;
+        } else if (refreshSucceeds) {
           request.response.statusCode = 200;
           request.response.headers.contentType = ContentType.json;
           request.response.write(
@@ -155,6 +161,17 @@ void main() {
 
       verify(() => mockStorage.delete(key: 'access_token')).called(1);
       verify(() => mockStorage.delete(key: 'refresh_token')).called(1);
+    },
+  );
+
+  test(
+    'a 5xx from /auth/refresh (backend outage) does not clear storage or log out',
+    () async {
+      backend.refreshUnavailable = true;
+
+      await apiClient.get<dynamic>('/protected');
+
+      verifyNever(() => mockStorage.delete(key: any(named: 'key')));
     },
   );
 
