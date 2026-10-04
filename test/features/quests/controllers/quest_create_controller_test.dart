@@ -41,18 +41,98 @@ void main() {
     mockRepository = MockQuestRepository();
     listController = QuestListController(mockRepository);
     controller = QuestCreateController(listController);
+    controller.descriptionController.text = 'Une raison de tenir.';
+  });
+
+  group('creation controls', () {
+    test('duration has a minimum of one and keeps the deadline in sync', () {
+      controller.startDate.value = DateTime(2026, 9, 25);
+      controller.adjustDuration(-100);
+      expect(controller.durationDays, 1);
+      expect(controller.deadline.value, DateTime(2026, 9, 26));
+      controller.adjustDuration(6);
+      expect(controller.deadline.value, DateTime(2026, 10, 2));
+    });
+
+    test('target has a minimum of one', () {
+      controller.adjustTarget(-1);
+      expect(controller.targetPerPeriod, 1);
+      controller.adjustTarget(1);
+      expect(controller.targetPerPeriod, 2);
+    });
+
+    test('disabled payments and collective quests cannot carry a stake', () {
+      controller.selectStake(10000);
+      expect(controller.effectiveStakeAmount, 0);
+      final enabled = QuestCreateController(
+        listController,
+        paymentConfig: const PaymentFeatureConfig(
+          payInsEnabled: true,
+          environment: 'sandbox',
+          sandboxVerified: true,
+        ),
+      );
+      enabled.selectStake(10000);
+      expect(enabled.effectiveStakeAmount, 10000);
+      expect(enabled.riskLevel, QuestRiskLevel.medium);
+      enabled.selectStake(0);
+      expect(enabled.hasStake.value, isFalse);
+      enabled.selectStake(25000);
+      enabled.isCollective.value = true;
+      expect(enabled.effectiveStakeAmount, 0);
+      expect(enabled.riskLevel, QuestRiskLevel.low);
+      enabled.onClose();
+    });
   });
 
   group('QuestCreateController.nextStep', () {
-    test('is a no-op on step 0 while the title is empty', () {
+    test('type selection advances without requiring a title', () {
       controller.nextStep();
-      expect(controller.currentStep.value, 0);
+      expect(controller.currentStep.value, 1);
+    });
+
+    test('details require a nonblank title and description', () {
+      controller.nextStep();
+      controller.titleController.text = '   ';
+      controller.nextStep();
+      expect(controller.currentStep.value, 1);
+      controller.titleController.text = 'Courir';
+      controller.descriptionController.text = '   ';
+      controller.nextStep();
+      expect(controller.currentStep.value, 1);
+      controller.descriptionController.text = 'Pour garder le rythme';
+      controller.nextStep();
+      expect(controller.currentStep.value, 2);
+    });
+
+    test('sponsoring requires an invitee before participants', () {
+      controller.createForSomeoneElse.value = true;
+      controller.titleController.text = 'Courir';
+      controller.nextStep();
+      controller.nextStep();
+      controller.nextStep();
+      expect(controller.currentStep.value, 1);
+      controller.selectInvitee('user-2');
+      controller.nextStep();
+      expect(controller.currentStep.value, 2);
     });
 
     test('advances once a title is entered', () {
       controller.titleController.text = 'Courir 5km';
       controller.nextStep();
       expect(controller.currentStep.value, 1);
+    });
+
+    test('gives allies their own third step before the stake', () {
+      controller.titleController.text = 'Courir 5km';
+      controller.nextStep();
+      controller.nextStep();
+      expect(controller.currentStep.value, 2);
+      expect(controller.stepCount, 5);
+      expect(controller.stepTitles[2], 'Alliés');
+      controller.nextStep();
+      expect(controller.currentStep.value, 3);
+      expect(controller.stepTitles[3], 'Enjeu');
     });
 
     test('does not advance past the last step', () {
@@ -78,6 +158,25 @@ void main() {
   });
 
   group('QuestCreateController.submit', () {
+    test(
+      'rejects missing title or description without calling the API',
+      () async {
+        controller.titleController.text = 'Courir';
+        controller.descriptionController.text = '  ';
+        expect(await controller.submit(), isFalse);
+        expect(
+          controller.errorMessage.value,
+          'La description est obligatoire.',
+        );
+        verifyNever(() => mockRepository.createQuest(any()));
+
+        controller.descriptionController.text = 'Pour rester en forme';
+        controller.titleController.text = '  ';
+        expect(await controller.submit(), isFalse);
+        expect(controller.errorMessage.value, 'Le titre est obligatoire.');
+        verifyNever(() => mockRepository.createQuest(any()));
+      },
+    );
     test(
       'creates the quest directly (pending_payment), not a draft intent, when stake is enabled',
       () async {
@@ -111,6 +210,7 @@ void main() {
           ),
         );
         stakeController.titleController.text = 'Courir 5km';
+        stakeController.descriptionController.text = 'Pour rester en forme.';
         stakeController.hasStake.value = true;
         stakeController.stakeController.text = '5000';
 
@@ -274,10 +374,10 @@ void main() {
   });
 
   group('QuestCreateController.createForSomeoneElse', () {
-    test('stepCount is 5 by default and 6 while sponsoring', () {
+    test('stepCount remains five while sponsoring', () {
       expect(controller.stepCount, 5);
       controller.createForSomeoneElse.value = true;
-      expect(controller.stepCount, 6);
+      expect(controller.stepCount, 5);
     });
 
     test('selectInvitee toggles selection on repeated taps', () {
@@ -295,41 +395,47 @@ void main() {
   });
 
   group('QuestCreateController.isCollective', () {
-    test('stepCount drops the stake step (4 steps, no invitee/stake)', () {
+    test('collective flow also has four steps', () {
       controller.isCollective.value = true;
       expect(controller.stepCount, 4);
+      expect(controller.stepTitles[2], 'Membres');
+      expect(controller.stepTitles[3], 'Récapitulatif');
     });
 
-    test('submit posts to createQuestGroup, with no stake fields and memberUserIds instead of allyUserIds', () async {
-      when(
-        () => mockRepository.createQuestGroup(any()),
-      ).thenAnswer((_) async => quest());
+    test(
+      'submit posts to createQuestGroup, with no stake fields and memberUserIds instead of allyUserIds',
+      () async {
+        when(
+          () => mockRepository.createQuestGroup(any()),
+        ).thenAnswer((_) async => quest());
 
-      controller.isCollective.value = true;
-      controller.titleController.text = 'Défi 30 jours';
-      controller.descriptionController.text = 'On se motive ensemble';
-      controller.toggleAlly('user-2');
-      controller.toggleAlly('user-3');
-      controller.hasStake.value = true; // must be ignored for a collective quest
-      controller.stakeController.text = '5000';
+        controller.isCollective.value = true;
+        controller.titleController.text = 'Défi 30 jours';
+        controller.descriptionController.text = 'On se motive ensemble';
+        controller.toggleAlly('user-2');
+        controller.toggleAlly('user-3');
+        controller.hasStake.value =
+            true; // must be ignored for a collective quest
+        controller.stakeController.text = '5000';
 
-      final ok = await controller.submit();
+        final ok = await controller.submit();
 
-      verifyNever(() => mockRepository.createQuest(any()));
-      final captured =
-          verify(
-                () => mockRepository.createQuestGroup(captureAny()),
-              ).captured.single
-              as Map;
-      expect(captured['title'], 'Défi 30 jours');
-      expect(captured['description'], 'On se motive ensemble');
-      expect(captured['memberUserIds'], containsAll(['user-2', 'user-3']));
-      expect(captured.containsKey('allyUserIds'), isFalse);
-      expect(captured.containsKey('hasStake'), isFalse);
-      expect(captured.containsKey('stakeAmountXof'), isFalse);
-      expect(captured.containsKey('inviteeId'), isFalse);
-      expect(ok, isTrue);
-    });
+        verifyNever(() => mockRepository.createQuest(any()));
+        final captured =
+            verify(
+                  () => mockRepository.createQuestGroup(captureAny()),
+                ).captured.single
+                as Map;
+        expect(captured['title'], 'Défi 30 jours');
+        expect(captured['description'], 'On se motive ensemble');
+        expect(captured['memberUserIds'], containsAll(['user-2', 'user-3']));
+        expect(captured.containsKey('allyUserIds'), isFalse);
+        expect(captured.containsKey('hasStake'), isFalse);
+        expect(captured.containsKey('stakeAmountXof'), isFalse);
+        expect(captured.containsKey('inviteeId'), isFalse);
+        expect(ok, isTrue);
+      },
+    );
 
     test('submit omits memberUserIds when no one is selected', () async {
       when(
@@ -423,16 +529,28 @@ void main() {
     });
 
     test('at the medium threshold is medium risk', () {
-      expect(QuestCreateController.riskLevelForStake(5000), QuestRiskLevel.medium);
+      expect(
+        QuestCreateController.riskLevelForStake(5000),
+        QuestRiskLevel.medium,
+      );
     });
 
     test('just below the high threshold is medium risk', () {
-      expect(QuestCreateController.riskLevelForStake(19999), QuestRiskLevel.medium);
+      expect(
+        QuestCreateController.riskLevelForStake(19999),
+        QuestRiskLevel.medium,
+      );
     });
 
     test('at or above the high threshold is high risk', () {
-      expect(QuestCreateController.riskLevelForStake(20000), QuestRiskLevel.high);
-      expect(QuestCreateController.riskLevelForStake(50000), QuestRiskLevel.high);
+      expect(
+        QuestCreateController.riskLevelForStake(20000),
+        QuestRiskLevel.high,
+      );
+      expect(
+        QuestCreateController.riskLevelForStake(50000),
+        QuestRiskLevel.high,
+      );
     });
   });
 

@@ -12,6 +12,9 @@ class QuestCreateController extends GetxController {
     PaymentFeatureConfig paymentConfig = PaymentFeatureConfig.current,
   }) : _paymentConfig = paymentConfig {
     titleController.addListener(() => titleText.value = titleController.text);
+    descriptionController.addListener(
+      () => descriptionText.value = descriptionController.text,
+    );
     durationController.addListener(
       () => durationText.value = durationController.text,
     );
@@ -27,13 +30,22 @@ class QuestCreateController extends GetxController {
   final QuestListController _listController;
   final PaymentFeatureConfig _paymentConfig;
 
-  /// Title/Description → [Invitee, if sponsoring] → Schedule & Rules →
-  /// Allies/Members (optional) → [Stake (optional), skipped when collective]
-  /// → Review.
-  int get stepCount =>
-      4 +
-      (createForSomeoneElse.value ? 1 : 0) +
-      (isCollective.value ? 0 : 1);
+  /// Type → rules → allies/members → [stake] → review.
+  int get stepCount => stepTitles.length;
+  List<String> get stepTitles => [
+    'Type de quête',
+    'Règles',
+    isCollective.value ? 'Membres' : 'Alliés',
+    if (!isCollective.value) 'Enjeu',
+    'Récapitulatif',
+  ];
+
+  bool get canProceed => switch (currentStep.value) {
+    1 =>
+      canProceedFromDetails &&
+          (!createForSomeoneElse.value || canProceedFromInvitee),
+    _ => true,
+  };
   bool get paymentsEnabled => _paymentConfig.isEnabled;
 
   final currentStep = 0.obs;
@@ -46,19 +58,26 @@ class QuestCreateController extends GetxController {
   final stakeController = TextEditingController();
   final allySearchController = TextEditingController();
   final inviteeSearchController = TextEditingController();
-  bool questSearchInitialized = false;
-  bool inviteeSearchInitialized = false;
 
   /// Whether this quest is being created on behalf of someone else — the
   /// invitee becomes the quest owner once they accept, and the creator
   /// (this user) becomes an accountability partner automatically.
   final createForSomeoneElse = false.obs;
   final selectedInviteeId = RxnString();
+  final selectedInviteeName = RxnString();
 
-  void selectInvitee(String userId) {
-    selectedInviteeId.value = selectedInviteeId.value == userId
-        ? null
-        : userId;
+  void selectInvitee(String userId, {String? name}) {
+    if (selectedInviteeId.value == userId) {
+      selectedInviteeId.value = null;
+      selectedInviteeName.value = null;
+    } else {
+      setInvitee(userId, name: name);
+    }
+  }
+
+  void setInvitee(String userId, {String? name}) {
+    selectedInviteeId.value = userId;
+    selectedInviteeName.value = name ?? userId;
   }
 
   /// A collective quest: everyone selected in [selectedAllyIds] joins as a
@@ -96,18 +115,40 @@ class QuestCreateController extends GetxController {
   /// [hasStake]/[stakeText] with no separate state to keep updated —
   /// reading it from inside an `Obx` reacts to those the same way reading
   /// them directly would.
-  QuestRiskLevel get riskLevel => riskLevelForStake(
-        paymentsEnabled && hasStake.value
-            ? double.tryParse(stakeText.value.trim())
-            : null,
-      );
+  double get effectiveStakeAmount =>
+      hasStake.value && !isCollective.value && paymentsEnabled
+      ? double.tryParse(stakeText.value.trim()) ?? 0
+      : 0;
+
+  QuestRiskLevel get riskLevel => riskLevelForStake(effectiveStakeAmount);
+
+  void selectStake(int amount) {
+    if (amount > 0 && (!paymentsEnabled || isCollective.value)) return;
+    hasStake.value = amount > 0;
+    stakeController.text = amount > 0 ? '$amount' : '';
+  }
+
+  void adjustDuration(int delta) {
+    durationController.text = '${math.max(1, durationDays + delta)}';
+    deadline.value = startDate.value.add(Duration(days: durationDays));
+  }
+
+  void adjustTarget(int delta) {
+    targetPerPeriodController.text = '${math.max(1, targetPerPeriod + delta)}';
+  }
 
   /// Friends selected to be invited as this quest's accountability allies —
   /// a real invitation each must accept, not an automatic attachment.
   final selectedAllyIds = <String>{}.obs;
+  final selectedAllyNames = <String, String>{}.obs;
 
-  void toggleAlly(String userId) {
-    if (!selectedAllyIds.remove(userId)) selectedAllyIds.add(userId);
+  void toggleAlly(String userId, {String? name}) {
+    if (selectedAllyIds.remove(userId)) {
+      selectedAllyNames.remove(userId);
+    } else {
+      selectedAllyIds.add(userId);
+      selectedAllyNames[userId] = name ?? userId;
+    }
   }
 
   final isSubmitting = false.obs;
@@ -122,6 +163,7 @@ class QuestCreateController extends GetxController {
   /// changes aren't observed by `Obx` on their own, so the footer's
   /// "SUIVANT" enabled-state reads this instead of the raw controller.
   final titleText = ''.obs;
+  final descriptionText = ''.obs;
   final durationText = '30'.obs;
   final targetPerPeriodText = '1'.obs;
   final gracePeriodText = '0'.obs;
@@ -130,6 +172,8 @@ class QuestCreateController extends GetxController {
   final stakeText = ''.obs;
 
   bool get canProceedFromTitle => titleText.value.trim().isNotEmpty;
+  bool get canProceedFromDetails =>
+      canProceedFromTitle && descriptionText.value.trim().isNotEmpty;
 
   bool get canProceedFromInvitee => selectedInviteeId.value != null;
 
@@ -164,7 +208,7 @@ class QuestCreateController extends GetxController {
       math.max(1, int.tryParse(targetPerPeriodText.value) ?? 1);
 
   void nextStep() {
-    if (currentStep.value == 0 && !canProceedFromTitle) return;
+    if (!canProceed || isSubmitting.value) return;
     if (currentStep.value < stepCount - 1) currentStep.value++;
   }
 
@@ -175,6 +219,14 @@ class QuestCreateController extends GetxController {
   /// Submits the quest to the backend. Returns true on success; on
   /// failure, [errorMessage] carries the backend's French message.
   Future<bool> submit() async {
+    if (!canProceedFromTitle) {
+      errorMessage.value = 'Le titre est obligatoire.';
+      return false;
+    }
+    if (descriptionText.value.trim().isEmpty) {
+      errorMessage.value = 'La description est obligatoire.';
+      return false;
+    }
     isSubmitting.value = true;
     errorMessage.value = null;
     try {
