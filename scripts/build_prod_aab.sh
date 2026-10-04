@@ -15,11 +15,7 @@ new_version=$("$(dirname "$0")/bump_version.sh" "${1:-}")
 echo "Building version ${new_version}..."
 
 flutter build appbundle \
-  --dart-define=API_BASE_URL=https://server.ndeli.tech \
-  --dart-define=AXIOM_PAYINS_ENABLED=false \
-  --dart-define=AXIOM_PAYMENT_ENV=disabled \
-  --dart-define=AXIOM_GENIUSPAY_SANDBOX_VERIFIED=false \
-  --dart-define=GOOGLE_SERVER_CLIENT_ID=535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com
+  --dart-define-from-file=config/production.json
 
 echo ""
 echo "AAB ready at build/app/outputs/bundle/release/app-release.aab"

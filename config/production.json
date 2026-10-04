@@ -1,0 +1,8 @@
+{
+  "AXIOM_APP_ENV": "production",
+  "API_BASE_URL": "https://server.ndeli.tech",
+  "AXIOM_PAYINS_ENABLED": "false",
+  "AXIOM_PAYMENT_ENV": "disabled",
+  "AXIOM_GENIUSPAY_SANDBOX_VERIFIED": "false",
+  "GOOGLE_SERVER_CLIENT_ID": "535813765420-ues8l2u03hs7385qhcvp93teu4fceq9a.apps.googleusercontent.com"
+}
