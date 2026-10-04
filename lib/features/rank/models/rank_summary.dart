@@ -1,4 +1,10 @@
-const List<String> rankTiers = ['Bronze', 'Argent', 'Or', 'Platine', 'Obsidienne'];
+const List<String> rankTiers = [
+  'Bronze',
+  'Argent',
+  'Or',
+  'Platine',
+  'Obsidienne',
+];
 const List<String> rankSubLevels = ['I', 'II', 'III'];
 const int pointsPerSubLevel = 500;
 
@@ -32,13 +38,24 @@ class RankSummary {
   final int pointsToNextTier;
   final bool isMaxRank;
 
-  /// The name shown as "vers `<name>`" — the next tier, or (once inside the
-  /// final tier but not yet maxed) the next sub-level within it.
+  /// The next 500-point milestone, including intermediate sub-levels.
   String get nextMilestoneLabel {
     if (isMaxRank) return 'rang maximum';
-    if (tierIndex < rankTiers.length - 1) return rankTiers[tierIndex + 1];
-    return '$tier ${rankSubLevels[subLevelIndex + 1]}';
+    if (subLevelIndex < rankSubLevels.length - 1) {
+      return '$tier ${rankSubLevels[subLevelIndex + 1]}';
+    }
+    if (tierIndex < rankTiers.length - 1) {
+      return '${rankTiers[tierIndex + 1]} I';
+    }
+    return 'rang maximum';
   }
+
+  /// Lifetime points needed to reach the next milestone.
+  int? get nextMilestonePoints =>
+      isMaxRank ? null : totalPoints + pointsToNextSubLevel;
+
+  double get nextMilestoneRatio =>
+      isMaxRank ? 1 : totalPoints / nextMilestonePoints!;
 
   double get subLevelRatio => pointsIntoSubLevel / pointsPerSubLevel;
 

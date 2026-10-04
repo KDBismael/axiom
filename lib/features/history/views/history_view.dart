@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
@@ -50,7 +51,9 @@ class _HistoryViewState extends State<HistoryView> {
 
   void _cycleSort() {
     setState(() {
-      _sort = _sort == _SortOrder.newest ? _SortOrder.oldest : _SortOrder.newest;
+      _sort = _sort == _SortOrder.newest
+          ? _SortOrder.oldest
+          : _SortOrder.newest;
     });
   }
 
@@ -75,7 +78,9 @@ class _HistoryViewState extends State<HistoryView> {
                     "Aucun historique pour l'instant. Les quêtes complétées et "
                     'échouées apparaîtront ici.',
                     textAlign: TextAlign.center,
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.outline,
+                    ),
                   ),
                 ),
               ),
@@ -84,21 +89,30 @@ class _HistoryViewState extends State<HistoryView> {
         }
 
         final counts = {
-          for (final s in [QuestStatus.completed, QuestStatus.failed, QuestStatus.cancelled])
+          for (final s in [
+            QuestStatus.completed,
+            QuestStatus.failed,
+            QuestStatus.cancelled,
+          ])
             s: historyQuests.where((q) => q.status == s).length,
         };
 
         var filtered = historyQuests.where((q) {
-          if (_resultFilter == _ResultFilter.completed && q.status != QuestStatus.completed) {
+          if (_resultFilter == _ResultFilter.completed &&
+              q.status != QuestStatus.completed) {
             return false;
           }
-          if (_resultFilter == _ResultFilter.failed && q.status != QuestStatus.failed) {
+          if (_resultFilter == _ResultFilter.failed &&
+              q.status != QuestStatus.failed) {
             return false;
           }
-          if (_resultFilter == _ResultFilter.cancelled && q.status != QuestStatus.cancelled) {
+          if (_resultFilter == _ResultFilter.cancelled &&
+              q.status != QuestStatus.cancelled) {
             return false;
           }
-          if (_typeFilter != null && questKindFor(q, myId) != _typeFilter) return false;
+          if (_typeFilter != null && questKindFor(q, myId) != _typeFilter) {
+            return false;
+          }
           if (_stakeOnly && !q.hasStake) return false;
           return true;
         }).toList();
@@ -133,7 +147,8 @@ class _HistoryViewState extends State<HistoryView> {
                 Expanded(
                   child: _StatTile(
                     value: counts[QuestStatus.cancelled] ?? 0,
-                    label: 'annulée${(counts[QuestStatus.cancelled] ?? 0) > 1 ? 's' : ''}',
+                    label:
+                        'annulée${(counts[QuestStatus.cancelled] ?? 0) > 1 ? 's' : ''}',
                     color: AppColors.outlineMuted,
                   ),
                 ),
@@ -186,10 +201,14 @@ class _HistoryViewState extends State<HistoryView> {
                     height: 36,
                     padding: const EdgeInsets.fromLTRB(8, 0, 12, 0),
                     decoration: BoxDecoration(
-                      color: _stakeOnly ? AppColors.voltTint() : AppColors.surfaceContainerLow,
+                      color: _stakeOnly
+                          ? AppColors.voltTint()
+                          : AppColors.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: _stakeOnly ? AppColors.volt : AppColors.outlineVariantStrong,
+                        color: _stakeOnly
+                            ? AppColors.volt
+                            : AppColors.outlineVariantStrong,
                       ),
                     ),
                     child: Row(
@@ -199,15 +218,23 @@ class _HistoryViewState extends State<HistoryView> {
                           height: 18,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: _stakeOnly ? AppColors.volt : Colors.transparent,
+                            color: _stakeOnly
+                                ? AppColors.volt
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(5),
                             border: Border.all(
-                              color: _stakeOnly ? AppColors.volt : AppColors.outlineVariantStrong,
+                              color: _stakeOnly
+                                  ? AppColors.volt
+                                  : AppColors.outlineVariantStrong,
                               width: 1.5,
                             ),
                           ),
                           child: _stakeOnly
-                              ? const Icon(Icons.check, size: 12, color: AppColors.onPrimary)
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 12,
+                                  color: AppColors.onPrimary,
+                                )
                               : null,
                         ),
                         const SizedBox(width: 8),
@@ -216,7 +243,9 @@ class _HistoryViewState extends State<HistoryView> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: _stakeOnly ? AppColors.primary : AppColors.outline,
+                            color: _stakeOnly
+                                ? AppColors.primary
+                                : AppColors.outline,
                           ),
                         ),
                       ],
@@ -236,8 +265,11 @@ class _HistoryViewState extends State<HistoryView> {
                       border: Border.all(color: AppColors.outlineVariantStrong),
                     ),
                     child: Text(
-                      'Trier : ${_sort == _SortOrder.newest ? "Plus récent" : "Plus ancien"} ↕',
-                      style: const TextStyle(fontSize: 13, color: Color(0xFFD8D8DE)),
+                      'Trier : ${_sort == _SortOrder.newest ? "Plus récent" : "Plus ancien"}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFFD8D8DE),
+                      ),
                     ),
                   ),
                 ),
@@ -271,16 +303,24 @@ class _HistoryViewState extends State<HistoryView> {
             const SizedBox(height: 12),
             if (filtered.isEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 28,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: AppRadii.sheetRadius,
-                  border: Border.all(color: AppColors.outlineVariantStrong, style: BorderStyle.solid),
+                  border: Border.all(
+                    color: AppColors.outlineVariantStrong,
+                    style: BorderStyle.solid,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   'Aucun dossier ne correspond à ces filtres.',
                   textAlign: TextAlign.center,
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.outlineMuted),
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.outlineMuted,
+                  ),
                 ),
               )
             else
@@ -297,7 +337,10 @@ class _HistoryViewState extends State<HistoryView> {
   Widget _buildScroll({required List<Widget> children}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
@@ -312,7 +355,9 @@ class _Header extends StatelessWidget {
         children: [
           Text(
             'HISTORIQUE',
-            style: AppTypography.labelMd.copyWith(color: AppColors.outlineMuted),
+            style: AppTypography.labelMd.copyWith(
+              color: AppColors.outlineMuted,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(
@@ -331,7 +376,11 @@ class _Header extends StatelessWidget {
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.value, required this.label, required this.color});
+  const _StatTile({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
 
   final int value;
   final String label;
@@ -351,10 +400,21 @@ class _StatTile extends StatelessWidget {
         children: [
           Text(
             '$value',
-            style: TextStyle(fontFamily: 'Unbounded', fontWeight: FontWeight.w800, fontSize: 22, color: color),
+            style: TextStyle(
+              fontFamily: 'Unbounded',
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+              color: color,
+            ),
           ),
           const SizedBox(height: 2),
-          Text(label, style: AppTypography.bodyMd.copyWith(color: AppColors.outline, fontSize: 12)),
+          Text(
+            label,
+            style: AppTypography.bodyMd.copyWith(
+              color: AppColors.outline,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -362,7 +422,11 @@ class _StatTile extends StatelessWidget {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -377,9 +441,11 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surfaceContainerLow,
+          color: selected ? AppColors.voltTint() : AppColors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.outlineVariantStrong),
+          border: Border.all(
+            color: selected ? AppColors.volt : AppColors.outlineVariantStrong,
+          ),
         ),
         child: Text(
           label,
@@ -387,7 +453,7 @@ class _FilterChip extends StatelessWidget {
             fontFamily: 'Geist',
             fontSize: 13.5,
             fontWeight: FontWeight.w500,
-            color: selected ? AppColors.onPrimary : AppColors.outline,
+            color: selected ? AppColors.volt : AppColors.outline,
           ),
         ),
       ),
@@ -396,7 +462,11 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _TypeChip extends StatelessWidget {
-  const _TypeChip({required this.label, required this.selected, required this.onTap});
+  const _TypeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -411,9 +481,11 @@ class _TypeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surfaceContainerLow,
+          color: selected ? AppColors.voltTint() : AppColors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.outlineVariantStrong),
+          border: Border.all(
+            color: selected ? AppColors.volt : AppColors.outlineVariantStrong,
+          ),
         ),
         child: Text(
           label,
@@ -421,7 +493,7 @@ class _TypeChip extends StatelessWidget {
             fontFamily: 'Geist Mono',
             fontSize: 11,
             letterSpacing: 0.1 * 11,
-            color: selected ? AppColors.onPrimary : AppColors.outline,
+            color: selected ? AppColors.volt : AppColors.outline,
           ),
         ),
       ),
@@ -490,10 +562,16 @@ class _HistoryQuestCard extends StatelessWidget {
                 Transform.rotate(
                   angle: -0.035,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _resultColor[quest.status]!, width: 1.5),
+                      border: Border.all(
+                        color: _resultColor[quest.status]!,
+                        width: 1.5,
+                      ),
                     ),
                     child: Text(
                       _resultLabel[quest.status] ?? '',
@@ -520,7 +598,10 @@ class _HistoryQuestCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(_meta(), style: const TextStyle(fontSize: 13, color: AppColors.outline)),
+            Text(
+              _meta(),
+              style: const TextStyle(fontSize: 13, color: AppColors.outline),
+            ),
           ],
         ),
       ),

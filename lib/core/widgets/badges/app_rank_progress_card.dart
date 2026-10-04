@@ -5,10 +5,9 @@ import '../../theme/app_radii.dart';
 import '../../theme/app_typography.dart';
 import 'app_rank_badge.dart';
 
-/// The gold "RANG" card: badge + label + a progress bar for the current
-/// sub-level (`pointsIntoSubLevel / 500`), captioned with points remaining
-/// toward the next milestone. Used on the Home dashboard and the
-/// Celebration screen.
+/// The gold "RANG" card: badge and progress toward the next milestone.
+/// Shows earned points and the target; it does not show a competing
+/// "points remaining" number. Used on Home and the Celebration screen.
 class AppRankProgressCard extends StatelessWidget {
   const AppRankProgressCard({
     super.key,
@@ -26,10 +25,6 @@ class AppRankProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final caption = rank.isMaxRank
-        ? 'Rang maximum atteint'
-        : '${rank.pointsToNextSubLevel} / $pointsPerSubLevel vers ${rank.nextMilestoneLabel}';
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -81,7 +76,7 @@ class AppRankProgressCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
-                value: rank.isMaxRank ? 1 : rank.subLevelRatio,
+                value: rank.nextMilestoneRatio,
                 minHeight: 6,
                 backgroundColor: AppColors.rankTrackGold,
                 valueColor: const AlwaysStoppedAnimation(AppColors.gold),
@@ -89,8 +84,20 @@ class AppRankProgressCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              caption,
-              style: TextStyle(
+              'TES POINTS : ${rank.totalPoints} pts',
+              style: const TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.rankCaptionGold,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              rank.isMaxRank
+                  ? 'Rang maximum atteint'
+                  : 'Prochain palier : ${rank.nextMilestoneLabel} à ${rank.nextMilestonePoints} pts',
+              style: const TextStyle(
                 fontFamily: 'Geist',
                 fontSize: 12,
                 color: AppColors.rankCaptionGold,

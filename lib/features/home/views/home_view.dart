@@ -14,10 +14,14 @@ import '../../../core/widgets/navigation/glass_chrome.dart';
 import '../../../core/widgets/progress/segmented_progress.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../notifications/controllers/notification_controller.dart';
+import '../../profile/widgets/authenticated_avatar_image.dart';
 import '../../quests/controllers/quest_list_controller.dart';
+import '../../quests/models/check_in_model.dart';
 import '../../quests/models/quest_model.dart';
+import '../../quests/utils/check_in_availability.dart';
 import '../../quests/utils/quest_kind.dart';
 import '../../rank/controllers/rank_controller.dart';
+import '../../shell/controllers/shell_controller.dart';
 import '../../social/controllers/validations_controller.dart';
 
 /// L'onglet "Tableau de bord" — rendu à l'intérieur du shell à navigation
@@ -65,22 +69,24 @@ class HomeView extends GetView<QuestListController> {
                 children: [
                   const _Header(),
                   const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: Obx(() {
-                          final rank = rankController.rank.value;
-                          if (rank == null) return const SizedBox.shrink();
-                          return AppRankProgressCard(
-                            rank: rank,
-                            onTap: () => Get.toNamed(AppRoutes.home),
-                          );
-                        }),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StreakCard(controller: controller)),
-                    ],
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Obx(() {
+                            final rank = rankController.rank.value;
+                            if (rank == null) return const SizedBox.shrink();
+                            return AppRankProgressCard(
+                              rank: rank,
+                              onTap: () => Get.find<ShellController>().changeTab(2),
+                            );
+                          }),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: _StreakCard(controller: controller)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _TotalAtStakeCard(controller: controller),
@@ -121,6 +127,14 @@ class HomeView extends GetView<QuestListController> {
                       color: AppColors.outlineMuted,
                     ),
                   ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'RANG PAR POINTS CUMULÉS  ·  ◆ SÉRIE EN JOURS',
+                    style: AppTypography.labelMd.copyWith(
+                      fontSize: 9,
+                      color: AppColors.outlineFaint,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Obx(() {
                     final entries = rankController.leaderboard;
@@ -131,57 +145,6 @@ class HomeView extends GetView<QuestListController> {
               ),
             );
           }),
-        ),
-        Positioned(
-          top: topInset,
-          right: 20,
-          child: Builder(
-            builder: (context) {
-              final notifications = Get.find<NotificationController>();
-              return Obx(() {
-                final unread = notifications.unreadCount;
-                return InkWell(
-                  onTap: () => Get.toNamed(AppRoutes.notifications),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerLow,
-                      borderRadius: AppRadii.interactiveRadius,
-                      border: Border.all(color: AppColors.outlineVariant),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          Icons.notifications_none,
-                          color: AppColors.primary,
-                        ),
-                        if (unread > 0)
-                          Positioned(
-                            top: 6,
-                            right: 6,
-                            child: Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(
-                                color: AppColors.ember,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.surfaceContainerLow,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              });
-            },
-          ),
         ),
       ],
     );
@@ -194,33 +157,26 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = Get.find<AuthController>();
+    final notifications = Get.find<NotificationController>();
     return Obx(() {
       final user = auth.user.value;
       final firstName = user?.firstName.trim() ?? '';
       final lastName = user?.lastName.trim() ?? '';
+      final unread = notifications.unreadCount;
       return SizedBox(
         height: 52,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             GestureDetector(
               onTap: () => Get.toNamed(AppRoutes.home),
-              child: Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.volt,
-                  borderRadius: AppRadii.interactiveRadius,
-                ),
-                child: Text(
-                  initialsFor(firstName, lastName),
-                  style: const TextStyle(
-                    fontFamily: 'Unbounded',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: AppColors.onPrimary,
-                  ),
-                ),
+              child: AuthenticatedAvatarImage(
+                // Photo upload is disabled for now — always show initials.
+                avatarUrl: null,
+                size: 44,
+                borderRadius: AppRadii.interactiveRadius,
+                initials: initialsFor(firstName, lastName),
+                backgroundColor: AppColors.volt,
               ),
             ),
             const SizedBox(width: 12),
@@ -245,6 +201,54 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: () => Get.toNamed(AppRoutes.notifications),
+              borderRadius: AppRadii.interactiveRadius,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: AppRadii.interactiveRadius,
+                  border: Border.all(color: AppColors.outlineVariant),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: AppColors.primary,
+                          width: 1.8,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(7),
+                          topRight: Radius.circular(7),
+                          bottomLeft: Radius.circular(2),
+                          bottomRight: Radius.circular(2),
+                        ),
+                      ),
+                    ),
+                    if (unread > 0)
+                      const Positioned(
+                        top: 12,
+                        right: 12,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.ember,
+                            shape: BoxShape.circle,
+                          ),
+                          child: SizedBox(width: 6, height: 6),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -397,7 +401,9 @@ class _TotalAtStakeCard extends StatelessWidget {
                     height: 8.0 + i * 5,
                     margin: const EdgeInsets.only(left: 3),
                     decoration: BoxDecoration(
-                      color: filled ? AppColors.ember : AppColors.surfaceContainerHighest,
+                      color: filled
+                          ? AppColors.ember
+                          : AppColors.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   );
@@ -462,7 +468,11 @@ class _PendingValidationsBanner extends StatelessWidget {
                 children: [
                   Text(
                     'Preuves à juger',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5, color: AppColors.primary),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.5,
+                      color: AppColors.primary,
+                    ),
                   ),
                   SizedBox(height: 2),
                   Text(
@@ -472,7 +482,10 @@ class _PendingValidationsBanner extends StatelessWidget {
                 ],
               ),
             ),
-            const Text('→', style: TextStyle(color: Color(0xFFA79EE0), fontSize: 18)),
+            const Text(
+              '→',
+              style: TextStyle(color: Color(0xFFA79EE0), fontSize: 18),
+            ),
           ],
         ),
       ),
@@ -489,7 +502,11 @@ class _NewQuestButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: () => Get.toNamed(AppRoutes.questCreate),
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: AppColors.outlineVariantStrong, width: 1.5, style: BorderStyle.solid),
+          side: BorderSide(
+            color: AppColors.outlineVariantStrong,
+            width: 1.5,
+            style: BorderStyle.solid,
+          ),
           shape: RoundedRectangleBorder(borderRadius: AppRadii.sheetRadius),
         ),
         child: Text(
@@ -513,7 +530,7 @@ class _HomeQuestCard extends StatelessWidget {
   final QuestModel quest;
 
   static const _kindColors = {
-    QuestKind.solo: AppColors.outlineMuted,
+    QuestKind.solo: AppColors.volt,
     QuestKind.collective: AppColors.violet,
     QuestKind.offerte: AppColors.waveCyan,
   };
@@ -596,17 +613,26 @@ class _HomeQuestCard extends StatelessWidget {
                   quest.frequency == QuestFrequency.daily
                       ? (quest.streakDays > 1 ? 'jours' : 'jour')
                       : (quest.streakDays > 1 ? 'semaines' : 'semaine'),
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.outline),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.outline,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Text(
                   '${(quest.progress * 100).round()}%',
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.outline),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.outline,
+                  ),
                 ),
                 const Spacer(),
                 if (quest.hasStake && quest.stakeAmountXof != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF1E2610),
                       borderRadius: BorderRadius.circular(7),
@@ -629,13 +655,54 @@ class _HomeQuestCard extends StatelessWidget {
   }
 }
 
-class _TrailingAction extends StatelessWidget {
+class _TrailingAction extends StatefulWidget {
   const _TrailingAction({required this.quest});
 
   final QuestModel quest;
 
   @override
+  State<_TrailingAction> createState() => _TrailingActionState();
+}
+
+class _TrailingActionState extends State<_TrailingAction>
+    with WidgetsBindingObserver {
+  Future<List<CheckIn>>? _checkIns;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _reload();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrailingAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.quest != widget.quest) _reload();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(_reload);
+    }
+  }
+
+  void _reload() {
+    _checkIns = widget.quest.isActive
+        ? Get.find<QuestListController>().fetchCheckIns(widget.quest.id)
+        : null;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final quest = widget.quest;
     if (quest.isPaused) {
       return Container(
         height: 44,
@@ -665,7 +732,10 @@ class _TrailingAction extends StatelessWidget {
         ),
         child: Text(
           'PAIEMENT',
-          style: AppTypography.labelMd.copyWith(fontSize: 10.5, color: AppColors.volt),
+          style: AppTypography.labelMd.copyWith(
+            fontSize: 10.5,
+            color: AppColors.volt,
+          ),
         ),
       );
     }
@@ -680,33 +750,117 @@ class _TrailingAction extends StatelessWidget {
         ),
         child: Text(
           'EN ATTENTE',
-          style: AppTypography.labelMd.copyWith(fontSize: 10.5, color: AppColors.outlineMuted),
+          style: AppTypography.labelMd.copyWith(
+            fontSize: 10.5,
+            color: AppColors.outlineMuted,
+          ),
         ),
       );
     }
-    return SizedBox(
-      height: 44,
-      child: AppPressable(
-        color: AppColors.volt,
-        shadowColor: AppColors.voltShadow,
-        shadowThickness: 3,
-        onTap: () => Get.toNamed(AppRoutes.questValidation, arguments: quest.id),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Center(
-            child: Text(
-              'VALIDER',
-              style: TextStyle(
-                fontFamily: 'Unbounded',
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-                letterSpacing: 0.06 * 11,
-                color: AppColors.onPrimary,
+    if (checkInAvailability(quest, const [], DateTime.now()) ==
+        CheckInAvailability.deadlinePassed) {
+      return _statusBadge('DÉLAI PASSÉ');
+    }
+    return FutureBuilder<List<CheckIn>>(
+      future: _checkIns,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData && !snapshot.hasError) {
+          return const SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.outlineMuted,
               ),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return SizedBox(
+            height: 44,
+            child: AppPressable(
+              color: AppColors.surfaceContainerHigh,
+              shadowColor: AppColors.surfaceContainerLowest,
+              onTap: () => setState(_reload),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Center(
+                  child: Text(
+                    'RÉESSAYER',
+                    style: AppTypography.labelMd.copyWith(
+                      fontSize: 10,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        if (snapshot.hasData &&
+            checkInAvailability(quest, snapshot.data!, DateTime.now()) ==
+                CheckInAvailability.periodComplete) {
+          return Semantics(
+            label: quest.frequency == QuestFrequency.daily
+                ? 'Objectif du jour atteint'
+                : 'Objectif de la semaine atteint',
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: AppRadii.interactiveRadius,
+                border: Border.all(color: AppColors.volt, width: 2),
+              ),
+              child: const Icon(Icons.check, color: AppColors.volt, size: 27),
+            ),
+          );
+        }
+        return _validationButton(quest);
+      },
+    );
+  }
+
+  Widget _statusBadge(String label) => Container(
+    height: 44,
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      borderRadius: AppRadii.interactiveRadius,
+      border: Border.all(color: AppColors.outlineVariant),
+    ),
+    child: Text(
+      label,
+      style: AppTypography.labelMd.copyWith(
+        fontSize: 10.5,
+        color: AppColors.outlineMuted,
+      ),
+    ),
+  );
+
+  Widget _validationButton(QuestModel quest) => SizedBox(
+    height: 44,
+    child: AppPressable(
+      color: AppColors.volt,
+      shadowColor: AppColors.voltShadow,
+      shadowThickness: 3,
+      onTap: () => Get.toNamed(AppRoutes.questValidation, arguments: quest.id),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Center(
+          child: Text(
+            'VALIDER',
+            style: TextStyle(
+              fontFamily: 'Unbounded',
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              letterSpacing: 0.06 * 11,
+              color: AppColors.onPrimary,
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

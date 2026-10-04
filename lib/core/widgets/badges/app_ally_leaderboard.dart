@@ -88,18 +88,17 @@ class _LeaderboardRow extends StatelessWidget {
             child: Text(
               entry.isMe ? 'Toi' : '${entry.firstName} ${entry.lastName}',
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Row(
             children: [
               Transform.rotate(
                 angle: 0.7853981633974483,
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  color: AppColors.ember,
-                ),
+                child: Container(width: 7, height: 7, color: AppColors.ember),
               ),
               const SizedBox(width: 6),
               Text(
@@ -112,9 +111,9 @@ class _LeaderboardRow extends StatelessWidget {
             ],
           ),
           SizedBox(
-            width: 56,
+            width: 70,
             child: Text(
-              '${entry.totalPoints}',
+              '${entry.totalPoints} pts',
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontFamily: 'Geist Mono',

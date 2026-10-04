@@ -209,7 +209,7 @@ class _ValidationCardState extends State<ValidationCard> {
               hintText:
                   'Commentaire (optionnel pour approuver, requis pour rejeter)...',
               hintStyle: AppTypography.bodyMd.copyWith(
-                color: AppColors.outlineVariant,
+                color: AppColors.outlineFaint,
               ),
               filled: true,
               fillColor: AppColors.surfaceContainerLowest,

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/avatar_colors.dart';
 import '../controllers/validations_controller.dart';
 import '../models/ally_validation_request.dart';
 import '../widgets/validation_card.dart';
@@ -36,7 +37,10 @@ class _AllyValidationsViewState extends State<AllyValidationsView> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppColors.primary,
+                    ),
                   ),
                   const Text(
                     'Validations',
@@ -116,7 +120,8 @@ class _AllyValidationsViewState extends State<AllyValidationsView> {
                 child: decided.isEmpty
                     ? const _EmptyState(
                         title: 'Aucune validation traitée',
-                        subtitle: 'Les décisions de tes alliés apparaîtront ici.',
+                        subtitle:
+                            'Les décisions de tes alliés apparaîtront ici.',
                         icon: Icons.history,
                       )
                     : Column(
@@ -137,7 +142,11 @@ class _AllyValidationsViewState extends State<AllyValidationsView> {
 }
 
 class _Tab extends StatelessWidget {
-  const _Tab({required this.label, required this.selected, required this.onTap});
+  const _Tab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -238,9 +247,10 @@ class _DecidedRow extends StatelessWidget {
       ValidationDecisionStatus.cancelled => ('ANNULÉE', AppColors.outlineMuted),
       ValidationDecisionStatus.pending => ('', AppColors.outline),
     };
-    final initials = request.submitterName.trim().isEmpty
-        ? '?'
-        : request.submitterName.trim()[0].toUpperCase();
+    final initials = initialsForDisplayName(request.submitterName);
+    final avatarColor = avatarColorForId(
+      request.submitterId ?? request.submitterName,
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -255,7 +265,7 @@ class _DecidedRow extends StatelessWidget {
             height: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.violet,
+              color: avatarColor,
               borderRadius: BorderRadius.circular(11),
             ),
             child: Text(
@@ -274,14 +284,22 @@ class _DecidedRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  request.submitterName.isEmpty ? 'Allié' : request.submitterName,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  request.submitterName.isEmpty
+                      ? 'Allié'
+                      : request.submitterName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   request.questTitle,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.outlineMuted),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.outlineMuted,
+                  ),
                 ),
               ],
             ),

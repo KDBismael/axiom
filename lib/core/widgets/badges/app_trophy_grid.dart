@@ -30,9 +30,20 @@ const _trophyStyles = {
   ]),
 };
 
+const _crossAxisCount = 3;
+const _tileSpacing = 8.0;
+
 /// 3-column grid of trophy tiles — earned trophies get their themed
 /// gradient badge and colored name, unearned ones a flat greyscale fill and
 /// muted text, matching the mockup's profile trophy grid.
+///
+/// Each row is wrapped in [IntrinsicHeight] and stretched, so the 3 tiles
+/// in a row always share that row's tallest tile's height — matching the
+/// mockup's CSS grid (rows auto-size to their tallest cell) — while a row
+/// with a longer name/description (e.g. "1re quête avec enjeu réussie")
+/// can still be taller than the next. A single grid-wide fixed aspect
+/// ratio can't do this: it either overflows the short rows or clips the
+/// tall ones.
 class AppTrophyGrid extends StatelessWidget {
   const AppTrophyGrid({super.key, required this.trophies});
 
@@ -40,17 +51,27 @@ class AppTrophyGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: trophies.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 0.82,
-      ),
-      itemBuilder: (context, index) => _TrophyTile(trophy: trophies[index]),
+    return Column(
+      children: [
+        for (var i = 0; i < trophies.length; i += _crossAxisCount) ...[
+          if (i > 0) const SizedBox(height: _tileSpacing),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var j = i; j < i + _crossAxisCount; j++) ...[
+                  if (j > i) const SizedBox(width: _tileSpacing),
+                  Expanded(
+                    child: j < trophies.length
+                        ? _TrophyTile(trophy: trophies[j])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
