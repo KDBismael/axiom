@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -14,6 +15,7 @@ import 'package:axiom/features/quests/models/quest_owner_invitation_summary.dart
 import 'package:axiom/features/quests/models/quest_pause_request.dart';
 import 'package:axiom/features/quests/models/quest_pause_request_summary.dart';
 import 'package:axiom/features/quests/repositories/quest_repository.dart';
+import 'package:axiom/features/quests/services/evidence_picker_service.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
 
@@ -291,8 +293,7 @@ void main() {
   group('QuestListController.fetchFocusSessions', () {
     test('delegates to the repository', () async {
       when(() => mockRepository.fetchFocusSessions('q-1')).thenAnswer(
-        (_) async =>
-            const FocusSessionHistory(sessions: [], todayMinutes: 30),
+        (_) async => const FocusSessionHistory(sessions: [], todayMinutes: 30),
       );
 
       final history = await controller.fetchFocusSessions('q-1');
@@ -573,9 +574,7 @@ void main() {
     test('is zero with no active stakes', () {
       controller.quests
         ..clear()
-        ..addAll([
-          quest(id: 'q-completed', status: QuestStatus.completed),
-        ]);
+        ..addAll([quest(id: 'q-completed', status: QuestStatus.completed)]);
 
       expect(controller.totalStakeAmount, 0);
     });
@@ -704,10 +703,7 @@ void main() {
       await controller.loadGroupProgress('group-1');
 
       expect(controller.groupProgress['group-1']?.members, hasLength(1));
-      expect(
-        controller.groupProgress['group-1']?.members.single.streakDays,
-        3,
-      );
+      expect(controller.groupProgress['group-1']?.members.single.streakDays, 3);
     });
 
     test('surfaces the backend error on failure', () async {
@@ -790,32 +786,103 @@ void main() {
   });
 
   group('QuestListController.requestPause', () {
-    test('sends a text-proof pause request, caches it, and refreshes the quest', () async {
-      controller.quests
-        ..clear()
-        ..addAll([quest(id: 'q-1')]);
+    test(
+      'sends a text-proof pause request, caches it, and refreshes the quest',
+      () async {
+        controller.quests
+          ..clear()
+          ..addAll([quest(id: 'q-1')]);
+        when(
+          () => mockRepository.requestPause(
+            'q-1',
+            proofType: ProofType.text,
+            textContent: 'Grippe',
+            description: 'Grippe',
+          ),
+        ).thenAnswer(
+          (_) async => QuestPauseRequest(
+            id: 'pr-1',
+            status: QuestPauseRequestStatus.approved,
+            createdAt: DateTime(2026, 7, 1),
+          ),
+        );
+        when(
+          () => mockRepository.fetchQuest('q-1'),
+        ).thenAnswer((_) async => quest(id: 'q-1', status: QuestStatus.paused));
+
+        final ok = await controller.requestPause('q-1', reason: 'Grippe');
+
+        expect(ok, isTrue);
+        expect(controller.pauseRequests['q-1']?.id, 'pr-1');
+        expect(controller.findById('q-1')!.status, QuestStatus.paused);
+      },
+    );
+
+    test('uploads optional photo before requesting pause', () async {
+      final photo = PickedEvidence(
+        bytes: Uint8List.fromList([1, 2]),
+        sizeBytes: 2,
+        filename: 'preuve.jpg',
+        mimeType: 'image/jpeg',
+      );
+      when(
+        () => mockRepository.uploadEvidenceFile(photo),
+      ).thenAnswer((_) async => 'file-1');
       when(
         () => mockRepository.requestPause(
           'q-1',
-          proofType: ProofType.text,
-          textContent: 'Grippe',
+          proofType: ProofType.photo,
+          fileIds: ['file-1'],
+          description: 'Grippe',
         ),
       ).thenAnswer(
         (_) async => QuestPauseRequest(
           id: 'pr-1',
-          status: QuestPauseRequestStatus.approved,
+          status: QuestPauseRequestStatus.pending,
           createdAt: DateTime(2026, 7, 1),
         ),
       );
       when(
         () => mockRepository.fetchQuest('q-1'),
-      ).thenAnswer((_) async => quest(id: 'q-1', status: QuestStatus.paused));
+      ).thenAnswer((_) async => quest());
 
-      final ok = await controller.requestPause('q-1', reason: 'Grippe');
+      expect(
+        await controller.requestPause('q-1', reason: 'Grippe', photo: photo),
+        isTrue,
+      );
+      verifyInOrder([
+        () => mockRepository.uploadEvidenceFile(photo),
+        () => mockRepository.requestPause(
+          'q-1',
+          proofType: ProofType.photo,
+          fileIds: ['file-1'],
+          description: 'Grippe',
+        ),
+      ]);
+    });
 
-      expect(ok, isTrue);
-      expect(controller.pauseRequests['q-1']?.id, 'pr-1');
-      expect(controller.findById('q-1')!.status, QuestStatus.paused);
+    test('does not request pause if optional photo upload fails', () async {
+      final photo = PickedEvidence(
+        bytes: Uint8List.fromList([1]),
+        sizeBytes: 1,
+        filename: 'preuve.jpg',
+        mimeType: 'image/jpeg',
+      );
+      when(
+        () => mockRepository.uploadEvidenceFile(photo),
+      ).thenThrow(QuestException('Envoi impossible'));
+
+      expect(
+        await controller.requestPause('q-1', reason: 'Grippe', photo: photo),
+        isFalse,
+      );
+      expect(controller.errorMessage.value, 'Envoi impossible');
+      verifyNever(
+        () => mockRepository.requestPause(
+          any(),
+          proofType: any(named: 'proofType'),
+        ),
+      );
     });
 
     test('surfaces the backend error and returns false on failure', () async {
@@ -824,6 +891,7 @@ void main() {
           any(),
           proofType: any(named: 'proofType'),
           textContent: any(named: 'textContent'),
+          description: any(named: 'description'),
         ),
       ).thenThrow(QuestException('Une demande de pause est déjà en attente'));
 
@@ -838,28 +906,31 @@ void main() {
   });
 
   group('QuestListController.decidePauseRequest', () {
-    test('decides then reloads pending pause requests, returning true', () async {
-      when(
-        () => mockRepository.decidePauseRequest(
+    test(
+      'decides then reloads pending pause requests, returning true',
+      () async {
+        when(
+          () => mockRepository.decidePauseRequest(
+            'q-1',
+            'pr-1',
+            approve: true,
+            comment: null,
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockRepository.fetchMyPauseRequests(),
+        ).thenAnswer((_) async => []);
+
+        final ok = await controller.decidePauseRequest(
           'q-1',
           'pr-1',
           approve: true,
-          comment: null,
-        ),
-      ).thenAnswer((_) async {});
-      when(
-        () => mockRepository.fetchMyPauseRequests(),
-      ).thenAnswer((_) async => []);
+        );
 
-      final ok = await controller.decidePauseRequest(
-        'q-1',
-        'pr-1',
-        approve: true,
-      );
-
-      expect(ok, isTrue);
-      verify(() => mockRepository.fetchMyPauseRequests()).called(1);
-    });
+        expect(ok, isTrue);
+        verify(() => mockRepository.fetchMyPauseRequests()).called(1);
+      },
+    );
 
     test('surfaces the backend error and returns false on failure', () async {
       when(
@@ -878,46 +949,43 @@ void main() {
       );
 
       expect(ok, isFalse);
-      expect(
-        controller.errorMessage.value,
-        'Cette demande a déjà été traitée',
-      );
+      expect(controller.errorMessage.value, 'Cette demande a déjà été traitée');
     });
   });
 
   group('QuestListController.resumeQuest', () {
-    test('replaces the quest in place and clears its cached pause request', () async {
-      controller.quests
-        ..clear()
-        ..addAll([quest(id: 'q-1', status: QuestStatus.paused)]);
-      controller.pauseRequests['q-1'] = QuestPauseRequest(
-        id: 'pr-1',
-        status: QuestPauseRequestStatus.approved,
-        createdAt: DateTime(2026, 7, 1),
-      );
-      when(() => mockRepository.resumeQuest('q-1')).thenAnswer(
-        (_) async => quest(id: 'q-1', status: QuestStatus.active),
-      );
+    test(
+      'replaces the quest in place and clears its cached pause request',
+      () async {
+        controller.quests
+          ..clear()
+          ..addAll([quest(id: 'q-1', status: QuestStatus.paused)]);
+        controller.pauseRequests['q-1'] = QuestPauseRequest(
+          id: 'pr-1',
+          status: QuestPauseRequestStatus.approved,
+          createdAt: DateTime(2026, 7, 1),
+        );
+        when(
+          () => mockRepository.resumeQuest('q-1'),
+        ).thenAnswer((_) async => quest(id: 'q-1', status: QuestStatus.active));
 
-      final ok = await controller.resumeQuest('q-1');
+        final ok = await controller.resumeQuest('q-1');
 
-      expect(ok, isTrue);
-      expect(controller.findById('q-1')!.status, QuestStatus.active);
-      expect(controller.pauseRequests.containsKey('q-1'), isFalse);
-    });
+        expect(ok, isTrue);
+        expect(controller.findById('q-1')!.status, QuestStatus.active);
+        expect(controller.pauseRequests.containsKey('q-1'), isFalse);
+      },
+    );
 
     test('surfaces the backend error and returns false on failure', () async {
-      when(() => mockRepository.resumeQuest(any())).thenThrow(
-        QuestException("Cette quête n'est pas en pause"),
-      );
+      when(
+        () => mockRepository.resumeQuest(any()),
+      ).thenThrow(QuestException("Cette quête n'est pas en pause"));
 
       final ok = await controller.resumeQuest('q-1');
 
       expect(ok, isFalse);
-      expect(
-        controller.errorMessage.value,
-        "Cette quête n'est pas en pause",
-      );
+      expect(controller.errorMessage.value, "Cette quête n'est pas en pause");
     });
   });
 

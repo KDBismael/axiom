@@ -108,6 +108,62 @@ void main() {
       );
     });
 
+    test('picks multiple gallery photos up to the given limit', () async {
+      final files = [
+        XFile.fromData(Uint8List.fromList([1]), name: 'a.jpg', mimeType: 'image/jpeg'),
+        XFile.fromData(Uint8List.fromList([2]), name: 'b.png', mimeType: 'image/png'),
+      ];
+      when(
+        () => picker.pickMultiImage(imageQuality: 85, limit: 3),
+      ).thenAnswer((_) async => files);
+
+      final result = await service.pickMultiPhotos(limit: 3);
+
+      expect(result.map((p) => p.mimeType), ['image/jpeg', 'image/png']);
+      verify(() => picker.pickMultiImage(imageQuality: 85, limit: 3)).called(1);
+    });
+
+    test('truncates a multi-select result to the given limit', () async {
+      final files = [
+        XFile.fromData(Uint8List.fromList([1]), name: 'a.jpg', mimeType: 'image/jpeg'),
+        XFile.fromData(Uint8List.fromList([2]), name: 'b.jpg', mimeType: 'image/jpeg'),
+        XFile.fromData(Uint8List.fromList([3]), name: 'c.jpg', mimeType: 'image/jpeg'),
+      ];
+      when(
+        () => picker.pickMultiImage(imageQuality: 85, limit: 2),
+      ).thenAnswer((_) async => files);
+
+      final result = await service.pickMultiPhotos(limit: 2);
+
+      expect(result.length, 2);
+    });
+
+    test('returns an empty list without calling the picker when limit is 0', () async {
+      final result = await service.pickMultiPhotos(limit: 0);
+
+      expect(result, isEmpty);
+      verifyNever(() => picker.pickMultiImage(imageQuality: any(named: 'imageQuality')));
+    });
+
+    test('rejects an oversized photo within a multi-select batch', () async {
+      final files = [
+        XFile.fromData(
+          Uint8List(0),
+          name: 'large.jpg',
+          mimeType: 'image/jpeg',
+          length: maxEvidenceImageSizeBytes + 1,
+        ),
+      ];
+      when(
+        () => picker.pickMultiImage(imageQuality: 85, limit: 3),
+      ).thenAnswer((_) async => files);
+
+      expect(
+        () => service.pickMultiPhotos(limit: 3),
+        throwsA(isA<EvidencePickerException>()),
+      );
+    });
+
     test('rejects unsupported video types', () async {
       final file = XFile.fromData(
         Uint8List.fromList([1]),

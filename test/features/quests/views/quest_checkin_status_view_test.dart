@@ -31,6 +31,7 @@ void main() {
     WidgetTester tester, {
     required bool requiresProof,
     required CheckInResult result,
+    Duration animationTime = const Duration(milliseconds: 1500),
   }) async {
     final mockQuestRepository = MockQuestRepository();
     when(() => mockQuestRepository.fetchQuests()).thenAnswer(
@@ -119,71 +120,116 @@ void main() {
       },
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(animationTime);
     tester.takeException();
   }
 
-  testWidgets('a no-proof quest shows no points line and a plain confirmation', (
+  testWidgets('the celebration bursts 16 staggered diamonds then fades them', (
     tester,
   ) async {
     final result = CheckInResult(
       checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
-      streakDays: 12,
+      streakDays: 16,
       progress: 0.5,
       currentPeriodCount: 1,
       targetPerPeriod: 1,
     );
 
-    await pumpCelebration(tester, requiresProof: false, result: result);
+    await pumpCelebration(
+      tester,
+      requiresProof: false,
+      result: result,
+      animationTime: const Duration(milliseconds: 700),
+    );
 
-    expect(find.text('Combo ×12'), findsOneWidget);
+    for (var i = 0; i < 16; i++) {
+      expect(find.byKey(Key('celebration-spark-$i')), findsOneWidget);
+    }
     expect(
-      find.text('Check-in enregistré. Continue comme ça.'),
-      findsOneWidget,
+      tester.getSize(find.byKey(const Key('celebration-spark-12'))),
+      const Size(12, 12),
     );
-    expect(find.textContaining('PTS'), findsNothing);
-    expect(find.text('CONTINUER'), findsOneWidget);
-  });
-
-  testWidgets('a proof-required quest shows the provisional pending points line', (
-    tester,
-  ) async {
-    final result = CheckInResult(
-      checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
-      streakDays: 12,
-      progress: 0.5,
-      currentPeriodCount: 1,
-      targetPerPeriod: 1,
-      evidence: const Evidence(
-        id: 'ev-1',
-        proofType: ProofType.text,
-        status: EvidenceStatus.pending,
-        textContent: 'fait',
-      ),
+    expect(
+      tester.getSize(find.byKey(const Key('celebration-spark-13'))),
+      const Size(8, 8),
+    );
+    final spark = tester.element(find.byKey(const Key('celebration-spark-12')));
+    expect(
+      spark.findAncestorWidgetOfExactType<Opacity>()!.opacity,
+      greaterThan(0),
     );
 
-    await pumpCelebration(tester, requiresProof: true, result: result);
-
-    expect(find.text('Preuve envoyée. Tes alliés vont la juger.'), findsOneWidget);
-    expect(find.text('+20 PTS · EN ATTENTE'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1000));
+    expect(spark.findAncestorWidgetOfExactType<Opacity>()!.opacity, 0);
   });
 
-  testWidgets('a partial multi-check-in period shows the pointage count, not a combo', (
-    tester,
-  ) async {
-    final result = CheckInResult(
-      checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
-      streakDays: 12,
-      progress: 0.5,
-      currentPeriodCount: 1,
-      targetPerPeriod: 2,
-    );
+  testWidgets(
+    'a no-proof quest shows no points line and a plain confirmation',
+    (tester) async {
+      final result = CheckInResult(
+        checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
+        streakDays: 12,
+        progress: 0.5,
+        currentPeriodCount: 1,
+        targetPerPeriod: 1,
+      );
 
-    await pumpCelebration(tester, requiresProof: false, result: result);
+      await pumpCelebration(tester, requiresProof: false, result: result);
 
-    // The fixture quest in pumpCelebration() is weekly, so the partial-
-    // period label reads "cette semaine", not "aujourd'hui".
-    expect(find.textContaining('Combo'), findsNothing);
-    expect(find.text('1/2 cette semaine'), findsOneWidget);
-  });
+      expect(find.text('Combo ×12'), findsOneWidget);
+      expect(
+        find.text('Check-in enregistré. Continue comme ça.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('PTS'), findsNothing);
+      expect(find.text('CONTINUER'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a proof-required quest shows the provisional pending points line',
+    (tester) async {
+      final result = CheckInResult(
+        checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
+        streakDays: 12,
+        progress: 0.5,
+        currentPeriodCount: 1,
+        targetPerPeriod: 1,
+        evidence: const Evidence(
+          id: 'ev-1',
+          proofType: ProofType.text,
+          status: EvidenceStatus.pending,
+          textContent: 'fait',
+        ),
+      );
+
+      await pumpCelebration(tester, requiresProof: true, result: result);
+
+      expect(
+        find.text('Preuve envoyée. Tes alliés vont la juger.'),
+        findsOneWidget,
+      );
+      expect(find.text('+20 PTS · EN ATTENTE'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a partial multi-check-in period shows the pointage count, not a combo',
+    (tester) async {
+      final result = CheckInResult(
+        checkIn: CheckIn(id: 'ci-1', questId: '1', date: DateTime.now()),
+        streakDays: 12,
+        progress: 0.5,
+        currentPeriodCount: 1,
+        targetPerPeriod: 2,
+      );
+
+      await pumpCelebration(tester, requiresProof: false, result: result);
+
+      // The fixture quest in pumpCelebration() is weekly, so the partial-
+      // period label reads "cette semaine", not "aujourd'hui".
+      expect(find.textContaining('Combo'), findsNothing);
+      expect(find.text('1/2 cette semaine'), findsOneWidget);
+    },
+  );
 }

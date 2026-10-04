@@ -5,9 +5,9 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radii.dart';
+import '../../../core/theme/app_effects.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/borders/dashed_rrect_painter.dart';
 import '../../rank/controllers/rank_controller.dart';
 import '../controllers/focus_timer_controller.dart';
 import '../controllers/quest_list_controller.dart';
@@ -17,6 +17,7 @@ import '../repositories/quest_repository.dart';
 import '../services/evidence_picker_service.dart';
 import '../services/focus_session_draft_store.dart';
 import '../utils/period_progress.dart';
+import '../utils/check_in_availability.dart';
 
 class QuestValidationView extends GetView<QuestListController> {
   const QuestValidationView({super.key});
@@ -26,37 +27,63 @@ class QuestValidationView extends GetView<QuestListController> {
     final String questId = Get.arguments as String;
 
     return Scaffold(
-      body: Column(
-        children: [
-          SafeArea(
-            bottom: false,
-            child: Row(
+      body: SafeArea(
+        child: Obx(() {
+          final quest = controller.findById(questId);
+          if (quest == null) {
+            return Column(
               children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+                  child: Row(
+                    children: [
+                      _BackButton(onTap: () => Navigator.of(context).pop()),
+                    ],
+                  ),
                 ),
-                const Spacer(),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Obx(() {
-              final quest = controller.findById(questId);
-              if (quest == null) {
-                return Center(
-                  child: Text(
-                    'Quête introuvable.',
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.outline,
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'Quête introuvable.',
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                      ),
                     ),
                   ),
-                );
-              }
-              return _ValidationBody(quest: quest);
-            }),
-          ),
-        ],
+                ),
+              ],
+            );
+          }
+          return _ValidationBody(quest: quest);
+        }),
+      ),
+    );
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: AppColors.outlineVariant),
+        ),
+        child: const Text(
+          '←',
+          style: TextStyle(fontSize: 18, color: AppColors.primary),
+        ),
       ),
     );
   }
@@ -88,6 +115,9 @@ class _ValidationBodyState extends State<_ValidationBody> {
 
   bool get _periodComplete =>
       _currentPeriodCount >= widget.quest.targetPerPeriod;
+  bool get _deadlinePassed =>
+      checkInAvailability(widget.quest, const [], DateTime.now()) ==
+      CheckInAvailability.deadlinePassed;
 
   @override
   void initState() {
@@ -104,7 +134,9 @@ class _ValidationBodyState extends State<_ValidationBody> {
       checkIns,
       widget.quest.frequency,
       DateTime.now(),
+      startDate: widget.quest.startDate,
     );
+    if (!mounted) return;
     setState(() {
       _loadingHistory = false;
       _currentPeriodCount = count;
@@ -128,9 +160,38 @@ class _ValidationBodyState extends State<_ValidationBody> {
     super.dispose();
   }
 
-  Future<void> _pickVideo() async {
-    final source = await _chooseEvidenceSource(isVideo: true);
-    if (source == null) return;
+  Future<void> _pickPhotoFromCamera() async {
+    if (_pickedPhotos.length >= _maxPhotos) return;
+    final service = Get.find<EvidencePickerService>();
+    try {
+      final picked = await service.pickPhoto(ImageSource.camera);
+      if (picked == null || !mounted) return;
+      setState(() => _pickedPhotos.add(picked));
+    } on EvidencePickerException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Impossible d’accéder à la caméra.');
+    }
+  }
+
+  Future<void> _pickPhotosFromGallery() async {
+    final remaining = _maxPhotos - _pickedPhotos.length;
+    if (remaining <= 0) return;
+    final service = Get.find<EvidencePickerService>();
+    try {
+      final picked = await service.pickMultiPhotos(limit: remaining);
+      if (picked.isEmpty || !mounted) return;
+      setState(() => _pickedPhotos.addAll(picked));
+    } on EvidencePickerException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Impossible d’accéder à la galerie.');
+      }
+    }
+  }
+
+  Future<void> _pickVideoFrom(ImageSource source) async {
     final service = Get.find<EvidencePickerService>();
     try {
       final picked = await service.pickVideo(source);
@@ -145,57 +206,6 @@ class _ValidationBodyState extends State<_ValidationBody> {
         );
       }
     }
-  }
-
-  Future<void> _pickPhoto() async {
-    if (_pickedPhotos.length >= _maxPhotos) return;
-    final source = await _chooseEvidenceSource(isVideo: false);
-    if (source == null) return;
-    final service = Get.find<EvidencePickerService>();
-    try {
-      final picked = await service.pickPhoto(source);
-      if (picked == null || !mounted) return;
-      setState(() => _pickedPhotos.add(picked));
-    } on EvidencePickerException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = 'Impossible d’accéder à la caméra ou à la galerie.',
-        );
-      }
-    }
-  }
-
-  Future<ImageSource?> _chooseEvidenceSource({required bool isVideo}) {
-    return showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerLow,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(isVideo ? Icons.videocam : Icons.photo_camera),
-              title: Text(
-                isVideo ? 'Enregistrer une vidéo' : 'Prendre une photo',
-              ),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choisir dans la galerie'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Annuler'),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _removePhoto(int index) {
@@ -306,353 +316,357 @@ class _ValidationBodyState extends State<_ValidationBody> {
     }
   }
 
+  String? get _validatorMessage {
+    final names = widget.quest.allies
+        .where((a) => a.status == QuestAllyStatus.accepted)
+        .map((a) => a.firstName.trim())
+        .where((n) => n.isNotEmpty)
+        .toList();
+    if (names.isEmpty) return null;
+    if (names.length == 1) return '${names.first} validera ta preuve.';
+    return '${names.join(' ou ')} validera ta preuve. Le premier à décider l\'emporte.';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final xp = 50 + widget.quest.durationDays;
-    final disabled = _submitting || _loadingHistory || _periodComplete;
+    final canSubmit =
+        !_submitting &&
+        !_loadingHistory &&
+        !_periodComplete &&
+        !_deadlinePassed;
+    final validatorMessage = _validatorMessage;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'MISSION ACCOMPLIE',
-            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'VALIDER VOTRE SUCCÈS',
-            style: AppTypography.displayLg.copyWith(
-              color: AppColors.primary,
-              fontSize: 40,
-            ),
-          ),
-          if (_focusDraft != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              'Session de focus : '
-              '${_focusDraft!.endedAt.difference(_focusDraft!.startedAt).inMinutes} min',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.volt),
-            ),
-          ],
-          if (!_loadingHistory && _periodComplete) ...[
-            const SizedBox(height: 16),
-            Text(
-              widget.quest.frequency == QuestFrequency.daily
-                  ? "Vous avez déjà validé aujourd'hui."
-                  : 'Vous avez déjà validé cette semaine.',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.error),
-            ),
-          ] else if (!_loadingHistory && widget.quest.targetPerPeriod > 1) ...[
-            const SizedBox(height: 16),
-            Text(
-              '$_currentPeriodCount/${widget.quest.targetPerPeriod} '
-              '${widget.quest.frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-            ),
-          ],
-          const SizedBox(height: 40),
-          Text(
-            'PREUVE',
-            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-          ),
-          const SizedBox(height: 16),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _EvidenceCard(
-                    icon: Icons.photo_camera,
-                    label: 'PHOTO',
-                    selected: _evidenceType == _EvidenceType.photo,
-                    onTap: () => setState(() {
-                      _evidenceType = _EvidenceType.photo;
-                      _pickedVideo = null;
-                    }),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _EvidenceCard(
-                    icon: Icons.videocam,
-                    label: 'VIDÉO',
-                    selected: _evidenceType == _EvidenceType.video,
-                    onTap: () => setState(() {
-                      _evidenceType = _EvidenceType.video;
-                      _pickedPhotos.clear();
-                    }),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _EvidenceCard(
-                    icon: Icons.text_snippet,
-                    label: 'TEXTE',
-                    selected: _evidenceType == _EvidenceType.text,
-                    onTap: () => setState(() {
-                      _evidenceType = _EvidenceType.text;
-                      _pickedVideo = null;
-                      _pickedPhotos.clear();
-                    }),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_evidenceType == _EvidenceType.photo) ...[
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (var i = 0; i < _pickedPhotos.length; i++)
-                  _PhotoThumbnail(
-                    photo: _pickedPhotos[i],
-                    onRemove: () => _removePhoto(i),
-                  ),
-                if (_pickedPhotos.length < _maxPhotos)
-                  _AddPhotoTile(onTap: _pickPhoto),
-              ],
-            ),
-          ] else if (_evidenceType == _EvidenceType.video) ...[
-            const SizedBox(height: 16),
-            if (_pickedVideo == null)
-              OutlinedButton.icon(
-                onPressed: _pickVideo,
-                icon: const Icon(Icons.upload, color: AppColors.primary),
-                label: Text(
-                  'Ajouter une vidéo',
-                  style: AppTypography.bodyMd.copyWith(
-                    color: AppColors.primary,
-                  ),
-                ),
-              )
-            else
-              _VideoSelectedCard(
-                video: _pickedVideo!,
-                onRemove: () => setState(() => _pickedVideo = null),
-              ),
-          ],
-          const SizedBox(height: 32),
-          Text(
-            _evidenceType == _EvidenceType.text
-                ? 'VOTRE PREUVE'
-                : 'RÉCIT DE PERFORMANCE',
-            style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _descriptionController,
-            maxLines: 4,
-            style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-            decoration: InputDecoration(
-              hintText: _evidenceType == _EvidenceType.text
-                  ? 'Décrivez ce que vous avez accompli...'
-                  : 'Décrivez votre exécution ici (optionnel)...',
-              hintStyle: AppTypography.bodyMd.copyWith(
-                color: AppColors.outlineVariant,
-              ),
-              filled: true,
-              fillColor: AppColors.surfaceContainerLowest,
-              contentPadding: const EdgeInsets.all(16),
-              border: OutlineInputBorder(
-                borderRadius: AppRadii.structuralRadius,
-                borderSide: BorderSide(
-                  color: AppColors.outlineVariant.withValues(alpha: 0.3),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadii.structuralRadius,
-                borderSide: BorderSide(
-                  color: AppColors.outlineVariant.withValues(alpha: 0.3),
-                ),
-              ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-                borderSide: BorderSide(color: AppColors.volt),
-              ),
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              _error!,
-              style: AppTypography.bodyMd.copyWith(color: AppColors.error),
-            ),
-          ],
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: AppRadii.structuralRadius,
-              border: Border.all(color: AppColors.outlineVariant15),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'OBJECTIF',
-                        style: AppTypography.labelMd.copyWith(
-                          color: AppColors.outline,
-                          fontSize: 10,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.quest.title,
-                        style: AppTypography.bodyMd.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+          child: Row(
+            children: [
+              _BackButton(onTap: () => Navigator.of(context).pop()),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'STATS',
-                      style: AppTypography.labelMd.copyWith(
-                        color: AppColors.outline,
-                        fontSize: 10,
+                      'VALIDER AVEC PREUVE',
+                      style: TextStyle(
+                        fontFamily: 'Geist Mono',
+                        fontSize: 11,
+                        letterSpacing: 0.14 * 11,
+                        color: AppColors.outlineMuted,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      '+$xp XP',
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.primaryContainer,
-                        fontWeight: FontWeight.w500,
+                      widget.quest.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_focusDraft != null) ...[
+                  Text(
+                    'Session de focus : '
+                    '${_focusDraft!.endedAt.difference(_focusDraft!.startedAt).inMinutes} min',
+                    style: const TextStyle(fontSize: 13, color: AppColors.volt),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (_deadlinePassed) ...[
+                  const Text(
+                    'Le délai de validation de cette quête est dépassé.',
+                    style: TextStyle(fontSize: 13, color: AppColors.error),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (!_loadingHistory && _periodComplete) ...[
+                  Text(
+                    widget.quest.frequency == QuestFrequency.daily
+                        ? "Vous avez déjà validé aujourd'hui."
+                        : 'Vous avez déjà validé cette semaine.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (!_loadingHistory &&
+                    widget.quest.targetPerPeriod > 1) ...[
+                  Text(
+                    '$_currentPeriodCount/${widget.quest.targetPerPeriod} '
+                    '${widget.quest.frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                _EvidenceTypeSegmented(
+                  value: _evidenceType,
+                  onChanged: (type) => setState(() {
+                    _evidenceType = type;
+                    if (type != _EvidenceType.photo) _pickedPhotos.clear();
+                    if (type != _EvidenceType.video) _pickedVideo = null;
+                  }),
+                ),
+                if (_evidenceType == _EvidenceType.photo) ...[
+                  const SizedBox(height: 16),
+                  _PhotoSlotsGrid(
+                    photos: _pickedPhotos,
+                    onRemove: _removePhoto,
+                    onAddTap: _pickPhotosFromGallery,
+                  ),
+                  const SizedBox(height: 8),
+                  _PickerButtonsRow(
+                    primaryLabel: 'Appareil photo',
+                    onPrimary: _pickedPhotos.length >= _maxPhotos
+                        ? null
+                        : _pickPhotoFromCamera,
+                    onGallery: _pickedPhotos.length >= _maxPhotos
+                        ? null
+                        : _pickPhotosFromGallery,
+                  ),
+                ] else if (_evidenceType == _EvidenceType.video) ...[
+                  const SizedBox(height: 16),
+                  if (_pickedVideo == null)
+                    _PickerButtonsRow(
+                      primaryLabel: 'Caméra',
+                      onPrimary: () => _pickVideoFrom(ImageSource.camera),
+                      onGallery: () => _pickVideoFrom(ImageSource.gallery),
+                    )
+                  else
+                    _VideoSelectedCard(
+                      video: _pickedVideo!,
+                      onRemove: () => setState(() => _pickedVideo = null),
+                    ),
+                ],
+                const SizedBox(height: 16),
+                _CommentField(
+                  label: _evidenceType == _EvidenceType.text
+                      ? 'VOTRE PREUVE'
+                      : 'COMMENTAIRE (OPTIONNEL)',
+                  hint: _evidenceType == _EvidenceType.text
+                      ? 'Décrivez ce que vous avez accompli...'
+                      : 'Ex. 5,3 km, parc de Hann',
+                  controller: _descriptionController,
+                  singleLine: _evidenceType != _EvidenceType.text,
+                ),
+                if (validatorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  _ValidatorInfoBanner(text: validatorMessage),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          AppButton(
-            label: 'SOUMETTRE POUR VALIDATION',
-            trailingIcon: Icons.verified,
-            loading: _submitting,
-            onPressed: disabled ? null : _submit,
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFF1E1E23))),
           ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: AppPressable(
+              color: canSubmit
+                  ? AppColors.volt
+                  : AppColors.surfaceContainerHighest,
+              shadowColor: canSubmit
+                  ? AppColors.voltShadow
+                  : const Color(0xFF0A0A0C),
+              shadowThickness: 5,
+              borderRadius: BorderRadius.circular(16),
+              enabled: canSubmit,
+              onTap: _submit,
+              child: Center(
+                child: _submitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.onPrimary,
+                        ),
+                      )
+                    : Text(
+                        'ENVOYER LA PREUVE',
+                        style: TextStyle(
+                          fontFamily: 'Unbounded',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          letterSpacing: 0.06 * 14,
+                          color: canSubmit
+                              ? AppColors.onPrimary
+                              : AppColors.outlineFaint,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EvidenceTypeSegmented extends StatelessWidget {
+  const _EvidenceTypeSegmented({required this.value, required this.onChanged});
+
+  final _EvidenceType value;
+  final ValueChanged<_EvidenceType> onChanged;
+
+  static const _options = [
+    (_EvidenceType.photo, 'Photo'),
+    (_EvidenceType.video, 'Vidéo'),
+    (_EvidenceType.text, 'Texte'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          for (final (type, label) in _options)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(type),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: value == type
+                        ? AppColors.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: value == type
+                          ? AppColors.onPrimary
+                          : AppColors.outline,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _EvidenceCard extends StatelessWidget {
-  const _EvidenceCard({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
+class _PhotoSlotsGrid extends StatelessWidget {
+  const _PhotoSlotsGrid({
+    required this.photos,
+    required this.onRemove,
+    required this.onAddTap,
   });
 
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final List<PickedEvidence> photos;
+  final ValueChanged<int> onRemove;
+  final VoidCallback onAddTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.surfaceContainerHigh
-              : AppColors.surfaceContainerLow,
-          borderRadius: AppRadii.structuralRadius,
-          border: Border.all(
-            color: selected
-                ? AppColors.volt
-                : AppColors.outlineVariant15,
+    return Row(
+      children: [
+        for (var i = 0; i < _maxPhotos; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: 3 / 4,
+              child: i < photos.length
+                  ? _PhotoSlotFilled(
+                      photo: photos[i],
+                      onRemove: () => onRemove(i),
+                    )
+                  : _PhotoSlotEmpty(onTap: onAddTap),
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: selected ? AppColors.primary : AppColors.outline,
-              size: 22,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: AppTypography.labelMd.copyWith(
-                color: selected ? AppColors.primary : AppColors.outline,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
+        ],
+      ],
     );
   }
 }
 
-const _thumbnailSize = 88.0;
-
-/// A locally-picked photo, shown before upload — actual bytes, not a
-/// filename or remote URL, with a remove button in the corner.
-class _PhotoThumbnail extends StatelessWidget {
-  const _PhotoThumbnail({required this.photo, required this.onRemove});
+class _PhotoSlotFilled extends StatelessWidget {
+  const _PhotoSlotFilled({required this.photo, required this.onRemove});
 
   final PickedEvidence photo;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: _thumbnailSize,
-      height: _thumbnailSize,
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: AppRadii.interactiveRadius,
-            child: Image.memory(
-              photo.bytes,
-              width: _thumbnailSize,
-              height: _thumbnailSize,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF3A4A1C)),
+            image: DecorationImage(
+              image: MemoryImage(photo.bytes),
               fit: BoxFit.cover,
             ),
           ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, color: Colors.white, size: 16),
+        ),
+        Positioned(
+          top: 6,
+          right: 6,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _AddPhotoTile extends StatelessWidget {
-  const _AddPhotoTile({required this.onTap});
+class _PhotoSlotEmpty extends StatelessWidget {
+  const _PhotoSlotEmpty({required this.onTap});
 
   final VoidCallback onTap;
 
@@ -660,15 +674,180 @@ class _AddPhotoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: _thumbnailSize,
-        height: _thumbnailSize,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: AppRadii.interactiveRadius,
-          border: Border.all(color: AppColors.outlineVariant15),
+      child: const CustomPaint(
+        painter: DashedRRectPainter(color: AppColors.surfaceBright, radius: 14),
+        child: Center(
+          child: Text(
+            '+',
+            style: TextStyle(
+              fontFamily: 'Geist Mono',
+              fontSize: 20,
+              color: AppColors.outlineFaint,
+            ),
+          ),
         ),
-        child: const Icon(Icons.add, color: AppColors.primary),
+      ),
+    );
+  }
+}
+
+class _PickerButtonsRow extends StatelessWidget {
+  const _PickerButtonsRow({
+    required this.primaryLabel,
+    required this.onPrimary,
+    required this.onGallery,
+  });
+
+  final String primaryLabel;
+  final VoidCallback? onPrimary;
+  final VoidCallback? onGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _PickerButton(label: primaryLabel, onTap: onPrimary),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _PickerButton(label: 'Galerie', onTap: onGallery),
+        ),
+      ],
+    );
+  }
+}
+
+class _PickerButton extends StatelessWidget {
+  const _PickerButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onTap == null ? 0.4 : 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(13),
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: AppColors.surfaceBright),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: AppColors.primary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommentField extends StatelessWidget {
+  const _CommentField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    required this.singleLine,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final bool singleLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final field = TextField(
+      controller: controller,
+      maxLines: singleLine ? null : 5,
+      minLines: singleLine ? null : 5,
+      expands: singleLine,
+      textAlignVertical: singleLine ? TextAlignVertical.center : null,
+      style: const TextStyle(fontSize: 15, color: AppColors.primary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppColors.outlineFaint),
+        filled: true,
+        fillColor: AppColors.surfaceContainerLow,
+        contentPadding: singleLine
+            ? const EdgeInsets.symmetric(horizontal: 16)
+            : const EdgeInsets.all(16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.surfaceBright),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.surfaceBright),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.volt),
+        ),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Geist Mono',
+            fontSize: 11,
+            letterSpacing: 0.14 * 11,
+            color: AppColors.outlineMuted,
+          ),
+        ),
+        const SizedBox(height: 8),
+        singleLine ? SizedBox(height: 52, child: field) : field,
+      ],
+    );
+  }
+}
+
+class _ValidatorInfoBanner extends StatelessWidget {
+  const _ValidatorInfoBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF17142A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2E2650)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Transform.rotate(
+              angle: 0.7853981633974483,
+              child: Container(width: 8, height: 8, color: AppColors.violet),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: Color(0xFFC6BEF5),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -690,8 +869,8 @@ class _VideoSelectedCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
-        borderRadius: AppRadii.interactiveRadius,
-        border: Border.all(color: AppColors.outlineVariant15),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: AppColors.surfaceBright),
       ),
       child: Row(
         children: [

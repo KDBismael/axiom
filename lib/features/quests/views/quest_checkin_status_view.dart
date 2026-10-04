@@ -5,9 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/badges/app_rank_progress_card.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../rank/controllers/rank_controller.dart';
 import '../controllers/quest_list_controller.dart';
@@ -28,13 +26,17 @@ class QuestCheckinStatusView extends StatefulWidget {
 }
 
 class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
-  bool _visible = false;
+  bool _textVisible = false;
+  bool _rankVisible = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _visible = true);
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) setState(() => _textVisible = true);
+    });
+    Future.delayed(const Duration(milliseconds: 550), () {
+      if (mounted) setState(() => _rankVisible = true);
     });
   }
 
@@ -73,25 +75,37 @@ class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
                         children: [
                           _EmberBurst(streakDays: result.streakDays),
                           const SizedBox(height: 26),
-                          AnimatedOpacity(
-                            opacity: _visible ? 1 : 0,
+                          AnimatedSlide(
+                            offset: _textVisible
+                                ? Offset.zero
+                                : const Offset(0, 0.12),
                             duration: const Duration(milliseconds: 400),
                             curve: Curves.easeOut,
-                            child: _CelebrationText(
-                              periodComplete: periodComplete,
-                              result: result,
-                              quest: quest,
-                              requiresProof: requiresProof,
+                            child: AnimatedOpacity(
+                              opacity: _textVisible ? 1 : 0,
+                              duration: const Duration(milliseconds: 400),
+                              child: _CelebrationText(
+                                periodComplete: periodComplete,
+                                result: result,
+                                quest: quest,
+                                requiresProof: requiresProof,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 26),
-                          AnimatedOpacity(
-                            opacity: _visible ? 1 : 0,
+                          AnimatedSlide(
+                            offset: _rankVisible
+                                ? Offset.zero
+                                : const Offset(0, 0.12),
                             duration: const Duration(milliseconds: 500),
                             curve: Curves.easeOut,
-                            child: _RankCard(
-                              requiresProof: requiresProof,
-                              evidenceStatus: result.evidence?.status,
+                            child: AnimatedOpacity(
+                              opacity: _rankVisible ? 1 : 0,
+                              duration: const Duration(milliseconds: 500),
+                              child: _RankCard(
+                                requiresProof: requiresProof,
+                                evidenceStatus: result.evidence?.status,
+                              ),
                             ),
                           ),
                         ],
@@ -135,7 +149,8 @@ class _CelebrationText extends StatelessWidget {
       title = 'Combo ×${result.streakDays}';
     } else {
       eyebrow = 'POINTAGE ENREGISTRÉ';
-      title = '${result.currentPeriodCount}/${result.targetPerPeriod}'
+      title =
+          '${result.currentPeriodCount}/${result.targetPerPeriod}'
           ' ${frequency == QuestFrequency.daily ? "aujourd'hui" : 'cette semaine'}';
     }
 
@@ -211,27 +226,78 @@ class _RankCard extends StatelessWidget {
       Widget? pointsLine;
       if (requiresProof) {
         final pending = evidenceStatus != EvidenceStatus.rejected;
-        pointsLine = Text(
-          pending ? '+20 PTS · EN ATTENTE' : '',
-          style: TextStyle(
-            fontFamily: 'Geist Mono',
-            fontSize: 12,
-            color: pending ? AppColors.outline : AppColors.volt,
-          ),
-        );
+        if (pending) {
+          pointsLine = const Text(
+            '+20 PTS · EN ATTENTE',
+            style: TextStyle(
+              fontFamily: 'Geist Mono',
+              fontSize: 11,
+              color: AppColors.outline,
+            ),
+          );
+        }
       }
 
-      return SizedBox(
+      return Container(
         width: double.infinity,
-        child: AppRankProgressCard(rank: rank, pointsLine: pointsLine),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xD9141417),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF3A3118)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    rank.rankLabel.toUpperCase(),
+                    style: AppTypography.labelMd.copyWith(
+                      fontSize: 13,
+                      color: AppColors.gold,
+                    ),
+                  ),
+                ),
+                if (pointsLine != null) pointsLine,
+              ],
+            ),
+            const SizedBox(height: 10),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: rank.nextMilestoneRatio),
+              duration: const Duration(milliseconds: 1000),
+              curve: Curves.easeOutCubic,
+              builder: (context, progress, _) => ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: const Color(0xFF2C2616),
+                  valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              rank.isMaxRank
+                  ? '${rank.totalPoints} pts acquis · rang maximum'
+                  : '${rank.totalPoints} pts acquis · ${rank.nextMilestoneLabel} à ${rank.nextMilestonePoints} pts',
+              style: const TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 12,
+                color: Color(0xFFB8A873),
+              ),
+            ),
+          ],
+        ),
       );
     });
   }
 }
 
-/// The spark-burst + centered ember square, reproducing the mockup's
-/// `ndPop`/`ndSpark` keyframes: the square pops in with an overshoot, while
-/// a ring of small diamonds bursts outward and fades.
+/// The 16 staggered diamonds and the central streak emblem from the
+/// celebration reference.
 class _EmberBurst extends StatefulWidget {
   const _EmberBurst({required this.streakDays});
 
@@ -241,13 +307,33 @@ class _EmberBurst extends StatefulWidget {
   State<_EmberBurst> createState() => _EmberBurstState();
 }
 
-class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderStateMixin {
+class _EmberBurstState extends State<_EmberBurst>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   static const _sparkColors = [
-    AppColors.emberBright,
     AppColors.ember,
-    AppColors.gold,
+    Color(0xFFFFD166),
+    AppColors.volt,
+  ];
+
+  static const _sparkPositions = [
+    Offset(203, 115),
+    Offset(212.931, 155.564),
+    Offset(202.681, 202.681),
+    Offset(148.676, 196.301),
+    Offset(115, 221),
+    Offset(67.5473, 229.561),
+    Offset(52.7746, 177.225),
+    Offset(17.0688, 155.564),
+    Offset(-9, 115),
+    Offset(33.6986, 81.3239),
+    Offset(40.0467, 40.0467),
+    Offset(67.5473, 0.438938),
+    Offset(115, 27),
+    Offset(155.564, 17.0688),
+    Offset(202.681, 27.3188),
+    Offset(196.301, 81.3239),
   ];
 
   @override
@@ -255,7 +341,7 @@ class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderState
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1600),
     )..forward();
   }
 
@@ -271,37 +357,52 @@ class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderState
       width: 240,
       height: 240,
       child: Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
           AnimatedBuilder(
             animation: _controller,
             builder: (context, _) {
               return Stack(
-                alignment: Alignment.center,
-                children: List.generate(12, (i) {
-                  final angle = (2 * math.pi / 12) * i;
-                  final delay = (i % 4) * 0.08;
-                  final t = ((_controller.value - delay) / 0.5).clamp(0.0, 1.0);
-                  final scale = t < 0.35
-                      ? (t / 0.35) * 1.4
-                      : 1.4 - ((t - 0.35) / 0.65) * 1.0;
-                  final opacity = t <= 0 ? 0.0 : (1 - t).clamp(0.0, 1.0);
-                  final distance = 70 + (i % 3) * 12;
-                  return Transform.translate(
-                    offset: Offset(
-                      math.cos(angle) * distance,
-                      math.sin(angle) * distance,
-                    ),
-                    child: Opacity(
-                      opacity: opacity,
-                      child: Transform.scale(
-                        scale: scale.clamp(0.0, 1.6),
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _sparkColors[i % _sparkColors.length],
-                            borderRadius: BorderRadius.circular(2),
+                clipBehavior: Clip.none,
+                children: List.generate(_sparkPositions.length, (i) {
+                  final size = i.isEven ? 12.0 : 8.0;
+                  final delayMs = 250 + (i % 4) * 80;
+                  final t = ((_controller.value * 1600 - delayMs) / 1100).clamp(
+                    0.0,
+                    1.0,
+                  );
+                  final opacity = t < 0.22 ? t / 0.22 : (1 - t) / 0.78;
+                  final scale = t < 0.3
+                      ? 0.4 + t / 0.3 * 0.9
+                      : 1.3 - (t - 0.3) / 0.7 * 0.55;
+                  final center =
+                      _sparkPositions[i] + Offset(size / 2, size / 2);
+                  final direction = center - const Offset(120, 120);
+                  final length = direction.distance;
+                  final travel = length == 0
+                      ? Offset.zero
+                      : direction / length * (-14 + 36 * t);
+                  return Positioned(
+                    left: _sparkPositions[i].dx,
+                    top: _sparkPositions[i].dy,
+                    child: Transform.translate(
+                      offset: travel,
+                      child: Opacity(
+                        opacity: opacity.clamp(0.0, 1.0),
+                        child: Transform.scale(
+                          scale: scale,
+                          child: Transform.rotate(
+                            angle: math.pi / 4,
+                            child: Container(
+                              key: Key('celebration-spark-$i'),
+                              width: size,
+                              height: size,
+                              decoration: BoxDecoration(
+                                color: _sparkColors[i % _sparkColors.length],
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -316,7 +417,10 @@ class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderState
             duration: const Duration(milliseconds: 650),
             curve: Curves.elasticOut,
             builder: (context, scale, child) {
-              return Transform.scale(scale: scale, child: child);
+              return Transform.scale(
+                scale: scale,
+                child: Transform.rotate(angle: math.pi / 4, child: child),
+              );
             },
             child: Container(
               width: 120,
@@ -332,7 +436,7 @@ class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderState
                   ],
                   stops: [0, 0.55, 1],
                 ),
-                borderRadius: AppRadii.structuralRadius,
+                borderRadius: BorderRadius.circular(26),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.ember.withValues(alpha: 0.55),
@@ -341,13 +445,16 @@ class _EmberBurstState extends State<_EmberBurst> with SingleTickerProviderState
                 ],
               ),
               alignment: Alignment.center,
-              child: Text(
-                '${widget.streakDays}',
-                style: const TextStyle(
-                  fontFamily: 'Unbounded',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 44,
-                  color: Color(0xFF1A0A02),
+              child: Transform.rotate(
+                angle: -math.pi / 4,
+                child: Text(
+                  '${widget.streakDays}',
+                  style: const TextStyle(
+                    fontFamily: 'Unbounded',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 44,
+                    color: Color(0xFF1A0A02),
+                  ),
                 ),
               ),
             ),

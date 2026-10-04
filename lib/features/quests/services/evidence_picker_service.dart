@@ -27,6 +27,13 @@ const maxEvidenceImageSizeBytes = 5 * 1024 * 1024;
 const maxEvidenceVideoSizeBytes = 50 * 1024 * 1024;
 const maxEvidenceVideoDuration = Duration(seconds: 30);
 
+const _allowedPhotoMimeTypes = {
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+};
+
 /// Thin wrapper around the native image/video picker for quest proof
 /// evidence. Isolated behind this class so quest controllers can be
 /// unit-tested without touching native code — tests fake this interface
@@ -42,15 +49,38 @@ class EvidencePickerService {
   /// HEIC, which the backend's upload allowlist rejects (only png/jpeg/webp/gif).
   Future<PickedEvidence?> pickPhoto(ImageSource source) => _pick(
     () => _picker.pickImage(source: source, imageQuality: 85),
-    allowedMimeTypes: const {
-      'image/png',
-      'image/jpeg',
-      'image/webp',
-      'image/gif',
-    },
+    allowedMimeTypes: _allowedPhotoMimeTypes,
     maxSizeBytes: maxEvidenceImageSizeBytes,
     oversizedMessage: 'Photo trop volumineuse (max 5 Mo).',
   );
+
+  /// Gallery only — multi-select, capped at [limit] so the caller's own
+  /// slot limit (e.g. 3 evidence photos) can't be exceeded even on
+  /// platforms where the native picker ignores `limit`.
+  Future<List<PickedEvidence>> pickMultiPhotos({required int limit}) async {
+    if (limit <= 0) return const [];
+    final files = await _picker.pickMultiImage(imageQuality: 85, limit: limit);
+    final picked = <PickedEvidence>[];
+    for (final file in files.take(limit)) {
+      final mimeType = file.mimeType ?? mimeTypeForFilename(file.name);
+      if (!_allowedPhotoMimeTypes.contains(mimeType)) {
+        throw const EvidencePickerException('Type de fichier non supporté.');
+      }
+      final sizeBytes = await file.length();
+      if (sizeBytes > maxEvidenceImageSizeBytes) {
+        throw const EvidencePickerException('Photo trop volumineuse (max 5 Mo).');
+      }
+      picked.add(
+        PickedEvidence(
+          bytes: await file.readAsBytes(),
+          sizeBytes: sizeBytes,
+          filename: file.name,
+          mimeType: mimeType,
+        ),
+      );
+    }
+    return picked;
+  }
 
   Future<PickedEvidence?> pickVideo(ImageSource source) => _pick(
     () => _picker.pickVideo(

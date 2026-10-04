@@ -15,27 +15,59 @@ void main() {
         ci(DateTime(2026, 7, 10, 20)),
         ci(DateTime(2026, 7, 9)),
       ];
-      expect(countCheckInsInCurrentPeriod(checkIns, QuestFrequency.daily, now), 2);
+      expect(
+        countCheckInsInCurrentPeriod(
+          checkIns,
+          QuestFrequency.daily,
+          now,
+          startDate: DateTime(2026, 7, 1),
+        ),
+        2,
+      );
     });
 
     test('returns 0 when no check-ins fall in the current day', () {
       final checkIns = [ci(DateTime(2026, 7, 9))];
-      expect(countCheckInsInCurrentPeriod(checkIns, QuestFrequency.daily, now), 0);
+      expect(
+        countCheckInsInCurrentPeriod(
+          checkIns,
+          QuestFrequency.daily,
+          now,
+          startDate: DateTime(2026, 7, 1),
+        ),
+        0,
+      );
     });
 
-    test('counts only check-ins in the same ISO week for weekly quests', () {
-      // 2026-07-10 is a Friday; the ISO week is Mon 07-06 .. Sun 07-12.
+    test('counts check-ins in the seven-day period anchored at the start', () {
+      // Started Wednesday 07-08; its first period ends Tuesday 07-14.
       final checkIns = [
-        ci(DateTime(2026, 7, 6)), // Monday, same week
-        ci(DateTime(2026, 7, 12)), // Sunday, same week
-        ci(DateTime(2026, 7, 13)), // next Monday, different week
-        ci(DateTime(2026, 6, 29)), // previous week
+        ci(DateTime(2026, 7, 8)),
+        ci(DateTime(2026, 7, 13)),
+        ci(DateTime(2026, 7, 7)),
+        ci(DateTime(2026, 7, 15)),
       ];
-      expect(countCheckInsInCurrentPeriod(checkIns, QuestFrequency.weekly, now), 2);
+      expect(
+        countCheckInsInCurrentPeriod(
+          checkIns,
+          QuestFrequency.weekly,
+          now,
+          startDate: DateTime(2026, 7, 8),
+        ),
+        2,
+      );
     });
 
     test('returns 0 for an empty check-in list', () {
-      expect(countCheckInsInCurrentPeriod(const [], QuestFrequency.daily, now), 0);
+      expect(
+        countCheckInsInCurrentPeriod(
+          const [],
+          QuestFrequency.daily,
+          now,
+          startDate: DateTime(2026, 7, 1),
+        ),
+        0,
+      );
     });
   });
 }

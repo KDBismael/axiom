@@ -5,7 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:axiom/core/api/token_storage.dart';
 import 'package:axiom/core/theme/app_theme.dart';
+import 'package:axiom/features/auth/controllers/auth_controller.dart';
+import 'package:axiom/features/auth/repositories/auth_repository.dart';
+import 'package:axiom/features/auth/services/apple_auth_service.dart';
+import 'package:axiom/features/auth/services/google_auth_service.dart';
 import 'package:axiom/features/quests/controllers/quest_list_controller.dart';
 import 'package:axiom/features/quests/models/focus_session_model.dart';
 import 'package:axiom/features/quests/models/quest_model.dart';
@@ -14,6 +19,14 @@ import 'package:axiom/features/quests/views/quest_detail_view.dart';
 import 'package:axiom/features/shell/controllers/shell_controller.dart';
 
 class MockQuestRepository extends Mock implements QuestRepository {}
+
+class MockAuthRepository extends Mock implements AuthRepository {}
+
+class MockTokenStorage extends Mock implements TokenStorage {}
+
+class MockGoogleAuthService extends Mock implements GoogleAuthService {}
+
+class MockAppleAuthService extends Mock implements AppleAuthService {}
 
 void main() {
   setUpAll(() {
@@ -73,6 +86,14 @@ void main() {
       ).thenAnswer((_) async => []);
 
       Get.put<ShellController>(ShellController());
+      Get.put<AuthController>(
+        AuthController(
+          authRepository: MockAuthRepository(),
+          tokenStorage: MockTokenStorage(),
+          googleAuthService: MockGoogleAuthService(),
+          appleAuthService: MockAppleAuthService(),
+        ),
+      );
       final controller = Get.put<QuestListController>(
         QuestListController(mockRepository),
       );
@@ -103,9 +124,14 @@ void main() {
       expect(find.text('EN JEU'), findsOneWidget);
       expect(find.text('RISQUE DÉCLARÉ'), findsOneWidget);
       expect(find.textContaining('REGISTRE D\'INTÉGRITÉ'), findsOneWidget);
-      expect(find.text('PARAMÈTRES OPÉRATIONNELS'), findsOneWidget);
+      expect(find.text('RÈGLES'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('quest-progress-period-1'))).height,
+        14,
+      );
       expect(find.text('Absences tolérées'), findsOneWidget);
-      expect(find.text('Rattrapage après échéance'), findsOneWidget);
+      expect(find.text('Rattrapage'), findsOneWidget);
+      expect(find.text('ALLIÉS DE LA QUÊTE'), findsOneWidget);
     },
   );
 }

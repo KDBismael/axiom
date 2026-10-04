@@ -1,27 +1,30 @@
 import '../models/check_in_model.dart';
 import '../models/quest_model.dart';
 
-/// Returns the ISO week number of [date] (Mon=start), used to bucket weekly
-/// quests the same way the backend does.
-int isoWeek(DateTime date) {
-  final dayOfYear = date.difference(DateTime(date.year, 1, 1)).inDays + 1;
-  return ((dayOfYear - date.weekday + 10) / 7).floor();
+DateTime _utcDay(DateTime date) {
+  final utc = date.toUtc();
+  return DateTime.utc(utc.year, utc.month, utc.day);
 }
 
-/// How many of [checkIns] fall in the period (day for daily, ISO week for
-/// weekly) that [now] is currently in — the same bucketing the backend's
-/// streak/progress logic uses server-side.
+/// Counts check-ins in today's period. Weekly periods are seven-day windows
+/// anchored to the quest start date, matching the backend's periodRange.
 int countCheckInsInCurrentPeriod(
   List<CheckIn> checkIns,
   QuestFrequency frequency,
-  DateTime now,
-) {
+  DateTime now, {
+  required DateTime startDate,
+}) {
+  final today = _utcDay(now);
+  final start = _utcDay(startDate);
+  if (today.isBefore(start)) return 0;
+  final periodStart = frequency == QuestFrequency.daily
+      ? today
+      : start.add(Duration(days: today.difference(start).inDays ~/ 7 * 7));
+  final periodEnd = periodStart.add(
+    Duration(days: frequency == QuestFrequency.daily ? 1 : 7),
+  );
   return checkIns.where((c) {
-    if (frequency == QuestFrequency.daily) {
-      return c.date.year == now.year &&
-          c.date.month == now.month &&
-          c.date.day == now.day;
-    }
-    return isoWeek(c.date) == isoWeek(now) && c.date.year == now.year;
+    final day = _utcDay(c.date);
+    return !day.isBefore(periodStart) && day.isBefore(periodEnd);
   }).length;
 }

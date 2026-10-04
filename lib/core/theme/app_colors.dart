@@ -90,6 +90,7 @@ class AppColors {
   static const error = Color(0xFFFF5C5C);
   static const errorSoft = Color(0xFFFF8A8A);
   static const errorShadow = Color(0xFF8A2A2A);
+  static const errorBorder = Color(0xFF4A2525);
 
   // Derived opacity helpers
   static Color get outlineVariant15 => outlineVariant.withValues(alpha: 0.15);

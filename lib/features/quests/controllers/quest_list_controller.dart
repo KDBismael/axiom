@@ -90,9 +90,7 @@ class QuestListController extends GetxController {
 
   Future<void> loadPendingPauseRequests() async {
     try {
-      pendingPauseRequests.assignAll(
-        await _repository.fetchMyPauseRequests(),
-      );
+      pendingPauseRequests.assignAll(await _repository.fetchMyPauseRequests());
     } on QuestException catch (e) {
       errorMessage.value = e.message;
     }
@@ -177,17 +175,26 @@ class QuestListController extends GetxController {
     }
   }
 
-  /// Requests a pause ("sick mode") with a text reason as proof. Auto-
+  /// Requests a pause with a required reason and optional photo. Auto-
   /// activates immediately if the quest has no accepted allies; otherwise
   /// waits for one of them to approve it. Refreshes the quest either way so
   /// its status reflects the outcome.
-  Future<bool> requestPause(String questId, {required String reason}) async {
+  Future<bool> requestPause(
+    String questId, {
+    required String reason,
+    PickedEvidence? photo,
+  }) async {
     errorMessage.value = null;
     try {
+      final fileId = photo == null
+          ? null
+          : await _repository.uploadEvidenceFile(photo);
       pauseRequests[questId] = await _repository.requestPause(
         questId,
-        proofType: ProofType.text,
-        textContent: reason,
+        proofType: fileId == null ? ProofType.text : ProofType.photo,
+        textContent: fileId == null ? reason : null,
+        fileIds: fileId == null ? null : [fileId],
+        description: reason,
       );
       await refreshQuest(questId);
       return true;
