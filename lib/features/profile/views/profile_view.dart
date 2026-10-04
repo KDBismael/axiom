@@ -3,8 +3,10 @@ import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_effects.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/avatar_colors.dart';
 import '../../../core/widgets/badges/app_rank_badge.dart';
 import '../../../core/widgets/badges/app_trophy_grid.dart';
 import '../../../core/widgets/sheets/app_bottom_sheet.dart';
@@ -13,15 +15,18 @@ import '../../quests/controllers/quest_list_controller.dart';
 import '../../rank/controllers/rank_controller.dart';
 import '../../rank/models/rank_summary.dart';
 import '../../social/controllers/allies_controller.dart';
-import '../../social/controllers/validations_controller.dart';
 import '../../social/models/ally_request.dart';
 import '../controllers/profile_controller.dart';
 import '../models/profile_model.dart';
 import '../widgets/authenticated_avatar_image.dart';
 import '../widgets/invite_friends_sheet.dart';
-import '../widgets/phone_input_field.dart';
+import '../widgets/manage_allies_sheet.dart';
+import '../widgets/personal_info_sheet.dart';
+import '../widgets/profile_editable_fields.dart';
 
-/// "Profile" tab — identity/security settings plus real quest stats.
+/// "Profile" tab — rank identity, quest stats, trophies, ally requests, and
+/// account settings. Editing name/email/phone/photo lives in its own
+/// "Informations personnelles" screen, reached from the settings row below.
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
 
@@ -54,577 +59,212 @@ class _ProfileViewState extends State<ProfileView> {
   Widget build(BuildContext context) {
     final controller = Get.find<ProfileController>();
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Column(
-        children: [
-          SizedBox(height: 64),
-          Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value &&
-                  controller.profile.value == null) {
-                return const Center(
-                  child: CircularProgressIndicator(color: AppColors.volt),
-                );
-              }
-              final hasUnsavedChanges = controller.hasUnsavedChanges;
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        24,
-                        24,
-                        24,
-                        hasUnsavedChanges ? 76 : 40,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'PROFIL',
-                            style: AppTypography.labelMd.copyWith(
-                              color: AppColors.outline,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const _RankHeroCard(),
-                          const SizedBox(height: 18),
-                          const _ProfileStatsRow(),
-                          const SizedBox(height: 32),
-                          Text(
-                            'TROPHÉES',
-                            style: AppTypography.labelMd.copyWith(
-                              color: AppColors.outline,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Builder(
-                            builder: (context) {
-                              final rank = Get.find<RankController>();
-                              return Obx(
-                                () => AppTrophyGrid(trophies: rank.trophies),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 40),
-                          Center(
-                            child: Column(
-                              children: [
-                                GestureDetector(
-                                  onTap: controller.pickAndUploadAvatar,
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      AuthenticatedAvatarImage(
-                                        avatarUrl:
-                                            controller.profile.value?.avatarUrl,
-                                        size: 112,
-                                      ),
-                                      Positioned(
-                                        bottom: -8,
-                                        right: -8,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: const BoxDecoration(
-                                            color: AppColors.primary,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.edit,
-                                            size: 16,
-                                            color: AppColors.onPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Obx(
-                                  () => Text(
-                                    controller.profile.value == null
-                                        ? ''
-                                        : '${controller.profile.value!.firstName} '
-                                              '${controller.profile.value!.lastName}',
-                                    style: AppTypography.displayLg.copyWith(
-                                      color: AppColors.primary,
-                                      fontSize: 32,
+    return Column(
+      children: [
+        SizedBox(height: 64),
+        Expanded(
+          child: Obx(() {
+            if (controller.isLoading.value && controller.profile.value == null) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.volt),
+              );
+            }
+            final hasUnsavedChanges = controller.hasUnsavedChanges;
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(24, 24, 24, hasUnsavedChanges ? 76 : 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PROFIL',
+                          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                        ),
+                        const SizedBox(height: 16),
+                        const _RankHeroCard(),
+                        const SizedBox(height: 18),
+                        const _ProfileStatsRow(),
+                        const SizedBox(height: 32),
+                        Text(
+                          'TROPHÉES',
+                          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                        ),
+                        const SizedBox(height: 16),
+                        Builder(
+                          builder: (context) {
+                            final rank = Get.find<RankController>();
+                            return Obx(() {
+                              final trophies = rank.trophies.toList();
+                              return AppTrophyGrid(trophies: trophies);
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 32),
+                        Builder(
+                          builder: (context) {
+                            final allies = Get.find<AlliesController>();
+                            return Obx(() {
+                              final incoming = allies.incomingRequests;
+                              if (incoming.isEmpty) return const SizedBox.shrink();
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "DEMANDES D'ALLIÉS",
+                                    style: AppTypography.labelMd.copyWith(
+                                      color: AppColors.outline,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                  const SizedBox(height: 16),
+                                  for (final request in incoming) ...[
+                                    _AllyRequestRow(
+                                      request: request,
+                                      onAccept: () =>
+                                          allies.respondToRequest(request.id, accept: true),
+                                      onDecline: () =>
+                                          allies.respondToRequest(request.id, accept: false),
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                  const SizedBox(height: 22),
+                                ],
+                              );
+                            });
+                          },
+                        ),
+                        _ValidationsLinkCard(
+                          onTap: () => Get.toNamed(AppRoutes.allyValidations),
+                        ),
+                        const SizedBox(height: 32),
+                        Text(
+                          'PARAMÈTRES',
+                          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLow,
+                            borderRadius: AppRadii.structuralRadius,
+                            border: Border.all(color: AppColors.outlineVariant15),
                           ),
-                          const SizedBox(height: 40),
-                          Row(
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: _ProfileField(
-                                  label: 'PRÉNOM',
-                                  controller: controller.firstNameController,
+                              Obx(
+                                () => _PersonalInfoRow(
+                                  profile: controller.profile.value,
+                                  onTap: () => showAppBottomSheet(
+                                    context,
+                                    builder: (_) => const PersonalInfoSheet(),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _ProfileField(
-                                  label: 'NOM',
-                                  controller: controller.lastNameController,
+                              Divider(height: 1, color: AppColors.outlineVariant15),
+                              _InviteFriendsRow(
+                                onTap: () => showAppBottomSheet(
+                                  context,
+                                  builder: (_) => const InviteFriendsSheet(),
+                                ),
+                              ),
+                              Divider(height: 1, color: AppColors.outlineVariant15),
+                              _ManageAlliesRow(
+                                onTap: () => showAppBottomSheet(
+                                  context,
+                                  builder: (_) => const ManageAlliesSheet(),
+                                ),
+                              ),
+                              // Langue / Confidentialité — disabled for now, may come back later.
+                              // Divider(height: 1, color: AppColors.outlineVariant15),
+                              // Obx(
+                              //   () => _SegmentedSettingRow(
+                              //     label: 'Langue',
+                              //     options: const {'fr': 'Français', 'en': 'English'},
+                              //     current: controller.language.value,
+                              //     onSelected: (value) => controller.language.value = value,
+                              //   ),
+                              // ),
+                              // Divider(height: 1, color: AppColors.outlineVariant15),
+                              // Obx(
+                              //   () => _SegmentedSettingRow(
+                              //     label: 'Confidentialité',
+                              //     options: const {
+                              //       'standard': 'Standard',
+                              //       'private': 'Privé',
+                              //     },
+                              //     current: controller.privacyLevel.value.toJson(),
+                              //     onSelected: (value) => controller.privacyLevel.value =
+                              //         ProfilePrivacyLevel.fromJson(value),
+                              //   ),
+                              // ),
+                              Divider(height: 1, color: AppColors.outlineVariant15),
+                              Obx(
+                                () => _NotificationsToggleRow(
+                                  value: controller.notificationsEnabled.value,
+                                  onChanged: (value) =>
+                                      controller.notificationsEnabled.value = value,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 20),
-                          _ReadOnlyField(
-                            label: 'EMAIL',
-                            value: controller.profile.value?.email ?? '',
-                          ),
-                          const SizedBox(height: 20),
-                          PhoneInputField(
-                            country: controller.country,
-                            controller: controller.phoneController,
-                          ),
-                          Obx(() {
-                            final error = controller.errorMessage.value;
-                            if (error == null) return const SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Text(
-                                error,
-                                style: AppTypography.labelMd.copyWith(
-                                  color: AppColors.error,
-                                ),
-                              ),
-                            );
-                          }),
-                          const SizedBox(height: 40),
-                          Text(
-                            'PARAMÈTRES DU COMPTE',
-                            style: AppTypography.labelMd.copyWith(
-                              color: AppColors.outline,
+                        ),
+                        Obx(() {
+                          final error = controller.errorMessage.value;
+                          if (error == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(
+                              error,
+                              style: AppTypography.labelMd.copyWith(color: AppColors.error),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerLow,
-                              borderRadius: AppRadii.structuralRadius,
-                              border: Border.all(
-                                color: AppColors.outlineVariant15,
+                          );
+                        }),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: _logout,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.errorSoft,
+                              side: const BorderSide(color: AppColors.errorBorder),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: AppRadii.interactiveRadius,
                               ),
                             ),
-                            child: Column(
-                              children: [
-                                _SettingsRow(
-                                  icon: Icons.person_add_alt,
-                                  label: 'Inviter des amis',
-                                  onTap: () => showAppBottomSheet(
-                                    context,
-                                    builder: (_) => const InviteFriendsSheet(),
-                                  ),
-                                ),
-                                Divider(
-                                  height: 1,
-                                  color: AppColors.outlineVariant15,
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.notifications,
-                                        color: AppColors.outline,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Text(
-                                          'Notifications',
-                                          style: AppTypography.bodyMd.copyWith(
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Obx(
-                                        () => Switch(
-                                          value: controller
-                                              .notificationsEnabled
-                                              .value,
-                                          onChanged: (value) =>
-                                              controller
-                                                      .notificationsEnabled
-                                                      .value =
-                                                  value,
-                                          activeThumbColor: AppColors.volt,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Divider(
-                                  height: 1,
-                                  color: AppColors.outlineVariant15,
-                                ),
-                                Obx(
-                                  () => _SegmentedSettingRow(
-                                    label: 'Confidentialité',
-                                    options: const {
-                                      'standard': 'Standard',
-                                      'private': 'Privé',
-                                    },
-                                    current: controller.privacyLevel.value
-                                        .toJson(),
-                                    onSelected: (value) =>
-                                        controller.privacyLevel.value =
-                                            ProfilePrivacyLevel.fromJson(
-                                              value,
-                                            ),
-                                  ),
-                                ),
-                                Divider(
-                                  height: 1,
-                                  color: AppColors.outlineVariant15,
-                                ),
-                                Obx(
-                                  () => _SegmentedSettingRow(
-                                    label: 'Langue',
-                                    options: const {'fr': 'FR', 'en': 'EN'},
-                                    current: controller.language.value,
-                                    onSelected: (value) =>
-                                        controller.language.value = value,
-                                  ),
-                                ),
-                                Divider(
-                                  height: 1,
-                                  color: AppColors.outlineVariant15,
-                                ),
-                                _SettingsRow(
-                                  icon: Icons.logout,
-                                  label: 'Déconnexion',
-                                  onTap: _logout,
-                                ),
-                              ],
+                            child: const Text(
+                              'Se déconnecter',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                             ),
                           ),
-                          const SizedBox(height: 40),
-                          Builder(
-                            builder: (context) {
-                              final allies = Get.find<AlliesController>();
-                              return Obx(() {
-                                final incoming = allies.incomingRequests;
-                                if (incoming.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'DEMANDES REÇUES',
-                                      style: AppTypography.labelMd.copyWith(
-                                        color: AppColors.outline,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceContainerLow,
-                                        borderRadius: AppRadii.structuralRadius,
-                                        border: Border.all(
-                                          color: AppColors.outlineVariant15,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          for (final request in incoming) ...[
-                                            _AllyRequestRow(
-                                              request: request,
-                                              onTap: () => Get.toNamed(
-                                                AppRoutes.inviteFriends,
-                                              ),
-                                            ),
-                                            if (request != incoming.last)
-                                              Divider(
-                                                height: 1,
-                                                color:
-                                                    AppColors.outlineVariant15,
-                                              ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 40),
-                                  ],
-                                );
-                              });
-                            },
-                          ),
-                          Builder(
-                            builder: (context) {
-                              final validations =
-                                  Get.find<ValidationsController>();
-                              return Obx(() {
-                                final pendingValidations =
-                                    validations.pendingValidations;
-                                if (pendingValidations.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'VALIDATIONS DES ALLIÉS',
-                                      style: AppTypography.labelMd.copyWith(
-                                        color: AppColors.outline,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceContainerLow,
-                                        borderRadius: AppRadii.structuralRadius,
-                                        border: Border.all(
-                                          color: AppColors.outlineVariant15,
-                                        ),
-                                      ),
-                                      child: _SettingsRow(
-                                        icon: Icons.fact_check_outlined,
-                                        label:
-                                            '${pendingValidations.length} validation'
-                                            '${pendingValidations.length > 1 ? 's' : ''} en attente',
-                                        onTap: () => Get.toNamed(
-                                          AppRoutes.allyValidations,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 40),
-                                  ],
-                                );
-                              });
-                            },
-                          ),
-                          Builder(
-                            builder: (context) {
-                              final validations =
-                                  Get.find<ValidationsController>();
-                              return Obx(() {
-                                final decidedValidations =
-                                    validations.decidedValidations;
-                                if (decidedValidations.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'HISTORIQUE DES VALIDATIONS',
-                                      style: AppTypography.labelMd.copyWith(
-                                        color: AppColors.outline,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceContainerLow,
-                                        borderRadius: AppRadii.structuralRadius,
-                                        border: Border.all(
-                                          color: AppColors.outlineVariant15,
-                                        ),
-                                      ),
-                                      child: _SettingsRow(
-                                        icon: Icons.history,
-                                        label:
-                                            '${decidedValidations.length} quête'
-                                            '${decidedValidations.length > 1 ? 's' : ''} '
-                                            'approuvée${decidedValidations.length > 1 ? 's' : ''}'
-                                            ' ou rejetée${decidedValidations.length > 1 ? 's' : ''}',
-                                        onTap: () => Get.toNamed(
-                                          AppRoutes.allyValidations,
-                                          arguments: 'done',
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 40),
-                                  ],
-                                );
-                              });
-                            },
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (hasUnsavedChanges)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: _ProfileSaveBar(
-                        saving: controller.isSaving.value,
-                        onSave: () => _handleSave(controller),
-                      ),
-                    ),
-                ],
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileSaveBar extends StatelessWidget {
-  const _ProfileSaveBar({required this.saving, required this.onSave});
-
-  final bool saving;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        border: Border(top: BorderSide(color: AppColors.outlineVariant15)),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black38,
-            blurRadius: 16,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Modifications non enregistrées',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 136,
-            height: 40,
-            child: ElevatedButton(
-              onPressed: saving ? null : onSave,
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                minimumSize: const Size(0, 40),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                backgroundColor: AppColors.volt,
-                foregroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.surfaceContainerHighest,
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadii.interactiveRadius,
                 ),
-              ),
-              child: saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
-                      ),
-                    )
-                  : Text('ENREGISTRER', style: AppTypography.labelMd),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileField extends StatelessWidget {
-  const _ProfileField({required this.label, required this.controller});
-
-  final String label;
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.surfaceContainerLowest,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: AppRadii.interactiveRadius,
-              borderSide: BorderSide(color: AppColors.outlineVariant15),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: AppRadii.interactiveRadius,
-              borderSide: BorderSide(color: AppColors.outlineVariant15),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: AppRadii.interactiveRadius,
-              borderSide: const BorderSide(color: AppColors.volt),
-            ),
-          ),
+                if (hasUnsavedChanges)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: ProfileSaveBar(
+                      saving: controller.isSaving.value,
+                      onSave: () => _handleSave(controller),
+                    ),
+                  ),
+              ],
+            );
+          }),
         ),
       ],
     );
   }
 }
 
-/// Non-editable identity field — used for email, which the backend doesn't
-/// allow changing via PATCH /profile/me.
-class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
-            borderRadius: AppRadii.interactiveRadius,
-            border: Border.all(color: AppColors.outlineVariant15),
-          ),
-          child: Text(
-            value,
-            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// A settings row whose value is picked inline via a 2-option segmented
+// Langue / Confidentialité are disabled for now (see the settings Column
+// above) — kept here, commented out, in case they come back later.
+/*
+/// A labeled setting whose value is picked inline via a 2-option segmented
 /// pill track, rather than opening a bottom sheet (Langue/Confidentialité).
 class _SegmentedSettingRow extends StatelessWidget {
   const _SegmentedSettingRow({
@@ -672,9 +312,7 @@ class _SegmentedSettingRow extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: entry.key == current
-                            ? AppColors.primary
-                            : Colors.transparent,
+                        color: entry.key == current ? AppColors.primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -682,9 +320,7 @@ class _SegmentedSettingRow extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: entry.key == current
-                              ? AppColors.onPrimary
-                              : AppColors.outline,
+                          color: entry.key == current ? AppColors.onPrimary : AppColors.outline,
                         ),
                       ),
                     ),
@@ -697,38 +333,77 @@ class _SegmentedSettingRow extends StatelessWidget {
     );
   }
 }
+*/
 
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({required this.icon, required this.label, this.onTap});
+class _NotificationsToggleRow extends StatelessWidget {
+  const _NotificationsToggleRow({required this.value, required this.onChanged});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
+  final bool value;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text('Notifications', style: TextStyle(fontSize: 14, color: AppColors.outline)),
+          ),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.volt),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Informations personnelles" entry point — opens the [PersonalInfoSheet]
+/// for name/email/phone. Photo upload is disabled for now, so the avatar
+/// is always the initials chip.
+class _PersonalInfoRow extends StatelessWidget {
+  const _PersonalInfoRow({required this.profile, required this.onTap});
+
+  final Profile? profile;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstName = profile?.firstName ?? '';
+    final lastName = profile?.lastName ?? '';
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.outline, size: 20),
-            const SizedBox(width: 16),
+            AuthenticatedAvatarImage(
+              avatarUrl: null,
+              size: 40,
+              borderRadius: BorderRadius.circular(12),
+              initials: initialsFor(firstName, lastName),
+              backgroundColor: AppColors.volt,
+            ),
+            const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                label,
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Informations personnelles',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.primary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    profile == null ? '' : '$firstName $lastName · ${profile!.email}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.outline),
+                  ),
+                ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.outlineVariant,
-              size: 20,
-            ),
+            const Icon(Icons.chevron_right, color: AppColors.outlineVariant, size: 20),
           ],
         ),
       ),
@@ -736,10 +411,9 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
-class _AllyRequestRow extends StatelessWidget {
-  const _AllyRequestRow({required this.request, required this.onTap});
+class _InviteFriendsRow extends StatelessWidget {
+  const _InviteFriendsRow({required this.onTap});
 
-  final AllyRequest request;
   final VoidCallback onTap;
 
   @override
@@ -750,34 +424,237 @@ class _AllyRequestRow extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.surfaceContainerHighest,
-              child: Text(
-                request.otherUser.firstName.isNotEmpty
-                    ? request.otherUser.firstName[0].toUpperCase()
-                    : '?',
-                style: AppTypography.labelMd.copyWith(color: AppColors.primary),
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2610),
+                border: Border.all(color: const Color(0xFF2F3F14)),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                'Demande de ${request.otherUser.firstName} ${request.otherUser.lastName}',
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.primary,
+              child: const Text(
+                '+',
+                style: TextStyle(
+                  fontFamily: 'Unbounded',
                   fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: AppColors.volt,
                 ),
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.outlineVariant,
-              size: 20,
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Inviter des amis',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.primary),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    '+50 pts de rang par ami inscrit',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.outline),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'PARTAGER',
+              style: AppTypography.labelMd.copyWith(color: AppColors.volt, fontSize: 11.5),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "Gérer mes alliés" entry point — separate from "Inviter des amis": this
+/// opens [ManageAlliesSheet], where the only action is removing an ally.
+class _ManageAlliesRow extends StatelessWidget {
+  const _ManageAlliesRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final allies = Get.find<AlliesController>();
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.group_outlined, color: AppColors.outline, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Gérer mes alliés',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.primary),
+                  ),
+                  const SizedBox(height: 2),
+                  Obx(() {
+                    final count = allies.allies.length;
+                    return Text(
+                      count == 0 ? 'Aucun allié' : '$count allié${count > 1 ? 's' : ''}',
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.outline),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.outlineVariant, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Plain nav entry to the validations screen (pending + history) — the
+/// "you have proofs to judge" reminder itself lives on the dashboard
+/// instead ([HomeView]'s `_PendingValidationsBanner`), so this stays a
+/// low-key link rather than duplicating that card here.
+class _ValidationsLinkCard extends StatelessWidget {
+  const _ValidationsLinkCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadii.structuralRadius,
+        border: Border.all(color: AppColors.outlineVariant15),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 56,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "Validations d'alliés",
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.primary,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward, color: AppColors.outline, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AllyRequestRow extends StatelessWidget {
+  const _AllyRequestRow({
+    required this.request,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final AllyRequest request;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstName = request.otherUser.firstName;
+    final lastName = request.otherUser.lastName;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.outlineVariant15),
+      ),
+      child: Row(
+        children: [
+          AuthenticatedAvatarImage(
+            // Photo upload is disabled for now — always show initials.
+            avatarUrl: null,
+            size: 40,
+            borderRadius: BorderRadius.circular(12),
+            initials: initialsFor(firstName, lastName),
+            backgroundColor: avatarColorForId(request.otherUser.id),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '$firstName $lastName',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: AppColors.primary),
+            ),
+          ),
+          InkWell(
+            onTap: onDecline,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.surfaceBright),
+              ),
+              child: const Icon(Icons.close, color: AppColors.outline, size: 18),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 44,
+            child: AppPressable(
+              color: AppColors.volt,
+              shadowColor: AppColors.voltShadow,
+              shadowThickness: 3,
+              onTap: onAccept,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14),
+                child: Center(
+                  child: Text(
+                    'Accepter',
+                    style: TextStyle(
+                      fontFamily: 'Unbounded',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppColors.onPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -824,9 +701,7 @@ class _RankHeroCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        profile == null
-                            ? ''
-                            : '${profile.firstName} ${profile.lastName}',
+                        profile == null ? '' : '${profile.firstName} ${profile.lastName}',
                         style: const TextStyle(
                           fontFamily: 'Unbounded',
                           fontWeight: FontWeight.w800,
@@ -869,10 +744,7 @@ class _RankHeroCard extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             rankTiers[i],
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: Color(0xFFD8D8DE),
-                            ),
+                            style: const TextStyle(fontSize: 10.5, color: Color(0xFFD8D8DE)),
                           ),
                         ],
                       ),
@@ -958,10 +830,7 @@ class _StatTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11.5, color: AppColors.outline),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.outline)),
         ],
       ),
     );

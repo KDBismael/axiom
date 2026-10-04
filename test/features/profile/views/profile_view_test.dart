@@ -179,6 +179,6 @@ void main() {
     tester.takeException();
 
     expect(find.text('ENREGISTRER'), findsOneWidget);
-    expect(find.text('Déconnexion'), findsOneWidget);
+    expect(find.text('Se déconnecter'), findsOneWidget);
   });
 }

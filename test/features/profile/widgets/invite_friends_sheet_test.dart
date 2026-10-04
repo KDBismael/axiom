@@ -81,9 +81,8 @@ void main() {
 
     expect(find.text('Recrute tes alliés'), findsOneWidget);
     expect(find.text('Amis recrutés'), findsOneWidget);
+    expect(find.text("CODE D'INVITATION REÇU"), findsOneWidget);
     expect(find.text('Annuler'), findsOneWidget);
-    // Nothing to manage yet, so the shortcut link is hidden.
-    expect(find.text('Gérer mes alliés →'), findsNothing);
   });
 
   testWidgets(
@@ -109,7 +108,10 @@ void main() {
         ],
       );
 
-      expect(find.text('Gérer mes alliés →'), findsOneWidget);
+      // The sheet no longer branches on allies/requests state — the
+      // code-redeem section is unconditional, and ally management lives
+      // entirely on its own "Gérer mes alliés" screen now.
+      expect(find.text("CODE D'INVITATION REÇU"), findsOneWidget);
     },
   );
 

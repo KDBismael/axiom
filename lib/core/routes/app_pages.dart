@@ -23,7 +23,7 @@ import '../../features/quests/views/quest_deletion_vote_view.dart';
 import '../../features/quests/views/quest_detail_view.dart';
 import '../../features/payments/bindings/quest_payment_binding.dart';
 import '../../features/payments/views/quest_payment_view.dart';
-import '../../features/profile/views/invite_friends_view.dart';
+import '../../features/profile/views/manage_allies_sheet_route.dart';
 import '../../features/social/views/ally_validations_view.dart';
 import '../../features/social/views/ally_request_view.dart';
 import '../../features/social/views/invitation_ally_view.dart';
@@ -64,7 +64,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.inviteFriends,
-      page: () => const InviteFriendsView(),
+      page: () => const ManageAlliesSheetRoute(),
     ),
     GetPage(
       name: AppRoutes.allyRequest,

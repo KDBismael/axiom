@@ -30,3 +30,20 @@ String initialsFor(String firstName, String lastName) {
   if (last.isNotEmpty) buffer.write(last[0].toUpperCase());
   return buffer.isEmpty ? '?' : buffer.toString();
 }
+
+/// Two-letter initials for names received as one display-name string.
+String initialsForDisplayName(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) {
+    final word = parts.first;
+    return word.length > 1
+        ? word.substring(0, 2).toUpperCase()
+        : word.toUpperCase();
+  }
+  return initialsFor(parts.first, parts.last);
+}

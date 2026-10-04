@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../core/services/deep_link_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_effects.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/utils/avatar_colors.dart';
-import '../../payments/services/url_opener.dart';
 import '../../social/controllers/allies_controller.dart';
 import '../../social/models/ally_invitation.dart';
 import '../../social/models/ally_request.dart';
@@ -31,6 +31,8 @@ class InviteFriendsSheet extends StatefulWidget {
 
 class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  final _codeController = TextEditingController();
   late final AlliesController _controller;
   bool _generating = false;
   bool _copied = false;
@@ -39,12 +41,28 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
   void initState() {
     super.initState();
     _controller = Get.find<AlliesController>();
+    _searchFocusNode.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
+    _codeController.dispose();
     super.dispose();
+  }
+
+  void _redeemCode() {
+    final input = _codeController.text.trim();
+    if (input.isEmpty) return;
+    // Accept either a bare token or a full pasted `axiom://invite/<token>`
+    // link (e.g. from this sheet's own "Copié" above) — extract the token
+    // in the latter case.
+    final token = Uri.tryParse(input) != null
+        ? extractInviteToken(Uri.parse(input)) ?? input
+        : input;
+    Navigator.of(context).pop();
+    Get.toNamed(AppRoutes.invitationAlly, arguments: token);
   }
 
   Future<void> _generateLink() async {
@@ -61,35 +79,6 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);
     });
-  }
-
-  String _shareMessage(String link) =>
-      'Rejoins-moi sur Ndeli et deviens mon allié de responsabilité : $link';
-
-  Future<void> _shareVia(Future<void> Function(String link) action) async {
-    var invitation = _controller.lastCreatedInvitation.value;
-    if (invitation?.deepLink == null) {
-      await _generateLink();
-      invitation = _controller.lastCreatedInvitation.value;
-    }
-    final link = invitation?.deepLink;
-    if (link == null) return;
-    await action(link);
-  }
-
-  Future<void> _openWhatsApp(String link) {
-    final url =
-        'https://wa.me/?text=${Uri.encodeComponent(_shareMessage(link))}';
-    return Get.find<UrlOpener>().open(url);
-  }
-
-  Future<void> _openSms(String link) {
-    final url = 'sms:?body=${Uri.encodeComponent(_shareMessage(link))}';
-    return Get.find<UrlOpener>().open(url);
-  }
-
-  Future<void> _openNativeShare(String link) {
-    return SharePlus.instance.share(ShareParams(text: _shareMessage(link)));
   }
 
   @override
@@ -131,7 +120,11 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 borderRadius: AppRadii.interactiveRadius,
-                border: Border.all(color: AppColors.outlineVariantStrong),
+                border: Border.all(
+                  color: _searchFocusNode.hasFocus
+                      ? AppColors.volt
+                      : AppColors.outlineVariantStrong,
+                ),
                 color: const Color(0xFF0F0F12),
               ),
               child: Row(
@@ -145,6 +138,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
+                      focusNode: _searchFocusNode,
                       onChanged: _controller.search,
                       style: const TextStyle(
                         fontSize: 15,
@@ -153,6 +147,8 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                       decoration: const InputDecoration(
                         isCollapsed: true,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                         hintText: 'Chercher un ami déjà sur Ndeli',
                         hintStyle: TextStyle(color: AppColors.outlineMuted),
                       ),
@@ -288,32 +284,29 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                     const SizedBox(width: 8),
                     SizedBox(
                       height: 44,
-                      child: ElevatedButton(
-                        onPressed: _generating
-                            ? null
-                            : link == null
-                            ? _generateLink
-                            : () => _copyLink(link),
-                        style: ElevatedButton.styleFrom(
-                          elevation: 0,
-                          backgroundColor: _copied
-                              ? AppColors.surfaceContainerHighest
-                              : AppColors.volt,
-                          foregroundColor: AppColors.onPrimary,
+                      child: AppPressable(
+                        color: _copied ? AppColors.surfaceContainerHighest : AppColors.volt,
+                        shadowColor: _copied
+                            ? AppColors.surfaceBright
+                            : AppColors.voltShadow,
+                        shadowThickness: 3,
+                        enabled: !_generating,
+                        onTap: link == null ? _generateLink : () => _copyLink(link),
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadii.interactiveRadius,
-                          ),
-                        ),
-                        child: Text(
-                          _generating
-                              ? '…'
-                              : link == null
-                              ? 'GÉNÉRER'
-                              : (_copied ? 'COPIÉ' : 'COPIER'),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
+                          child: Center(
+                            child: Text(
+                              _generating
+                                  ? '…'
+                                  : link == null
+                                  ? 'GÉNÉRER'
+                                  : (_copied ? 'COPIÉ' : 'COPIER'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: AppColors.onPrimary,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -322,33 +315,6 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                 ),
               );
             }),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _ShareTile(
-                    label: 'WhatsApp',
-                    swatch: const Color(0xFF25D366),
-                    onTap: () => _shareVia(_openWhatsApp),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _ShareTile(
-                    label: 'SMS',
-                    swatch: const Color(0xFF4FC3F7),
-                    onTap: () => _shareVia(_openSms),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _ShareTile(
-                    label: 'Plus',
-                    onTap: () => _shareVia(_openNativeShare),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 12),
             Obx(() {
               final recruited = _controller.invitations
@@ -386,25 +352,62 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                 ),
               );
             }),
+            const SizedBox(height: 20),
+            Text(
+              "CODE D'INVITATION REÇU",
+              style: TextStyle(
+                fontFamily: 'Geist Mono',
+                fontSize: 11,
+                letterSpacing: 0.14 * 11,
+                color: AppColors.outline,
+              ),
+            ),
             const SizedBox(height: 8),
-            Obx(() {
-              final hasAnything =
-                  _controller.allies.isNotEmpty ||
-                  _controller.allyRequests.isNotEmpty;
-              if (!hasAnything) return const SizedBox.shrink();
-              return Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Get.toNamed(AppRoutes.inviteFriends);
-                  },
-                  child: const Text(
-                    'Gérer mes alliés →',
-                    style: TextStyle(fontSize: 13.5, color: AppColors.outline),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _codeController,
+                    style: const TextStyle(fontSize: 14, color: AppColors.primary),
+                    decoration: InputDecoration(
+                      hintText: 'Coller le lien ou le code ici',
+                      hintStyle: const TextStyle(color: AppColors.outlineMuted),
+                      filled: true,
+                      fillColor: const Color(0xFF0F0F12),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadii.interactiveRadius,
+                        borderSide: BorderSide(color: AppColors.outlineVariantStrong),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: AppRadii.interactiveRadius,
+                        borderSide: BorderSide(color: AppColors.outlineVariantStrong),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(14)),
+                        borderSide: BorderSide(color: AppColors.volt),
+                      ),
+                    ),
                   ),
                 ),
-              );
-            }),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _redeemCode,
+                  borderRadius: AppRadii.interactiveRadius,
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: AppRadii.interactiveRadius,
+                      border: Border.all(color: AppColors.outline20),
+                    ),
+                    child: const Icon(Icons.arrow_forward, size: 18, color: AppColors.outline),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Center(
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -506,89 +509,30 @@ class _SearchResultRow extends StatelessWidget {
               ),
             ),
           ] else
-            SizedBox(
-              height: 38,
-              child: OutlinedButton(
-                onPressed: request == null ? onInvite : null,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  foregroundColor: request != null
-                      ? AppColors.outlineMuted
-                      : AppColors.volt,
-                  side: BorderSide(
-                    color: request != null
-                        ? AppColors.outlineVariant
-                        : AppColors.volt,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
+            InkWell(
+              onTap: request == null ? onInvite : null,
+              borderRadius: BorderRadius.circular(11),
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: request != null ? AppColors.outlineVariant : AppColors.volt,
                   ),
                 ),
                 child: Text(
                   request != null ? 'EN ATTENTE' : 'INVITER',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
+                    color: request != null ? AppColors.outlineMuted : AppColors.volt,
                   ),
                 ),
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _ShareTile extends StatelessWidget {
-  const _ShareTile({required this.label, this.swatch, required this.onTap});
-
-  final String label;
-  final Color? swatch;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          borderRadius: AppRadii.interactiveRadius,
-          color: const Color(0xFF0F0F12),
-          border: Border.all(color: AppColors.outlineVariantStrong),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (swatch != null)
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: swatch,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-              )
-            else
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.outlineMuted, width: 2),
-                ),
-              ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

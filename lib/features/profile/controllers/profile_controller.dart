@@ -124,6 +124,19 @@ class ProfileController extends GetxController {
 
   void _markDraftChanged() => _draftRevision.value++;
 
+  /// Resets the identity fields (prénom/nom/téléphone) back to the last
+  /// loaded [profile] — used by the "Informations personnelles" sheet's
+  /// "Annuler" action, without a network round-trip.
+  void discardChanges() {
+    final current = profile.value;
+    if (current == null) return;
+    firstNameController.text = current.firstName;
+    lastNameController.text = current.lastName;
+    final phoneParts = splitPhoneNumber(current.phone);
+    country.value = phoneParts.country;
+    phoneController.text = phoneParts.localNumber;
+  }
+
   Future<void> pickAndUploadAvatar() async {
     // Guards against a second concurrent pick — e.g. a rapid double-tap —
     // which crashes image_picker's iOS channel if a picker session is
