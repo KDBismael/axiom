@@ -21,8 +21,16 @@ const _typeLabels = {
   'quest_deadline_reminder': 'Échéance à venir',
   'payment_succeeded': 'Paiement réussi',
   'payment_failed': 'Paiement échoué',
+  'payout_sent': 'Versement envoyé',
+  'refund_sent': 'Remboursement envoyé',
+  'payout_rejected': 'Versement refusé',
+  'refund_rejected': 'Remboursement refusé',
   'quest_ally_invite_received': 'Invitation en tant qu\'allié',
   'quest_ally_invite_accepted': 'Invitation acceptée',
+  'quest_owner_invite_received': 'Invitation à reprendre une quête',
+  'quest_owner_invite_accepted': 'Reprise de quête acceptée',
+  'quest_owner_invite_declined': 'Reprise de quête refusée',
+  'quest_owner_invite_expired': 'Invitation à reprendre une quête expirée',
   'quest_deletion_requested': 'Suppression de quête demandée',
   'quest_deletion_approved': 'Suppression approuvée',
   'quest_deletion_rejected': 'Suppression rejetée',
@@ -185,16 +193,24 @@ class _NotificationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = _detail;
     final accent = _accentFor(notification.type);
+    final isUnread = notification.isUnread;
     return InkWell(
       onTap: onTap,
       borderRadius: AppRadii.structuralRadius,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: notification.isUnread ? AppColors.surfaceContainer : AppColors.surfaceContainerLowest,
+          color: isUnread
+              ? Color.alphaBlend(
+                  AppColors.voltTint(),
+                  AppColors.surfaceContainerLow,
+                )
+              : AppColors.surfaceContainerLowest,
           borderRadius: AppRadii.structuralRadius,
           border: Border.all(
-            color: notification.isUnread ? AppColors.outlineVariantStrong : AppColors.outlineVariant,
+            color: isUnread
+                ? AppColors.volt.withValues(alpha: 0.55)
+                : AppColors.outlineVariant,
           ),
         ),
         child: Row(
@@ -204,7 +220,14 @@ class _NotificationRow extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Transform.rotate(
                 angle: 0.7853981633974483,
-                child: Container(width: 10, height: 10, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2))),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -216,13 +239,41 @@ class _NotificationRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          (_typeLabels[notification.type] ?? notification.type).toUpperCase(),
-                          style: AppTypography.labelMd.copyWith(color: accent, fontSize: 10.5),
+                          (_typeLabels[notification.type] ?? 'Notification')
+                              .toUpperCase(),
+                          style: AppTypography.labelMd.copyWith(
+                            color: accent,
+                            fontSize: 10.5,
+                          ),
                         ),
                       ),
                       Text(
                         _relativeTime(notification.createdAt),
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.outlineFaint, fontSize: 12),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.outline,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        isUnread ? Icons.circle : Icons.done,
+                        size: 12,
+                        color: isUnread ? AppColors.volt : AppColors.outline,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isUnread ? 'Non lue' : 'Lue',
+                        style: AppTypography.bodyMd.copyWith(
+                          color: isUnread ? AppColors.volt : AppColors.outline,
+                          fontSize: 12,
+                          fontWeight: isUnread
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
                       ),
                     ],
                   ),
@@ -230,7 +281,10 @@ class _NotificationRow extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       detail,
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontSize: 14),
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ],

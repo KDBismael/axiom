@@ -79,7 +79,8 @@ class HomeView extends GetView<QuestListController> {
                             if (rank == null) return const SizedBox.shrink();
                             return AppRankProgressCard(
                               rank: rank,
-                              onTap: () => Get.find<ShellController>().changeTab(2),
+                              onTap: () =>
+                                  Get.find<ShellController>().changeTab(2),
                             );
                           }),
                         ),
@@ -163,6 +164,11 @@ class _Header extends StatelessWidget {
       final firstName = user?.firstName.trim() ?? '';
       final lastName = user?.lastName.trim() ?? '';
       final unread = notifications.unreadCount;
+      final notificationLabel = unread == 1
+          ? 'Notifications, 1 non lue'
+          : unread > 1
+          ? 'Notifications, $unread non lues'
+          : 'Notifications, aucune non lue';
       return SizedBox(
         height: 52,
         child: Row(
@@ -204,50 +210,88 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            InkWell(
-              onTap: () => Get.toNamed(AppRoutes.notifications),
-              borderRadius: AppRadii.interactiveRadius,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
+            Semantics(
+              label: notificationLabel,
+              button: true,
+              child: Tooltip(
+                message: notificationLabel,
+                excludeFromSemantics: true,
+                child: InkWell(
+                  onTap: () => Get.toNamed(AppRoutes.notifications),
                   borderRadius: AppRadii.interactiveRadius,
-                  border: Border.all(color: AppColors.outlineVariant),
-                ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: AppColors.primary,
-                          width: 1.8,
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(7),
-                          topRight: Radius.circular(7),
-                          bottomLeft: Radius.circular(2),
-                          bottomRight: Radius.circular(2),
-                        ),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: unread > 0
+                          ? Color.alphaBlend(
+                              AppColors.voltTint(),
+                              AppColors.surfaceContainerLow,
+                            )
+                          : AppColors.surfaceContainerLow,
+                      borderRadius: AppRadii.interactiveRadius,
+                      border: Border.all(
+                        color: unread > 0
+                            ? AppColors.volt
+                            : AppColors.outlineVariant,
                       ),
                     ),
-                    if (unread > 0)
-                      const Positioned(
-                        top: 12,
-                        right: 12,
-                        child: DecoratedBox(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 16,
                           decoration: BoxDecoration(
-                            color: AppColors.ember,
-                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: unread > 0
+                                  ? AppColors.volt
+                                  : AppColors.primary,
+                              width: 1.8,
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(7),
+                              topRight: Radius.circular(7),
+                              bottomLeft: Radius.circular(2),
+                              bottomRight: Radius.circular(2),
+                            ),
                           ),
-                          child: SizedBox(width: 6, height: 6),
                         ),
-                      ),
-                  ],
+                        if (unread > 0)
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: ExcludeSemantics(
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  minWidth: 20,
+                                  minHeight: 20,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.volt,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  unread > 99 ? '99+' : '$unread',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'Geist',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
