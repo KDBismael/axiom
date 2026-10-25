@@ -6,7 +6,8 @@ DateTime _utcDay(DateTime date) {
   return DateTime.utc(utc.year, utc.month, utc.day);
 }
 
-/// Counts check-ins in today's period. Weekly periods are seven-day windows
+/// Counts check-ins in today's period, ignoring fully rejected ones so the
+/// user can submit again while the period is still open. Weekly periods are seven-day windows
 /// anchored to the quest start date, matching the backend's periodRange.
 int countCheckInsInCurrentPeriod(
   List<CheckIn> checkIns,
@@ -25,6 +26,8 @@ int countCheckInsInCurrentPeriod(
   );
   return checkIns.where((c) {
     final day = _utcDay(c.date);
-    return !day.isBefore(periodStart) && day.isBefore(periodEnd);
+    return !day.isBefore(periodStart) &&
+        day.isBefore(periodEnd) &&
+        c.countsTowardTarget;
   }).length;
 }

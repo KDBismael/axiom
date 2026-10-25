@@ -32,6 +32,12 @@ class CheckIn {
   final DateTime date;
   final List<Evidence> evidence;
 
+  /// Same rule as the backend: a check-in stops counting toward the period
+  /// target only once every one of its proofs was rejected.
+  bool get countsTowardTarget =>
+      evidence.isEmpty ||
+      evidence.any((proof) => proof.status != EvidenceStatus.rejected);
+
   factory CheckIn.fromJson(Map<String, dynamic> json) {
     final rawEvidence = json['evidence'] as List<dynamic>?;
     return CheckIn(

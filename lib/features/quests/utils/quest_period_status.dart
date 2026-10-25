@@ -20,14 +20,9 @@ QuestPeriodStatus questPeriodStatus(
   final validCount = checkIns.where((checkIn) {
     final date = checkIn.date.toUtc();
     final day = DateTime.utc(date.year, date.month, date.day);
-    final validEvidence =
-        checkIn.evidence.isEmpty ||
-        !checkIn.evidence.every(
-          (proof) => proof.status == EvidenceStatus.rejected,
-        );
     return !day.isBefore(periodStart) &&
         day.isBefore(periodEnd) &&
-        validEvidence;
+        checkIn.countsTowardTarget;
   }).length;
   if (validCount >= quest.targetPerPeriod) return QuestPeriodStatus.success;
   return period < currentPeriod

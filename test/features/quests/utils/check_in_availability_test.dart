@@ -28,8 +28,15 @@ QuestModel quest({
   creatorId: 'user-1',
 );
 
-CheckIn checkIn(int day) =>
-    CheckIn(id: 'ci-$day', questId: 'q-1', date: DateTime.utc(2026, 7, day));
+CheckIn checkIn(int day, {List<EvidenceStatus> proofs = const []}) => CheckIn(
+  id: 'ci-$day',
+  questId: 'q-1',
+  date: DateTime.utc(2026, 7, day),
+  evidence: [
+    for (final (i, status) in proofs.indexed)
+      Evidence(id: 'ev-$day-$i', proofType: ProofType.photo, status: status),
+  ],
+);
 
 void main() {
   final now = DateTime.utc(2026, 7, 10, 16);
@@ -54,6 +61,46 @@ void main() {
       );
     },
   );
+
+  test('a rejected proof frees the slot while the period is still open', () {
+    final rejected = checkIn(10, proofs: [EvidenceStatus.rejected]);
+    expect(
+      checkInAvailability(quest(), [rejected], now),
+      CheckInAvailability.available,
+    );
+    expect(
+      checkInAvailability(quest(frequency: QuestFrequency.weekly, target: 3), [
+        checkIn(8),
+        checkIn(9),
+        rejected,
+      ], now),
+      CheckInAvailability.available,
+    );
+  });
+
+  test('pending or later-approved proofs still count toward the target', () {
+    expect(
+      checkInAvailability(quest(), [
+        checkIn(10, proofs: [EvidenceStatus.pending]),
+      ], now),
+      CheckInAvailability.periodComplete,
+    );
+    expect(
+      checkInAvailability(quest(), [
+        checkIn(10, proofs: [EvidenceStatus.rejected, EvidenceStatus.approved]),
+      ], now),
+      CheckInAvailability.periodComplete,
+    );
+  });
+
+  test('a rejected proof does not reopen submission after the deadline', () {
+    expect(
+      checkInAvailability(quest(deadline: DateTime.utc(2026, 7, 9)), [
+        checkIn(9, proofs: [EvidenceStatus.rejected]),
+      ], now),
+      CheckInAvailability.deadlinePassed,
+    );
+  });
 
   test('weekly target uses the quest start date, not calendar week', () {
     expect(
