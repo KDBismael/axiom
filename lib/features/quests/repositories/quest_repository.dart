@@ -9,6 +9,7 @@ import '../models/quest_group_invitation.dart';
 import '../models/quest_group_invitation_summary.dart';
 import '../models/quest_group_progress.dart';
 import '../models/quest_model.dart';
+import '../models/quest_result.dart';
 import '../models/quest_owner_invitation.dart';
 import '../models/quest_owner_invitation_summary.dart';
 import '../models/quest_pause_request.dart';
@@ -38,7 +39,18 @@ class QuestRepository {
       throw QuestException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => QuestModel.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => QuestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<QuestResult?> fetchResult(String questId) async {
+    final response = await _client.get('/quests/$questId/result');
+    if (response.statusCode == 404) return null;
+    if (!response.isOk || response.body == null) {
+      throw QuestException(_extractMessage(response.body));
+    }
+    return QuestResult.fromJson(response.body as Map<String, dynamic>);
   }
 
   Future<QuestModel> fetchQuest(String id) async {
@@ -49,15 +61,27 @@ class QuestRepository {
     return QuestModel.fromJson(response.body as Map<String, dynamic>);
   }
 
-  Future<QuestModel> createQuest(Map<String, dynamic> payload) async {
-    final response = await _client.post('/quests', payload);
+  /// [idempotencyKey] is sent as the `Idempotency-Key` header: retrying
+  /// with the same key returns the already-created quest, never a duplicate.
+  Future<QuestModel> createQuest(
+    Map<String, dynamic> payload, {
+    String? idempotencyKey,
+  }) async {
+    final response = await _client.post(
+      '/quests',
+      payload,
+      headers: _idempotencyHeaders(idempotencyKey),
+    );
     if (!response.isOk || response.body == null) {
       throw QuestException(_extractMessage(response.body));
     }
     return QuestModel.fromJson(response.body as Map<String, dynamic>);
   }
 
-  Future<QuestModel> updateQuest(String id, Map<String, dynamic> changes) async {
+  Future<QuestModel> updateQuest(
+    String id,
+    Map<String, dynamic> changes,
+  ) async {
     final response = await _client.patch('/quests/$id', changes);
     if (!response.isOk || response.body == null) {
       throw QuestException(_extractMessage(response.body));
@@ -97,10 +121,9 @@ class QuestRepository {
   }
 
   Future<void> inviteAllies(String questId, List<String> allyUserIds) async {
-    final response = await _client.post(
-      '/quests/$questId/allies',
-      {'allyUserIds': allyUserIds},
-    );
+    final response = await _client.post('/quests/$questId/allies', {
+      'allyUserIds': allyUserIds,
+    });
     if (!response.isOk) {
       throw QuestException(_extractMessage(response.body));
     }
@@ -113,7 +136,9 @@ class QuestRepository {
     }
     final list = response.body as List<dynamic>;
     return list
-        .map((e) => QuestAllyInvitationSummary.fromJson(e as Map<String, dynamic>))
+        .map(
+          (e) => QuestAllyInvitationSummary.fromJson(e as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -146,7 +171,8 @@ class QuestRepository {
     final list = response.body as List<dynamic>;
     return list
         .map(
-          (e) => QuestOwnerInvitationSummary.fromJson(e as Map<String, dynamic>),
+          (e) =>
+              QuestOwnerInvitationSummary.fromJson(e as Map<String, dynamic>),
         )
         .toList();
   }
@@ -172,8 +198,15 @@ class QuestRepository {
     }
   }
 
-  Future<QuestModel> createQuestGroup(Map<String, dynamic> payload) async {
-    final response = await _client.post('/quests/groups', payload);
+  Future<QuestModel> createQuestGroup(
+    Map<String, dynamic> payload, {
+    String? idempotencyKey,
+  }) async {
+    final response = await _client.post(
+      '/quests/groups',
+      payload,
+      headers: _idempotencyHeaders(idempotencyKey),
+    );
     if (!response.isOk || response.body == null) {
       throw QuestException(_extractMessage(response.body));
     }
@@ -188,7 +221,8 @@ class QuestRepository {
     final list = response.body as List<dynamic>;
     return list
         .map(
-          (e) => QuestGroupInvitationSummary.fromJson(e as Map<String, dynamic>),
+          (e) =>
+              QuestGroupInvitationSummary.fromJson(e as Map<String, dynamic>),
         )
         .toList();
   }
@@ -218,10 +252,9 @@ class QuestRepository {
     String groupId,
     List<String> memberUserIds,
   ) async {
-    final response = await _client.post(
-      '/quests/groups/$groupId/members',
-      {'memberUserIds': memberUserIds},
-    );
+    final response = await _client.post('/quests/groups/$groupId/members', {
+      'memberUserIds': memberUserIds,
+    });
     if (!response.isOk) {
       throw QuestException(_extractMessage(response.body));
     }
@@ -284,13 +317,11 @@ class QuestRepository {
     required bool approve,
     String? comment,
   }) async {
-    final response = await _client.post(
-      '/quests/$questId/pause-request/$requestId/decide',
-      {
-        'decision': approve ? 'approve' : 'reject',
-        if (comment != null) 'comment': comment,
-      },
-    );
+    final response = await _client
+        .post('/quests/$questId/pause-request/$requestId/decide', {
+          'decision': approve ? 'approve' : 'reject',
+          if (comment != null) 'comment': comment,
+        });
     if (!response.isOk) {
       throw QuestException(_extractMessage(response.body));
     }
@@ -338,7 +369,9 @@ class QuestRepository {
       throw QuestException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => CheckIn.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => CheckIn.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<FocusSessionHistory> fetchFocusSessions(String questId) async {
@@ -358,13 +391,14 @@ class QuestRepository {
     String? textContent,
     String? description,
   }) async {
-    final response = await _client.post('/quests/$questId/check-ins/$checkInId/proofs', {
-      'proofType': proofType.toJson(),
-      if (fileId != null) 'fileId': fileId,
-      if (fileIds != null && fileIds.isNotEmpty) 'fileIds': fileIds,
-      if (textContent != null) 'textContent': textContent,
-      if (description != null) 'description': description,
-    });
+    final response = await _client
+        .post('/quests/$questId/check-ins/$checkInId/proofs', {
+          'proofType': proofType.toJson(),
+          if (fileId != null) 'fileId': fileId,
+          if (fileIds != null && fileIds.isNotEmpty) 'fileIds': fileIds,
+          if (textContent != null) 'textContent': textContent,
+          if (description != null) 'description': description,
+        });
     if (!response.isOk || response.body == null) {
       throw QuestException(_extractMessage(response.body));
     }
@@ -377,7 +411,9 @@ class QuestRepository {
       throw QuestException(_extractMessage(response.body));
     }
     final list = response.body as List<dynamic>;
-    return list.map((e) => Evidence.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => Evidence.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<String> uploadEvidenceFile(PickedEvidence picked) async {
@@ -396,6 +432,9 @@ class QuestRepository {
     final json = response.body as Map<String, dynamic>;
     return json['id'] as String;
   }
+
+  Map<String, String>? _idempotencyHeaders(String? key) =>
+      key == null ? null : {'Idempotency-Key': key};
 
   String _extractMessage(dynamic body) {
     if (body is Map<String, dynamic>) {

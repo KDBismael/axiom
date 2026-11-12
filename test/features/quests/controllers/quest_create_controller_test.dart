@@ -45,6 +45,16 @@ void main() {
   });
 
   group('creation controls', () {
+    test('blocks oversized details before the later creation steps', () {
+      controller.titleController.text = List.filled(120, 'é').join();
+      controller.descriptionController.text = List.filled(2000, 'à').join();
+      expect(controller.canProceedFromDetails, isTrue);
+      controller.titleController.text += 'é';
+      expect(controller.canProceedFromDetails, isFalse);
+      controller.titleController.text = 'Lire dix minutes';
+      controller.descriptionController.text += 'à';
+      expect(controller.canProceedFromDetails, isFalse);
+    });
     test('duration has a minimum of one and keeps the deadline in sync', () {
       controller.startDate.value = DateTime(2026, 9, 25);
       controller.adjustDuration(-100);
@@ -144,6 +154,40 @@ void main() {
     });
   });
 
+  group('QuestCreateController.blockedReason', () {
+    test('explains what is missing on the details step', () {
+      controller.currentStep.value = 1;
+      controller.titleController.text = '';
+      controller.descriptionController.text = '   ';
+      expect(controller.blockedReason, 'Ajoute un titre pour continuer.');
+
+      controller.titleController.text = 'Lire';
+      expect(
+        controller.blockedReason,
+        'Explique pourquoi c\'est important pour continuer.',
+      );
+
+      controller.descriptionController.text = 'Pour apprendre';
+      expect(controller.blockedReason, isNull);
+    });
+
+    test('asks for a recipient when sponsoring', () {
+      controller.currentStep.value = 1;
+      controller.titleController.text = 'Lire';
+      controller.createForSomeoneElse.value = true;
+      expect(controller.blockedReason, 'Choisis la personne à qui offrir la quête.');
+    });
+  });
+
+  group('QuestCreateController.hasDraft', () {
+    test('is true once a title or reason was typed', () {
+      controller.descriptionController.text = '';
+      expect(controller.hasDraft, isFalse);
+      controller.titleController.text = 'Lire';
+      expect(controller.hasDraft, isTrue);
+    });
+  });
+
   group('QuestCreateController.previousStep', () {
     test('decrements and floors at 0', () {
       controller.titleController.text = 'Courir 5km';
@@ -168,19 +212,34 @@ void main() {
           controller.errorMessage.value,
           'La description est obligatoire.',
         );
-        verifyNever(() => mockRepository.createQuest(any()));
+        verifyNever(
+          () => mockRepository.createQuest(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
+        );
 
         controller.descriptionController.text = 'Pour rester en forme';
         controller.titleController.text = '  ';
         expect(await controller.submit(), isFalse);
         expect(controller.errorMessage.value, 'Le titre est obligatoire.');
-        verifyNever(() => mockRepository.createQuest(any()));
+        verifyNever(
+          () => mockRepository.createQuest(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
+        );
       },
     );
     test(
       'creates the quest directly (pending_payment), not a draft intent, when stake is enabled',
       () async {
-        when(() => mockRepository.createQuest(any())).thenAnswer(
+        when(
+          () => mockRepository.createQuest(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
+        ).thenAnswer(
           (_) async => QuestModel(
             id: 'q-2',
             title: 'Courir 5km',
@@ -219,7 +278,10 @@ void main() {
         expect(ok, isTrue);
         final captured =
             verify(
-                  () => mockRepository.createQuest(captureAny()),
+                  () => mockRepository.createQuest(
+                    captureAny(),
+                    idempotencyKey: any(named: 'idempotencyKey'),
+                  ),
                 ).captured.single
                 as Map;
         expect(captured['hasStake'], isTrue);
@@ -231,7 +293,10 @@ void main() {
 
     test('sends the full payload for a no-stake quest', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.titleController.text = 'Courir 5km';
@@ -243,7 +308,12 @@ void main() {
       final ok = await controller.submit();
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map;
       expect(captured['title'], 'Courir 5km');
       expect(captured['description'], 'Chaque matin.');
@@ -258,7 +328,10 @@ void main() {
 
     test('sends the entered targetPerPeriod', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.titleController.text = 'Manger équilibré';
@@ -267,7 +340,12 @@ void main() {
       await controller.submit();
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map;
       expect(captured['targetPerPeriod'], 3);
     });
@@ -276,7 +354,10 @@ void main() {
       'forces payment fields off while the feature is unavailable',
       () async {
         when(
-          () => mockRepository.createQuest(any()),
+          () => mockRepository.createQuest(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
         ).thenAnswer((_) async => quest());
 
         controller.titleController.text = 'Courir 5km';
@@ -287,7 +368,10 @@ void main() {
 
         final captured =
             verify(
-                  () => mockRepository.createQuest(captureAny()),
+                  () => mockRepository.createQuest(
+                    captureAny(),
+                    idempotencyKey: any(named: 'idempotencyKey'),
+                  ),
                 ).captured.single
                 as Map;
         expect(captured['hasStake'], isFalse);
@@ -300,7 +384,10 @@ void main() {
       'surfaces the backend French error and returns false on failure',
       () async {
         when(
-          () => mockRepository.createQuest(any()),
+          () => mockRepository.createQuest(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
         ).thenThrow(QuestException('Titre invalide'));
 
         controller.titleController.text = 'Courir 5km';
@@ -313,21 +400,32 @@ void main() {
 
     test('omits allyUserIds when no ally is selected', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.titleController.text = 'Courir 5km';
       await controller.submit();
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map;
       expect(captured.containsKey('allyUserIds'), isFalse);
     });
 
     test('includes allyUserIds for each selected ally', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.titleController.text = 'Courir 5km';
@@ -336,14 +434,22 @@ void main() {
       await controller.submit();
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map;
       expect(captured['allyUserIds'], containsAll(['ally-1', 'ally-2']));
     });
 
     test('omits inviteeId when not creating for someone else', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.titleController.text = 'Courir 5km';
@@ -351,14 +457,22 @@ void main() {
       await controller.submit();
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map;
       expect(captured.containsKey('inviteeId'), isFalse);
     });
 
     test('includes inviteeId when sponsoring someone else', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.titleController.text = 'Courir 5km';
@@ -367,9 +481,87 @@ void main() {
       await controller.submit();
 
       final captured =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map;
       expect(captured['inviteeId'], 'user-2');
+    });
+
+    test('a second tap after success does not create a duplicate', () async {
+      when(
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
+      ).thenAnswer((_) async => quest());
+
+      controller.titleController.text = 'Faire un TikTok par jour';
+      expect(await controller.submit(), isTrue);
+      expect(await controller.submit(), isTrue);
+
+      verify(
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
+      ).called(1);
+    });
+
+    test('a retry after a failure reuses the same idempotency key', () async {
+      var calls = 0;
+      when(
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
+      ).thenAnswer((_) async {
+        if (calls++ == 0) throw QuestException('Réseau indisponible');
+        return quest();
+      });
+
+      controller.titleController.text = 'Faire un TikTok par jour';
+      expect(await controller.submit(), isFalse);
+      expect(await controller.submit(), isTrue);
+
+      final keys = verify(
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: captureAny(named: 'idempotencyKey'),
+        ),
+      ).captured;
+      expect(keys, hasLength(2));
+      expect(keys.first, isNotEmpty);
+      expect(keys.last, keys.first);
+    });
+
+    test('concurrent taps while submitting send a single request', () async {
+      when(
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
+      ).thenAnswer(
+        (_) => Future.delayed(const Duration(milliseconds: 10), quest),
+      );
+
+      controller.titleController.text = 'Faire un TikTok par jour';
+      final results = await Future.wait([
+        controller.submit(),
+        controller.submit(),
+      ]);
+
+      expect(results.first, isTrue);
+      expect(results.last, isFalse);
+      verify(
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
+      ).called(1);
     });
   });
 
@@ -406,7 +598,10 @@ void main() {
       'submit posts to createQuestGroup, with no stake fields and memberUserIds instead of allyUserIds',
       () async {
         when(
-          () => mockRepository.createQuestGroup(any()),
+          () => mockRepository.createQuestGroup(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
         ).thenAnswer((_) async => quest());
 
         controller.isCollective.value = true;
@@ -420,10 +615,18 @@ void main() {
 
         final ok = await controller.submit();
 
-        verifyNever(() => mockRepository.createQuest(any()));
+        verifyNever(
+          () => mockRepository.createQuest(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
+        );
         final captured =
             verify(
-                  () => mockRepository.createQuestGroup(captureAny()),
+                  () => mockRepository.createQuestGroup(
+                    captureAny(),
+                    idempotencyKey: any(named: 'idempotencyKey'),
+                  ),
                 ).captured.single
                 as Map;
         expect(captured['title'], 'Défi 30 jours');
@@ -439,7 +642,10 @@ void main() {
 
     test('submit omits memberUserIds when no one is selected', () async {
       when(
-        () => mockRepository.createQuestGroup(any()),
+        () => mockRepository.createQuestGroup(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
 
       controller.isCollective.value = true;
@@ -448,7 +654,10 @@ void main() {
 
       final captured =
           verify(
-                () => mockRepository.createQuestGroup(captureAny()),
+                () => mockRepository.createQuestGroup(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
               ).captured.single
               as Map;
       expect(captured.containsKey('memberUserIds'), isFalse);
@@ -458,7 +667,10 @@ void main() {
       'surfaces the backend French error and returns false on failure',
       () async {
         when(
-          () => mockRepository.createQuestGroup(any()),
+          () => mockRepository.createQuestGroup(
+            any(),
+            idempotencyKey: any(named: 'idempotencyKey'),
+          ),
         ).thenThrow(QuestException('Titre invalide'));
 
         controller.isCollective.value = true;
@@ -496,7 +708,10 @@ void main() {
 
     test('clamps a negative catch-up delay to zero in the payload', () async {
       when(
-        () => mockRepository.createQuest(any()),
+        () => mockRepository.createQuest(
+          any(),
+          idempotencyKey: any(named: 'idempotencyKey'),
+        ),
       ).thenAnswer((_) async => quest());
       controller.titleController.text = 'Courir';
       controller.gracePeriodController.text = '-4';
@@ -504,7 +719,12 @@ void main() {
       await controller.submit();
 
       final payload =
-          verify(() => mockRepository.createQuest(captureAny())).captured.single
+          verify(
+                () => mockRepository.createQuest(
+                  captureAny(),
+                  idempotencyKey: any(named: 'idempotencyKey'),
+                ),
+              ).captured.single
               as Map<String, dynamic>;
       expect(payload['gracePeriodDays'], 0);
     });

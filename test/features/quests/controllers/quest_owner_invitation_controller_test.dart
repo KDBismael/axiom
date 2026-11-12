@@ -32,8 +32,9 @@ void main() {
 
   group('QuestOwnerInvitationController.load', () {
     test('fetches and stores the invitation', () async {
-      when(() => mockRepository.fetchOwnerInvitation('q-1'))
-          .thenAnswer((_) async => invitation);
+      when(
+        () => mockRepository.fetchOwnerInvitation('q-1'),
+      ).thenAnswer((_) async => invitation);
 
       await controller.load();
 
@@ -42,8 +43,9 @@ void main() {
     });
 
     test('surfaces the backend French error on failure', () async {
-      when(() => mockRepository.fetchOwnerInvitation('q-1'))
-          .thenThrow(QuestException('Invitation introuvable'));
+      when(
+        () => mockRepository.fetchOwnerInvitation('q-1'),
+      ).thenThrow(QuestException('Invitation introuvable'));
 
       await controller.load();
 
@@ -54,8 +56,9 @@ void main() {
 
   group('QuestOwnerInvitationController.respond', () {
     test('accepts and returns true', () async {
-      when(() => mockRepository.respondToOwnerInvitation('q-1', accept: true))
-          .thenAnswer((_) async {});
+      when(
+        () => mockRepository.respondToOwnerInvitation('q-1', accept: true),
+      ).thenAnswer((_) async {});
 
       final ok = await controller.respond(accept: true);
 
@@ -66,8 +69,9 @@ void main() {
     });
 
     test('declines and returns true', () async {
-      when(() => mockRepository.respondToOwnerInvitation('q-1', accept: false))
-          .thenAnswer((_) async {});
+      when(
+        () => mockRepository.respondToOwnerInvitation('q-1', accept: false),
+      ).thenAnswer((_) async {});
 
       final ok = await controller.respond(accept: false);
 
@@ -78,8 +82,9 @@ void main() {
     });
 
     test('surfaces the backend error and returns false on failure', () async {
-      when(() => mockRepository.respondToOwnerInvitation('q-1', accept: true))
-          .thenThrow(QuestException('Cette invitation a déjà été traitée'));
+      when(
+        () => mockRepository.respondToOwnerInvitation('q-1', accept: true),
+      ).thenThrow(QuestException('Cette invitation a déjà été traitée'));
 
       final ok = await controller.respond(accept: true);
 

@@ -113,16 +113,13 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                           color: AppColors.surfaceContainerLow,
                           borderRadius: AppRadii.structuralRadius,
                           border: const Border(
-                            left: BorderSide(
-                              color: AppColors.volt,
-                              width: 4,
-                            ),
+                            left: BorderSide(color: AppColors.volt, width: 4),
                           ),
                         ),
                         child: Text(
-                          "En acceptant, vous rejoindrez cette quête et deviendrez allié avec son propriétaire. "
-                          "Vous vous engagez à valider les preuves de cette quête, "
-                          "à approuver une éventuelle demande de suppression, et vous pourriez "
+                          "En acceptant, tu rejoindras cette quête et deviendras allié de son propriétaire. "
+                          "Tu t'engages à valider les preuves de cette quête, "
+                          "à approuver une éventuelle demande de suppression, et tu pourrais "
                           "recevoir une part de la mise si la quête échoue.",
                           style: AppTypography.bodyMd.copyWith(
                             color: AppColors.primary,
@@ -193,8 +190,8 @@ class QuestAllyInvitationView extends GetView<QuestAllyInvitationController> {
                     ),
                     child: Text(
                       invitation.status == QuestAllyStatus.accepted
-                          ? 'Vous avez accepté cette invitation.'
-                          : 'Vous avez refusé cette invitation.',
+                          ? 'Tu as accepté cette invitation.'
+                          : 'Tu as refusé cette invitation.',
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyMd.copyWith(
                         color: invitation.status == QuestAllyStatus.accepted

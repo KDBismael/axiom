@@ -23,25 +23,41 @@ class OnboardingView extends GetView<OnboardingController> {
     ),
     _SlideContent(
       eyebrow: '02 / 03',
-      title: 'ENGAGEZ VOTRE ARGENT',
-      description: "Mets de l'argent réel en jeu pour rester motivé·e jusqu'au bout.",
+      title: 'ENGAGE TON ARGENT',
+      description:
+          "Mets de l'argent réel en jeu pour rester motivé·e jusqu'au bout.",
       hero: _StakeHero(),
     ),
     _SlideContent(
       eyebrow: '03 / 03',
-      title: 'RÉUSSISSEZ À PLUSIEURS',
-      description: 'Invite des alliés qui valident tes preuves et te tiennent responsable.',
+      title: 'RÉUSSIS À PLUSIEURS',
+      description:
+          "Invite des alliés qui valident tes preuves et t'encouragent à tenir.",
       hero: _AlliesHero(),
     ),
   ];
 
   Future<void> _finish() async {
     await controller.complete();
-    Get.offAllNamed(AppRoutes.home);
+    // Someone finishing the intro is almost always new: open on signup.
+    Get.offAllNamed(AppRoutes.login, arguments: 'register');
   }
 
   @override
   Widget build(BuildContext context) {
+    // Android back goes to the previous slide instead of quitting.
+    return Obx(
+      () => PopScope(
+        canPop: controller.currentPage.value == 0,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) controller.goBack();
+        },
+        child: _buildScaffold(context),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -63,7 +79,9 @@ class OnboardingView extends GetView<OnboardingController> {
                       onPressed: _finish,
                       child: Text(
                         'PASSER',
-                        style: AppTypography.labelMd.copyWith(color: AppColors.outlineMuted),
+                        style: AppTypography.labelMd.copyWith(
+                          color: AppColors.outlineMuted,
+                        ),
                       ),
                     ),
                   ],
@@ -73,7 +91,9 @@ class OnboardingView extends GetView<OnboardingController> {
                 child: PageView(
                   controller: controller.pageController,
                   onPageChanged: controller.onPageChanged,
-                  children: [for (final slide in _slides) Center(child: slide.hero)],
+                  children: [
+                    for (final slide in _slides) Center(child: slide.hero),
+                  ],
                 ),
               ),
               Obx(() {
@@ -83,17 +103,25 @@ class OnboardingView extends GetView<OnboardingController> {
                   children: [
                     Text(
                       slide.eyebrow,
-                      style: AppTypography.labelMd.copyWith(color: AppColors.volt),
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.volt,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       slide.title,
-                      style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 26),
+                      style: AppTypography.headlineMd.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 26,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       slide.description,
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.outline, fontSize: 15),
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.outline,
+                        fontSize: 15,
+                      ),
                     ),
                   ],
                 );
@@ -189,11 +217,20 @@ class _StreakHero extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 18),
-            Text('21', style: AppTypography.displayLg.copyWith(color: AppColors.primary, fontSize: 56)),
+            Text(
+              '21',
+              style: AppTypography.displayLg.copyWith(
+                color: AppColors.primary,
+                fontSize: 56,
+              ),
+            ),
             const SizedBox(width: 12),
             Text(
               'JOURS\nD\'AFFILÉE',
-              style: AppTypography.labelMd.copyWith(color: AppColors.emberLight, height: 1.4),
+              style: AppTypography.labelMd.copyWith(
+                color: AppColors.emberLight,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -209,7 +246,10 @@ class _StreakHero extends StatelessWidget {
                 ? (i > 17 ? AppColors.emberBright : AppColors.volt)
                 : AppColors.surfaceContainerHighest;
             return DecoratedBox(
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(7)),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(7),
+              ),
             );
           }),
         ),
@@ -239,18 +279,26 @@ class _StakeHero extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.volt,
               borderRadius: BorderRadius.circular(22),
-              boxShadow: const [BoxShadow(color: AppColors.voltShadow, offset: Offset(0, 8))],
+              boxShadow: const [
+                BoxShadow(color: AppColors.voltShadow, offset: Offset(0, 8)),
+              ],
             ),
             child: Column(
               children: [
                 Text(
                   '25 000',
-                  style: AppTypography.displayLg.copyWith(color: AppColors.onPrimary, fontSize: 46),
+                  style: AppTypography.displayLg.copyWith(
+                    color: AppColors.onPrimary,
+                    fontSize: 46,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'XOF · ENGAGÉS',
-                  style: AppTypography.labelMd.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
+                  style: AppTypography.labelMd.copyWith(
+                    color: AppColors.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
@@ -260,8 +308,16 @@ class _StakeHero extends StatelessWidget {
         Wrap(
           spacing: 8,
           children: [
-            _pillChip('Réussite → remboursé', AppColors.outlineVariantStrong, AppColors.outline),
-            _pillChip('Échec → aux alliés', AppColors.errorShadow, AppColors.errorSoft),
+            _pillChip(
+              'Réussite → remboursé',
+              AppColors.outlineVariantStrong,
+              AppColors.outline,
+            ),
+            _pillChip(
+              'Échec → aux alliés',
+              AppColors.errorShadow,
+              AppColors.errorSoft,
+            ),
           ],
         ),
       ],
@@ -271,8 +327,14 @@ class _StakeHero extends StatelessWidget {
   Widget _pillChip(String label, Color border, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: border)),
-      child: Text(label, style: AppTypography.bodyMd.copyWith(color: fg, fontSize: 13)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.bodyMd.copyWith(color: fg, fontSize: 13),
+      ),
     );
   }
 }
@@ -297,20 +359,31 @@ class _AlliesHero extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        _row('Awa a validé ta preuve', trailing: const Icon(Icons.check, color: AppColors.volt, size: 18)),
+        _row(
+          'Awa a validé ta preuve',
+          trailing: const Icon(Icons.check, color: AppColors.volt, size: 18),
+        ),
         const SizedBox(height: 8),
         _row(
           'Fatou attend ton verdict',
           trailing: Text(
             'À TOI',
-            style: AppTypography.labelMd.copyWith(color: AppColors.emberLight, fontSize: 10.5),
+            style: AppTypography.labelMd.copyWith(
+              color: AppColors.emberLight,
+              fontSize: 10.5,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _avatar(String initials, Color color, double left, {bool raised = false}) {
+  Widget _avatar(
+    String initials,
+    Color color,
+    double left, {
+    bool raised = false,
+  }) {
     return Positioned(
       left: left,
       top: raised ? 0 : 10,
@@ -348,7 +421,13 @@ class _AlliesHero extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontSize: 14)),
+            child: Text(
+              label,
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.primary,
+                fontSize: 14,
+              ),
+            ),
           ),
           trailing,
         ],

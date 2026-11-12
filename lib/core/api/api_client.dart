@@ -6,10 +6,16 @@ import 'token_storage.dart';
 /// to the axiom-backend API. Attaches the bearer token to authenticated
 /// requests and transparently refreshes+retries once on a 401.
 class ApiClient extends GetConnect {
-  ApiClient({required TokenStorage tokenStorage})
-    : _tokenStorage = tokenStorage;
+  ApiClient({
+    required TokenStorage tokenStorage,
+    Duration uploadTimeout = const Duration(minutes: 10),
+  }) : _tokenStorage = tokenStorage,
+       _uploadTimeout = uploadTimeout;
 
   final TokenStorage _tokenStorage;
+  final Duration _uploadTimeout;
+  GetHttpClient? _uploadClient;
+  bool _closed = false;
 
   /// Shared by every concurrently-401ing request so only one of them
   /// actually calls /auth/refresh — the backend rotates (single-use)
@@ -46,9 +52,14 @@ class ApiClient extends GetConnect {
   void onInit() {
     httpClient.baseUrl = baseApiUrl;
     httpClient.timeout = const Duration(seconds: 20);
-    httpClient.maxAuthRetries = 1;
+    _configureAuthentication(httpClient);
+    super.onInit();
+  }
 
-    httpClient.addRequestModifier<dynamic>((request) async {
+  void _configureAuthentication(GetHttpClient client) {
+    client.maxAuthRetries = 1;
+
+    client.addRequestModifier<dynamic>((request) async {
       if (_isPublicPath(request.url.path)) return request;
       final token = await _tokenStorage.readAccessToken();
       if (token != null) {
@@ -57,7 +68,7 @@ class ApiClient extends GetConnect {
       return request;
     });
 
-    httpClient.addAuthenticator<dynamic>((request) async {
+    client.addAuthenticator<dynamic>((request) async {
       if (_isPublicPath(request.url.path)) return request;
 
       final outcome = await _ensureFreshToken();
@@ -79,8 +90,67 @@ class ApiClient extends GetConnect {
           return request;
       }
     });
+  }
 
-    super.onInit();
+  // A separate transport keeps long media uploads from changing the timeout
+  // of concurrent JSON requests. Both share the same refresh-token flight.
+  @override
+  Future<Response<T>> post<T>(
+    String? url,
+    dynamic body, {
+    String? contentType,
+    Map<String, String>? headers,
+    Map<String, dynamic>? query,
+    Decoder<T>? decoder,
+    Progress? uploadProgress,
+  }) {
+    if (_closed) throw StateError('Le client API est fermé');
+    if (body is! FormData) {
+      return super.post<T>(
+        url,
+        body,
+        contentType: contentType,
+        headers: headers,
+        query: query,
+        decoder: decoder,
+        uploadProgress: uploadProgress,
+      );
+    }
+    var upload = _uploadClient;
+    if (upload == null) {
+      upload = GetHttpClient(
+        timeout: _uploadTimeout,
+        baseUrl: httpClient.baseUrl,
+        userAgent: userAgent,
+        sendUserAgent: sendUserAgent,
+        followRedirects: followRedirects,
+        maxRedirects: maxRedirects,
+        allowAutoSignedCert: allowAutoSignedCert,
+        trustedCertificates: trustedCertificates,
+        withCredentials: withCredentials,
+        findProxy: findProxy,
+      );
+      _configureAuthentication(upload);
+      _uploadClient = upload;
+    }
+    upload.baseUrl = httpClient.baseUrl;
+    return upload.post<T>(
+      url,
+      body: _ReplayableFormData(body),
+      contentType: contentType,
+      headers: headers,
+      query: query,
+      decoder: decoder,
+      uploadProgress: uploadProgress,
+    );
+  }
+
+  @override
+  void dispose() {
+    _closed = true;
+    _uploadClient?.close();
+    _uploadClient = null;
+    super.dispose();
   }
 
   bool _isPublicPath(String path) => _publicPaths.any((p) => path.endsWith(p));
@@ -127,6 +197,20 @@ class ApiClient extends GetConnect {
     await _tokenStorage.clear();
     Get.offAllNamed(AppRoutes.login);
   }
+}
+
+// GetConnect rebuilds a multipart request when a 401 is retried. Cache the
+// encoded body once: MultipartFile's source stream must not be consumed twice.
+class _ReplayableFormData extends FormData {
+  _ReplayableFormData(FormData source) : super({}) {
+    fields.addAll(source.fields);
+    files.addAll(source.files);
+  }
+
+  Future<List<int>>? _bytes;
+
+  @override
+  Future<List<int>> toBytes() => _bytes ??= super.toBytes();
 }
 
 /// Outcome of a single /auth/refresh attempt — kept distinct from a plain

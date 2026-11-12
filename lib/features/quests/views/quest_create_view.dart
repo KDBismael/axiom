@@ -18,6 +18,47 @@ class QuestCreateView extends GetView<QuestCreateController> {
 
   @override
   Widget build(BuildContext context) {
+    // Android back steps back through the wizard, and asks before
+    // throwing away a typed draft.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || controller.isSubmitting.value) return;
+        if (controller.currentStep.value > 0) {
+          controller.previousStep();
+          return;
+        }
+        final navigator = Navigator.of(context);
+        if (!controller.hasDraft || await _confirmDiscard(context)) {
+          navigator.pop();
+        }
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Future<bool> _confirmDiscard(BuildContext context) async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Abandonner cette quête ?'),
+        content: const Text('Ce que tu as saisi sera perdu.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Continuer'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Abandonner'),
+          ),
+        ],
+      ),
+    );
+    return discard ?? false;
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
@@ -171,6 +212,7 @@ class _Footer extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         child: Obx(() {
           final step = controller.currentStep.value;
+          final blockedReason = controller.blockedReason;
           final isLastStep = step == controller.stepCount - 1;
           final amount = controller.effectiveStakeAmount;
           final label = !isLastStep
@@ -178,7 +220,7 @@ class _Footer extends StatelessWidget {
               : amount > 0
               ? 'PAYER ${_amount(amount + calculateTransactionFees(amount))} XOF'
               : 'LANCER LA QUÊTE';
-          return Row(
+          final row = Row(
             children: [
               if (step > 0)
                 SizedBox(
@@ -227,20 +269,28 @@ class _Footer extends StatelessWidget {
                                 arguments: quest.id,
                               );
                             } else {
-                              if (controller.createForSomeoneElse.value) {
+                              // Pop before showing the snackbar: with a
+                              // snackbar open, GetX 4's Get.back() only
+                              // closes the snackbar and leaves this page up.
+                              final sponsored =
+                                  controller.createForSomeoneElse.value;
+                              final collective = controller.isCollective.value;
+                              final hasAllies =
+                                  controller.selectedAllyIds.isNotEmpty;
+                              Get.back();
+                              if (sponsored) {
                                 Get.snackbar(
                                   'Quête envoyée',
                                   "Invitation envoyée. La quête sera activée dès son acceptation.",
                                 );
-                              } else if (controller.isCollective.value) {
+                              } else if (collective) {
                                 Get.snackbar(
                                   'Quête collective créée',
-                                  controller.selectedAllyIds.isEmpty
-                                      ? 'Votre quête a été créée.'
-                                      : 'Vos invitations ont été envoyées. Vos coéquipiers rejoindront dès qu\'ils accepteront.',
+                                  !hasAllies
+                                      ? 'Ta quête a été créée.'
+                                      : 'Tes invitations ont été envoyées. Tes coéquipiers te rejoindront dès qu\'ils accepteront.',
                                 );
                               }
-                              Get.back();
                             }
                           } else {
                             controller.nextStep();
@@ -248,6 +298,25 @@ class _Footer extends StatelessWidget {
                         },
                 ),
               ),
+            ],
+          );
+          if (blockedReason == null) return row;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  blockedReason,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.outline,
+                  ),
+                ),
+              ),
+              row,
             ],
           );
         }),
@@ -360,18 +429,21 @@ class _TitleStep extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text('TITRE *', style: _eyebrow),
+      Text('TITRE * · 120 CARACTÈRES MAX.', style: _eyebrow),
       const SizedBox(height: 8),
       SizedBox(
         height: 56,
         child: TextField(
           controller: controller.titleController,
+          maxLength: 120,
           style: AppTypography.bodyMd.copyWith(
             fontSize: 17,
             fontWeight: FontWeight.w600,
             color: AppColors.primary,
           ),
-          decoration: _input(hint: 'Méditer 10 minutes'),
+          decoration: _input(
+            hint: 'Méditer 10 minutes',
+          ).copyWith(counterText: ''),
         ),
       ),
       const SizedBox(height: 16),
@@ -379,6 +451,7 @@ class _TitleStep extends StatelessWidget {
       const SizedBox(height: 8),
       TextField(
         controller: controller.descriptionController,
+        maxLength: 2000,
         minLines: 2,
         maxLines: 5,
         style: AppTypography.bodyMd.copyWith(
@@ -671,7 +744,7 @@ class _ScheduleRulesStep extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '$missed ${daily ? 'jours' : 'semaines'} sans conséquence · seuil de réussite ${controller.successThresholdPercent.value} %',
+                '$missed ${daily ? (missed == 1 ? 'jour' : 'jours') : (missed == 1 ? 'semaine' : 'semaines')} sans conséquence · seuil de réussite ${controller.successThresholdPercent.value} %',
                 style: AppTypography.bodyMd.copyWith(
                   fontSize: 12.5,
                   color: AppColors.outlineMuted,
@@ -699,7 +772,7 @@ class _ScheduleRulesStep extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Chaque check-in validé par un allié',
+                      'Une preuve demandée à chaque pointage',
                       style: AppTypography.bodyMd.copyWith(
                         fontSize: 12.5,
                         color: AppColors.outlineMuted,
@@ -1603,7 +1676,8 @@ class _ReviewStep extends StatelessWidget {
               ),
               _ReviewRow(
                 label: 'Durée',
-                value: '${controller.durationDays} jours',
+                value:
+                    '${controller.durationDays} ${controller.durationDays == 1 ? 'jour' : 'jours'}',
               ),
               _ReviewRow(
                 label: 'Absences tolérées',

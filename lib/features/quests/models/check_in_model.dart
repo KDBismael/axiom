@@ -46,7 +46,9 @@ class CheckIn {
       date: DateTime.parse(json['date'] as String),
       evidence: rawEvidence == null
           ? const []
-          : rawEvidence.map((e) => Evidence.fromJson(e as Map<String, dynamic>)).toList(),
+          : rawEvidence
+                .map((e) => Evidence.fromJson(e as Map<String, dynamic>))
+                .toList(),
     );
   }
 }

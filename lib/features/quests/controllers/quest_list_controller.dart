@@ -102,7 +102,18 @@ class QuestListController extends GetxController {
     errorMessage.value = null;
     try {
       final data = await _repository.fetchQuests();
-      quests.assignAll(data);
+      // List rows omit detail-only fields. Read the cache after awaiting:
+      // a detail fetch may have enriched it while this request was in flight.
+      final currentById = {for (final quest in quests) quest.id: quest};
+      quests.assignAll(
+        data.map((summary) {
+          final previous = currentById[summary.id];
+          return summary.copyWith(
+            allies: summary.allies.isEmpty ? previous?.allies : null,
+            resultId: summary.resultId ?? previous?.resultId,
+          );
+        }),
+      );
     } on QuestException catch (e) {
       errorMessage.value = e.message;
     } finally {
@@ -110,10 +121,24 @@ class QuestListController extends GetxController {
     }
   }
 
-  Future<QuestModel?> createQuest(Map<String, dynamic> payload) async {
+  /// Refresh the visible quest after the list so returning from the native
+  /// gallery never replaces authoritative ally details with summary rows.
+  Future<void> refreshAfterResume({String? questId}) async {
+    await loadQuests();
+    if (questId != null) await refreshQuest(questId);
+  }
+
+  Future<QuestModel?> createQuest(
+    Map<String, dynamic> payload, {
+    String? idempotencyKey,
+  }) async {
     errorMessage.value = null;
     try {
-      final created = await _repository.createQuest(payload);
+      final created = await _repository.createQuest(
+        payload,
+        idempotencyKey: idempotencyKey,
+      );
+      quests.removeWhere((q) => q.id == created.id);
       quests.add(created);
       return created;
     } on QuestException catch (e) {
@@ -125,10 +150,17 @@ class QuestListController extends GetxController {
   /// Creates a collective quest: the caller's own Quest is created
   /// immediately (unstaked, active); anyone listed joins once they accept
   /// their invitation. See [createQuest] for the solo-quest equivalent.
-  Future<QuestModel?> createQuestGroup(Map<String, dynamic> payload) async {
+  Future<QuestModel?> createQuestGroup(
+    Map<String, dynamic> payload, {
+    String? idempotencyKey,
+  }) async {
     errorMessage.value = null;
     try {
-      final created = await _repository.createQuestGroup(payload);
+      final created = await _repository.createQuestGroup(
+        payload,
+        idempotencyKey: idempotencyKey,
+      );
+      quests.removeWhere((q) => q.id == created.id);
       quests.add(created);
       return created;
     } on QuestException catch (e) {

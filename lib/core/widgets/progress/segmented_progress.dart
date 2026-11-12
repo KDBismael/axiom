@@ -14,9 +14,16 @@ class SegmentedProgress extends StatelessWidget {
   final int segments;
   final double height;
 
+  /// Any started progress lights at least one segment, so a first
+  /// check-in (3 %) visibly counts instead of leaving the bar empty.
+  static int filledSegments(double ratio, int segments) {
+    if (ratio <= 0) return 0;
+    return (ratio * segments).round().clamp(1, segments);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filled = (ratio * segments).round().clamp(0, segments);
+    final filled = filledSegments(ratio, segments);
     return SizedBox(
       height: height,
       child: Row(

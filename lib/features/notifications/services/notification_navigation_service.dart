@@ -18,6 +18,17 @@ RedirectTarget notificationTarget(String type, Map<String, dynamic> payload) {
           : (route: AppRoutes.allyValidations, arguments: null);
     case 'quest_completed':
     case 'quest_failed':
+      final questId = payload['questId'];
+      if (questId is! String || questId.isEmpty) {
+        return (route: AppRoutes.notifications, arguments: null);
+      }
+      final resultId = payload['resultId'];
+      return (
+        route: resultId is String && resultId.isNotEmpty
+            ? AppRoutes.questResult
+            : AppRoutes.questDetail,
+        arguments: questId,
+      );
     case 'quest_deadline_reminder':
     case 'payment_succeeded':
     case 'payment_failed':
@@ -73,6 +84,7 @@ RedirectTarget notificationTarget(String type, Map<String, dynamic> payload) {
       // in the notifications list.
       return (route: AppRoutes.notifications, arguments: null);
     case 'quest_deletion_requested':
+    case 'quest_deletion_vote_reminder':
       final questId = payload['questId'];
       final requestId = payload['requestId'];
       return questId is String && requestId is String

@@ -65,8 +65,7 @@ class QuestGroupProgress {
       creatorId: json['creatorId'] as String,
       members: (json['members'] as List)
           .map(
-            (m) =>
-                QuestGroupMemberProgress.fromJson(m as Map<String, dynamic>),
+            (m) => QuestGroupMemberProgress.fromJson(m as Map<String, dynamic>),
           )
           .toList(),
     );

@@ -43,8 +43,9 @@ void main() {
 
   group('QuestRepository.fetchQuests', () {
     test('GETs /quests and returns the parsed list', () async {
-      when(() => mockClient.get<dynamic>('/quests'))
-          .thenAnswer((_) async => Response(statusCode: 200, body: [questJson]));
+      when(
+        () => mockClient.get<dynamic>('/quests'),
+      ).thenAnswer((_) async => Response(statusCode: 200, body: [questJson]));
 
       final quests = await repository.fetchQuests();
 
@@ -54,20 +55,30 @@ void main() {
 
     test('throws QuestException on failure', () async {
       when(() => mockClient.get<dynamic>('/quests')).thenAnswer(
-        (_) async => const Response(statusCode: 401, body: {'message': 'Non authentifié'}),
+        (_) async => const Response(
+          statusCode: 401,
+          body: {'message': 'Non authentifié'},
+        ),
       );
 
       expect(
         () => repository.fetchQuests(),
-        throwsA(isA<QuestException>().having((e) => e.message, 'message', 'Non authentifié')),
+        throwsA(
+          isA<QuestException>().having(
+            (e) => e.message,
+            'message',
+            'Non authentifié',
+          ),
+        ),
       );
     });
   });
 
   group('QuestRepository.fetchQuest', () {
     test('GETs /quests/:id', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1'))
-          .thenAnswer((_) async => Response(statusCode: 200, body: questJson));
+      when(
+        () => mockClient.get<dynamic>('/quests/q-1'),
+      ).thenAnswer((_) async => Response(statusCode: 200, body: questJson));
 
       final quest = await repository.fetchQuest('q-1');
 
@@ -76,17 +87,48 @@ void main() {
   });
 
   group('QuestRepository.createQuest', () {
-    test('POSTs the payload to /quests and returns the created quest', () async {
-      when(() => mockClient.post<dynamic>('/quests', any()))
-          .thenAnswer((_) async => Response(statusCode: 201, body: questJson));
+    test(
+      'POSTs the payload to /quests and returns the created quest',
+      () async {
+        when(
+          () => mockClient.post<dynamic>('/quests', any()),
+        ).thenAnswer((_) async => Response(statusCode: 201, body: questJson));
 
-      final quest = await repository.createQuest({'title': 'Gym 3x par semaine'});
+        final quest = await repository.createQuest({
+          'title': 'Gym 3x par semaine',
+        });
 
-      final captured = verify(() => mockClient.post<dynamic>('/quests', captureAny()))
-          .captured
-          .single as Map<String, dynamic>;
-      expect(captured['title'], 'Gym 3x par semaine');
-      expect(quest.id, 'q-1');
+        final captured =
+            verify(
+                  () => mockClient.post<dynamic>('/quests', captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(captured['title'], 'Gym 3x par semaine');
+        expect(quest.id, 'q-1');
+      },
+    );
+
+    test('sends the Idempotency-Key header when a key is given', () async {
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests',
+          any(),
+          headers: any(named: 'headers'),
+        ),
+      ).thenAnswer((_) async => Response(statusCode: 201, body: questJson));
+
+      await repository.createQuest({'title': 'Gym'}, idempotencyKey: 'key-1');
+
+      final headers =
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests',
+                  any(),
+                  headers: captureAny(named: 'headers'),
+                ),
+              ).captured.single
+              as Map<String, String>;
+      expect(headers['Idempotency-Key'], 'key-1');
     });
 
     test('joins list-shaped validation errors with newlines', () async {
@@ -102,7 +144,11 @@ void main() {
       expect(
         () => repository.createQuest({}),
         throwsA(
-          isA<QuestException>().having((e) => e.message, 'message', 'title should not be empty'),
+          isA<QuestException>().having(
+            (e) => e.message,
+            'message',
+            'title should not be empty',
+          ),
         ),
       );
     });
@@ -110,14 +156,17 @@ void main() {
 
   group('QuestRepository.updateQuest', () {
     test('PATCHes /quests/:id with the given changes', () async {
-      when(() => mockClient.patch<dynamic>('/quests/q-1', any()))
-          .thenAnswer((_) async => Response(statusCode: 200, body: questJson));
+      when(
+        () => mockClient.patch<dynamic>('/quests/q-1', any()),
+      ).thenAnswer((_) async => Response(statusCode: 200, body: questJson));
 
       await repository.updateQuest('q-1', {'description': 'Updated'});
 
-      final captured = verify(() => mockClient.patch<dynamic>('/quests/q-1', captureAny()))
-          .captured
-          .single as Map<String, dynamic>;
+      final captured =
+          verify(
+                () => mockClient.patch<dynamic>('/quests/q-1', captureAny()),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'description': 'Updated'});
     });
 
@@ -137,22 +186,29 @@ void main() {
   });
 
   group('QuestRepository.requestDeletion', () {
-    test('deletes immediately when the backend returns deleted: true', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/delete-request', any())).thenAnswer(
-        (_) async => const Response(
-          statusCode: 200,
-          body: {'deleted': true, 'pending': false},
-        ),
-      );
+    test(
+      'deletes immediately when the backend returns deleted: true',
+      () async {
+        when(
+          () => mockClient.post<dynamic>('/quests/q-1/delete-request', any()),
+        ).thenAnswer(
+          (_) async => const Response(
+            statusCode: 200,
+            body: {'deleted': true, 'pending': false},
+          ),
+        );
 
-      final outcome = await repository.requestDeletion('q-1');
+        final outcome = await repository.requestDeletion('q-1');
 
-      expect(outcome.deleted, isTrue);
-      expect(outcome.pending, isFalse);
-    });
+        expect(outcome.deleted, isTrue);
+        expect(outcome.pending, isFalse);
+      },
+    );
 
     test('reports a cancelled+refunded outcome', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/delete-request', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/delete-request', any()),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 200,
           body: {'deleted': false, 'pending': false, 'cancelled': true},
@@ -166,7 +222,9 @@ void main() {
     });
 
     test('reports a pending outcome with the initial vote tally', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/delete-request', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/delete-request', any()),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 202,
           body: {
@@ -186,20 +244,29 @@ void main() {
     });
 
     test('throws QuestException when the caller is not the owner', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/delete-request', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/delete-request', any()),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 403,
-          body: {'message': 'Seul le propriétaire peut demander la suppression'},
+          body: {
+            'message': 'Seul le propriétaire peut demander la suppression',
+          },
         ),
       );
 
-      expect(() => repository.requestDeletion('q-1'), throwsA(isA<QuestException>()));
+      expect(
+        () => repository.requestDeletion('q-1'),
+        throwsA(isA<QuestException>()),
+      );
     });
   });
 
   group('QuestRepository.fetchDeletionRequest', () {
     test('GETs /quests/:id/delete-request and returns the tally', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1/delete-request')).thenAnswer(
+      when(
+        () => mockClient.get<dynamic>('/quests/q-1/delete-request'),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 200,
           body: {
@@ -217,8 +284,9 @@ void main() {
     });
 
     test('returns null when there is no request', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1/delete-request'))
-          .thenAnswer((_) async => const Response(statusCode: 200, body: null));
+      when(
+        () => mockClient.get<dynamic>('/quests/q-1/delete-request'),
+      ).thenAnswer((_) async => const Response(statusCode: 200, body: null));
 
       final request = await repository.fetchDeletionRequest('q-1');
 
@@ -228,40 +296,60 @@ void main() {
 
   group('QuestRepository.voteOnDeletionRequest', () {
     test('POSTs the approve decision', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/delete-request/req-1/votes',
-            any(),
-          )).thenAnswer((_) async => const Response(statusCode: 200, body: {'status': 'approved'}));
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/delete-request/req-1/votes',
+          any(),
+        ),
+      ).thenAnswer(
+        (_) async =>
+            const Response(statusCode: 200, body: {'status': 'approved'}),
+      );
 
       await repository.voteOnDeletionRequest('q-1', 'req-1', approve: true);
 
-      final captured = verify(() => mockClient.post<dynamic>(
-            '/quests/q-1/delete-request/req-1/votes',
-            captureAny(),
-          )).captured.single as Map<String, dynamic>;
+      final captured =
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/delete-request/req-1/votes',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'decision': 'approve'});
     });
 
     test('POSTs the reject decision', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/delete-request/req-1/votes',
-            any(),
-          )).thenAnswer((_) async => const Response(statusCode: 200, body: {'status': 'rejected'}));
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/delete-request/req-1/votes',
+          any(),
+        ),
+      ).thenAnswer(
+        (_) async =>
+            const Response(statusCode: 200, body: {'status': 'rejected'}),
+      );
 
       await repository.voteOnDeletionRequest('q-1', 'req-1', approve: false);
 
-      final captured = verify(() => mockClient.post<dynamic>(
-            '/quests/q-1/delete-request/req-1/votes',
-            captureAny(),
-          )).captured.single as Map<String, dynamic>;
+      final captured =
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/delete-request/req-1/votes',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'decision': 'reject'});
     });
 
     test('throws QuestException on a duplicate vote (409)', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/delete-request/req-1/votes',
-            any(),
-          )).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/delete-request/req-1/votes',
+          any(),
+        ),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 409,
           body: {'message': 'Vous avez déjà voté sur cette demande'},
@@ -277,37 +365,53 @@ void main() {
 
   group('QuestRepository.inviteAllies', () {
     test('POSTs the ally ids to /quests/:id/allies', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/allies', any()))
-          .thenAnswer((_) async => const Response(statusCode: 201, body: []));
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/allies', any()),
+      ).thenAnswer((_) async => const Response(statusCode: 201, body: []));
 
       await repository.inviteAllies('q-1', ['ally-1', 'ally-2']);
 
-      final captured = verify(() => mockClient.post<dynamic>('/quests/q-1/allies', captureAny()))
-          .captured
-          .single as Map<String, dynamic>;
+      final captured =
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/allies',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured, {
         'allyUserIds': ['ally-1', 'ally-2'],
       });
     });
 
-    test('throws QuestException when an ally is already invited (409)', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/allies', any())).thenAnswer(
-        (_) async => const Response(
-          statusCode: 409,
-          body: {'message': 'Un ou plusieurs alliés ont déjà été invités sur cette quête'},
-        ),
-      );
+    test(
+      'throws QuestException when an ally is already invited (409)',
+      () async {
+        when(
+          () => mockClient.post<dynamic>('/quests/q-1/allies', any()),
+        ).thenAnswer(
+          (_) async => const Response(
+            statusCode: 409,
+            body: {
+              'message':
+                  'Un ou plusieurs alliés ont déjà été invités sur cette quête',
+            },
+          ),
+        );
 
-      expect(
-        () => repository.inviteAllies('q-1', ['ally-1']),
-        throwsA(isA<QuestException>()),
-      );
-    });
+        expect(
+          () => repository.inviteAllies('q-1', ['ally-1']),
+          throwsA(isA<QuestException>()),
+        );
+      },
+    );
   });
 
   group('QuestRepository.fetchMyAllyInvitations', () {
     test('GETs /quests/ally-invitations and returns the parsed list', () async {
-      when(() => mockClient.get<dynamic>('/quests/ally-invitations')).thenAnswer(
+      when(
+        () => mockClient.get<dynamic>('/quests/ally-invitations'),
+      ).thenAnswer(
         (_) async => Response(
           statusCode: 200,
           body: [
@@ -328,8 +432,13 @@ void main() {
     });
 
     test('throws QuestException on failure', () async {
-      when(() => mockClient.get<dynamic>('/quests/ally-invitations')).thenAnswer(
-        (_) async => const Response(statusCode: 401, body: {'message': 'Non authentifié'}),
+      when(
+        () => mockClient.get<dynamic>('/quests/ally-invitations'),
+      ).thenAnswer(
+        (_) async => const Response(
+          statusCode: 401,
+          body: {'message': 'Non authentifié'},
+        ),
       );
 
       expect(
@@ -340,56 +449,72 @@ void main() {
   });
 
   group('QuestRepository.fetchAllyInvitation', () {
-    test('GETs /quests/:id/ally-invitation and returns the full terms', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1/ally-invitation')).thenAnswer(
-        (_) async => Response(
-          statusCode: 200,
-          body: {
-            'invitation': {'status': 'pending'},
-            'quest': {
-              'id': 'q-1',
-              'title': 'Courir tous les jours',
-              'description': '30 minutes de course',
-              'frequency': 'daily',
-              'durationDays': 30,
-              'startDate': '2026-01-01T00:00:00.000Z',
-              'deadline': '2026-01-31T00:00:00.000Z',
-              'hasStake': true,
-              'stakeAmountXof': '5000',
-              'fundsDistribution': 'allies',
+    test(
+      'GETs /quests/:id/ally-invitation and returns the full terms',
+      () async {
+        when(
+          () => mockClient.get<dynamic>('/quests/q-1/ally-invitation'),
+        ).thenAnswer(
+          (_) async => Response(
+            statusCode: 200,
+            body: {
+              'invitation': {'status': 'pending'},
+              'quest': {
+                'id': 'q-1',
+                'title': 'Courir tous les jours',
+                'description': '30 minutes de course',
+                'frequency': 'daily',
+                'durationDays': 30,
+                'startDate': '2026-01-01T00:00:00.000Z',
+                'deadline': '2026-01-31T00:00:00.000Z',
+                'hasStake': true,
+                'stakeAmountXof': '5000',
+                'fundsDistribution': 'allies',
+              },
             },
-          },
-        ),
-      );
+          ),
+        );
 
-      final invitation = await repository.fetchAllyInvitation('q-1');
+        final invitation = await repository.fetchAllyInvitation('q-1');
 
-      expect(invitation.title, 'Courir tous les jours');
-      expect(invitation.stakeAmountXof, 5000.0);
-    });
+        expect(invitation.title, 'Courir tous les jours');
+        expect(invitation.stakeAmountXof, 5000.0);
+      },
+    );
   });
 
   group('QuestRepository.respondToAllyInvitation', () {
     test('POSTs the accept decision', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/ally-invitation/respond',
-            any(),
-          )).thenAnswer((_) async => const Response(statusCode: 200, body: {'status': 'accepted'}));
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/ally-invitation/respond',
+          any(),
+        ),
+      ).thenAnswer(
+        (_) async =>
+            const Response(statusCode: 200, body: {'status': 'accepted'}),
+      );
 
       await repository.respondToAllyInvitation('q-1', accept: true);
 
-      final captured = verify(() => mockClient.post<dynamic>(
-            '/quests/q-1/ally-invitation/respond',
-            captureAny(),
-          )).captured.single as Map<String, dynamic>;
+      final captured =
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/ally-invitation/respond',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'decision': 'accept'});
     });
 
     test('throws QuestException when already answered', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/ally-invitation/respond',
-            any(),
-          )).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/ally-invitation/respond',
+          any(),
+        ),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 400,
           body: {'message': 'Cette invitation a déjà été traitée'},
@@ -404,30 +529,40 @@ void main() {
   });
 
   group('QuestRepository.fetchMyOwnerInvitations', () {
-    test('GETs /quests/owner-invitations and returns the parsed list', () async {
-      when(() => mockClient.get<dynamic>('/quests/owner-invitations')).thenAnswer(
-        (_) async => Response(
-          statusCode: 200,
-          body: [
-            {
-              'questId': 'q-1',
-              'questTitle': 'Courir pour un ami',
-              'invitedAt': '2026-07-01T00:00:00.000Z',
-            },
-          ],
-        ),
-      );
+    test(
+      'GETs /quests/owner-invitations and returns the parsed list',
+      () async {
+        when(
+          () => mockClient.get<dynamic>('/quests/owner-invitations'),
+        ).thenAnswer(
+          (_) async => Response(
+            statusCode: 200,
+            body: [
+              {
+                'questId': 'q-1',
+                'questTitle': 'Courir pour un ami',
+                'invitedAt': '2026-07-01T00:00:00.000Z',
+              },
+            ],
+          ),
+        );
 
-      final invitations = await repository.fetchMyOwnerInvitations();
+        final invitations = await repository.fetchMyOwnerInvitations();
 
-      expect(invitations, hasLength(1));
-      expect(invitations.single.questId, 'q-1');
-      expect(invitations.single.questTitle, 'Courir pour un ami');
-    });
+        expect(invitations, hasLength(1));
+        expect(invitations.single.questId, 'q-1');
+        expect(invitations.single.questTitle, 'Courir pour un ami');
+      },
+    );
 
     test('throws QuestException on failure', () async {
-      when(() => mockClient.get<dynamic>('/quests/owner-invitations')).thenAnswer(
-        (_) async => const Response(statusCode: 401, body: {'message': 'Non authentifié'}),
+      when(
+        () => mockClient.get<dynamic>('/quests/owner-invitations'),
+      ).thenAnswer(
+        (_) async => const Response(
+          statusCode: 401,
+          body: {'message': 'Non authentifié'},
+        ),
       );
 
       expect(
@@ -438,56 +573,72 @@ void main() {
   });
 
   group('QuestRepository.fetchOwnerInvitation', () {
-    test('GETs /quests/:id/owner-invitation and returns the full terms', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1/owner-invitation')).thenAnswer(
-        (_) async => Response(
-          statusCode: 200,
-          body: {
-            'invitation': {'status': 'pending'},
-            'quest': {
-              'id': 'q-1',
-              'title': 'Courir pour un ami',
-              'description': '30 minutes de course',
-              'frequency': 'daily',
-              'durationDays': 30,
-              'startDate': '2026-01-01T00:00:00.000Z',
-              'deadline': '2026-01-31T00:00:00.000Z',
-              'hasStake': true,
-              'stakeAmountXof': '5000',
-              'fundsDistribution': 'allies',
+    test(
+      'GETs /quests/:id/owner-invitation and returns the full terms',
+      () async {
+        when(
+          () => mockClient.get<dynamic>('/quests/q-1/owner-invitation'),
+        ).thenAnswer(
+          (_) async => Response(
+            statusCode: 200,
+            body: {
+              'invitation': {'status': 'pending'},
+              'quest': {
+                'id': 'q-1',
+                'title': 'Courir pour un ami',
+                'description': '30 minutes de course',
+                'frequency': 'daily',
+                'durationDays': 30,
+                'startDate': '2026-01-01T00:00:00.000Z',
+                'deadline': '2026-01-31T00:00:00.000Z',
+                'hasStake': true,
+                'stakeAmountXof': '5000',
+                'fundsDistribution': 'allies',
+              },
             },
-          },
-        ),
-      );
+          ),
+        );
 
-      final invitation = await repository.fetchOwnerInvitation('q-1');
+        final invitation = await repository.fetchOwnerInvitation('q-1');
 
-      expect(invitation.title, 'Courir pour un ami');
-      expect(invitation.stakeAmountXof, 5000.0);
-    });
+        expect(invitation.title, 'Courir pour un ami');
+        expect(invitation.stakeAmountXof, 5000.0);
+      },
+    );
   });
 
   group('QuestRepository.respondToOwnerInvitation', () {
     test('POSTs the accept decision', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/owner-invitation/respond',
-            any(),
-          )).thenAnswer((_) async => const Response(statusCode: 200, body: {'outcome': 'accepted'}));
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/owner-invitation/respond',
+          any(),
+        ),
+      ).thenAnswer(
+        (_) async =>
+            const Response(statusCode: 200, body: {'outcome': 'accepted'}),
+      );
 
       await repository.respondToOwnerInvitation('q-1', accept: true);
 
-      final captured = verify(() => mockClient.post<dynamic>(
-            '/quests/q-1/owner-invitation/respond',
-            captureAny(),
-          )).captured.single as Map<String, dynamic>;
+      final captured =
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/owner-invitation/respond',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured, {'decision': 'accept'});
     });
 
     test('throws QuestException when already answered', () async {
-      when(() => mockClient.post<dynamic>(
-            '/quests/q-1/owner-invitation/respond',
-            any(),
-          )).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/owner-invitation/respond',
+          any(),
+        ),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 400,
           body: {'message': 'Cette invitation a déjà été traitée'},
@@ -514,8 +665,11 @@ void main() {
     };
 
     test('POSTs to /quests/:id/check-ins with the proof fields', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any()))
-          .thenAnswer((_) async => Response(statusCode: 201, body: checkInResultJson));
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/check-ins', any()),
+      ).thenAnswer(
+        (_) async => Response(statusCode: 201, body: checkInResultJson),
+      );
 
       final result = await repository.checkIn(
         'q-1',
@@ -524,16 +678,22 @@ void main() {
       );
 
       final captured =
-          verify(() => mockClient.post<dynamic>('/quests/q-1/check-ins', captureAny()))
-              .captured
-              .single as Map<String, dynamic>;
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/check-ins',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured['proofType'], 'text');
       expect(captured['textContent'], 'Fait !');
       expect(result.streakDays, 1);
     });
 
     test('throws QuestException with the dedup 409 message', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/check-ins', any()),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 409,
           body: {'message': "Vous avez déjà validé aujourd'hui"},
@@ -553,45 +713,72 @@ void main() {
     });
 
     test('throws QuestException with the no-ally 400 message', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/check-ins', any()),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 400,
-          body: {'message': 'Un allié accepté est requis pour soumettre une preuve'},
+          body: {
+            'message': 'Un allié accepté est requis pour soumettre une preuve',
+          },
         ),
       );
 
-      expect(() => repository.checkIn('q-1', proofType: ProofType.photo, fileId: 'f-1'),
-          throwsA(isA<QuestException>()));
-    });
-
-    test('includes focusStartedAt/focusEndedAt when a session rode along', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any()))
-          .thenAnswer((_) async => Response(statusCode: 201, body: checkInResultJson));
-
-      await repository.checkIn(
-        'q-1',
-        focusStartedAt: DateTime.utc(2026, 1, 5, 9, 0),
-        focusEndedAt: DateTime.utc(2026, 1, 5, 9, 30),
+      expect(
+        () => repository.checkIn(
+          'q-1',
+          proofType: ProofType.photo,
+          fileId: 'f-1',
+        ),
+        throwsA(isA<QuestException>()),
       );
-
-      final captured =
-          verify(() => mockClient.post<dynamic>('/quests/q-1/check-ins', captureAny()))
-              .captured
-              .single as Map<String, dynamic>;
-      expect(captured['focusStartedAt'], '2026-01-05T09:00:00.000Z');
-      expect(captured['focusEndedAt'], '2026-01-05T09:30:00.000Z');
     });
+
+    test(
+      'includes focusStartedAt/focusEndedAt when a session rode along',
+      () async {
+        when(
+          () => mockClient.post<dynamic>('/quests/q-1/check-ins', any()),
+        ).thenAnswer(
+          (_) async => Response(statusCode: 201, body: checkInResultJson),
+        );
+
+        await repository.checkIn(
+          'q-1',
+          focusStartedAt: DateTime.utc(2026, 1, 5, 9, 0),
+          focusEndedAt: DateTime.utc(2026, 1, 5, 9, 30),
+        );
+
+        final captured =
+            verify(
+                  () => mockClient.post<dynamic>(
+                    '/quests/q-1/check-ins',
+                    captureAny(),
+                  ),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(captured['focusStartedAt'], '2026-01-05T09:00:00.000Z');
+        expect(captured['focusEndedAt'], '2026-01-05T09:30:00.000Z');
+      },
+    );
 
     test('omits focus fields when no session rode along', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins', any()))
-          .thenAnswer((_) async => Response(statusCode: 201, body: checkInResultJson));
+      when(
+        () => mockClient.post<dynamic>('/quests/q-1/check-ins', any()),
+      ).thenAnswer(
+        (_) async => Response(statusCode: 201, body: checkInResultJson),
+      );
 
       await repository.checkIn('q-1');
 
       final captured =
-          verify(() => mockClient.post<dynamic>('/quests/q-1/check-ins', captureAny()))
-              .captured
-              .single as Map<String, dynamic>;
+          verify(
+                () => mockClient.post<dynamic>(
+                  '/quests/q-1/check-ins',
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(captured.containsKey('focusStartedAt'), isFalse);
       expect(captured.containsKey('focusEndedAt'), isFalse);
     });
@@ -603,7 +790,11 @@ void main() {
         (_) async => Response(
           statusCode: 200,
           body: [
-            {'id': 'ci-1', 'questId': 'q-1', 'date': '2026-01-05T00:00:00.000Z'},
+            {
+              'id': 'ci-1',
+              'questId': 'q-1',
+              'date': '2026-01-05T00:00:00.000Z',
+            },
           ],
         ),
       );
@@ -616,7 +807,9 @@ void main() {
 
   group('QuestRepository.fetchFocusSessions', () {
     test('GETs /quests/:id/focus-sessions', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1/focus-sessions')).thenAnswer(
+      when(
+        () => mockClient.get<dynamic>('/quests/q-1/focus-sessions'),
+      ).thenAnswer(
         (_) async => Response(
           statusCode: 200,
           body: {
@@ -641,9 +834,13 @@ void main() {
     });
 
     test('throws QuestException on failure', () async {
-      when(() => mockClient.get<dynamic>('/quests/q-1/focus-sessions')).thenAnswer(
-        (_) async =>
-            const Response(statusCode: 404, body: {'message': 'Quête introuvable'}),
+      when(
+        () => mockClient.get<dynamic>('/quests/q-1/focus-sessions'),
+      ).thenAnswer(
+        (_) async => const Response(
+          statusCode: 404,
+          body: {'message': 'Quête introuvable'},
+        ),
       );
 
       expect(
@@ -655,7 +852,12 @@ void main() {
 
   group('QuestRepository.resubmitProof', () {
     test('POSTs to /quests/:questId/check-ins/:checkInId/proofs', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins/ci-1/proofs', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/check-ins/ci-1/proofs',
+          any(),
+        ),
+      ).thenAnswer(
         (_) async => Response(
           statusCode: 201,
           body: {
@@ -680,7 +882,12 @@ void main() {
     });
 
     test('throws QuestException when a proof is already pending', () async {
-      when(() => mockClient.post<dynamic>('/quests/q-1/check-ins/ci-1/proofs', any())).thenAnswer(
+      when(
+        () => mockClient.post<dynamic>(
+          '/quests/q-1/check-ins/ci-1/proofs',
+          any(),
+        ),
+      ).thenAnswer(
         (_) async => const Response(
           statusCode: 400,
           body: {'message': 'Une preuve est déjà en cours de validation'},
@@ -688,7 +895,12 @@ void main() {
       );
 
       expect(
-        () => repository.resubmitProof('q-1', 'ci-1', proofType: ProofType.text, textContent: 'x'),
+        () => repository.resubmitProof(
+          'q-1',
+          'ci-1',
+          proofType: ProofType.text,
+          textContent: 'x',
+        ),
         throwsA(isA<QuestException>()),
       );
     });
@@ -719,25 +931,31 @@ void main() {
   });
 
   group('QuestRepository.uploadEvidenceFile', () {
-    test('posts multipart form data to /files/upload and returns the file id', () async {
-      final picked = PickedEvidence(
-        bytes: Uint8List.fromList([1, 2, 3]),
-        sizeBytes: 3,
-        filename: 'proof.png',
-        mimeType: 'image/png',
-      );
-      when(() => mockClient.post<dynamic>('/files/upload', any()))
-          .thenAnswer((_) async => Response(statusCode: 201, body: {'id': 'f-9'}));
+    test(
+      'posts multipart form data to /files/upload and returns the file id',
+      () async {
+        final picked = PickedEvidence(
+          bytes: Uint8List.fromList([1, 2, 3]),
+          sizeBytes: 3,
+          filename: 'proof.png',
+          mimeType: 'image/png',
+        );
+        when(() => mockClient.post<dynamic>('/files/upload', any())).thenAnswer(
+          (_) async => Response(statusCode: 201, body: {'id': 'f-9'}),
+        );
 
-      final id = await repository.uploadEvidenceFile(picked);
+        final id = await repository.uploadEvidenceFile(picked);
 
-      expect(id, 'f-9');
-      final captured = verify(() => mockClient.post<dynamic>('/files/upload', captureAny()))
-          .captured
-          .single as FormData;
-      expect(captured.fields.single.key, 'purpose');
-      expect(captured.fields.single.value, 'quest_evidence');
-      expect(captured.files.single.value.filename, 'proof.png');
-    });
+        expect(id, 'f-9');
+        final captured =
+            verify(
+                  () => mockClient.post<dynamic>('/files/upload', captureAny()),
+                ).captured.single
+                as FormData;
+        expect(captured.fields.single.key, 'purpose');
+        expect(captured.fields.single.value, 'quest_evidence');
+        expect(captured.files.single.value.filename, 'proof.png');
+      },
+    );
   });
 }

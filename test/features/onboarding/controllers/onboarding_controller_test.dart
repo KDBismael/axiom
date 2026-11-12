@@ -61,4 +61,13 @@ void main() {
       expect(controller.isLastPage, isTrue);
     });
   });
+
+  test('goBack returns to the previous slide and reports the first one', () async {
+    controller.currentPage.value = 2;
+    expect(await controller.goBack(), isTrue);
+    expect(controller.currentPage.value, 1);
+    controller.currentPage.value = 0;
+    expect(await controller.goBack(), isFalse);
+    expect(controller.currentPage.value, 0);
+  });
 }

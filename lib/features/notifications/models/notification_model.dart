@@ -1,3 +1,5 @@
+import '../../quests/models/quest_result.dart';
+
 /// `GET /notifications` item. `type` is one of: ally_invite_accepted,
 /// ally_request_received, ally_request_accepted, ally_request_declined,
 /// ally_removed, validation_requested,
@@ -27,6 +29,21 @@ class AppNotification {
   final DateTime createdAt;
 
   bool get isUnread => readAt == null;
+
+  String? get resultSummary {
+    if ((type != 'quest_completed' && type != 'quest_failed') ||
+        payload['resultId'] is! String ||
+        payload['completionPercent'] is! num) {
+      return null;
+    }
+    final person = [
+      payload['firstName'],
+      payload['lastName'],
+    ].whereType<String>().where((s) => s.isNotEmpty).join(' ');
+    final title = payload['title'] ?? payload['questTitle'] ?? 'sa quête';
+    final percent = formatResultPercent(payload['completionPercent'] as num);
+    return '${person.isEmpty ? 'Ton allié' : person} a ${type == 'quest_completed' ? 'réussi' : 'échoué à'} « $title » — $percent.';
+  }
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(

@@ -32,6 +32,9 @@ void main() {
     QuestStatus status = QuestStatus.active,
     double stakeAmountXof = 0,
     bool hasStake = false,
+    double progress = 0.1,
+    List<QuestAllyRef> allies = const [],
+    String? resultId,
   }) {
     return QuestModel(
       id: id,
@@ -50,14 +53,131 @@ void main() {
       hasStake: hasStake,
       stakeAmountXof: hasStake ? stakeAmountXof : null,
       status: status,
-      progress: 0.1,
+      progress: progress,
       streakDays: 1,
+      allies: allies,
+      resultId: resultId,
     );
   }
 
   setUp(() {
     mockRepository = MockQuestRepository();
     controller = QuestListController(mockRepository);
+  });
+
+  group('gallery resume regression M-01', () {
+    const acceptedAllies = [
+      QuestAllyRef(
+        userId: 'ally-1',
+        firstName: 'Litteral',
+        lastName: '',
+        status: QuestAllyStatus.accepted,
+      ),
+      QuestAllyRef(
+        userId: 'ally-2',
+        firstName: 'Briseur',
+        lastName: '',
+        status: QuestAllyStatus.accepted,
+      ),
+    ];
+
+    test(
+      'list refresh keeps fetched allies/result while taking fresh summary state',
+      () async {
+        controller.quests.add(quest());
+        when(() => mockRepository.fetchQuest('q-1')).thenAnswer(
+          (_) async => quest(allies: acceptedAllies, resultId: 'result-1'),
+        );
+        await controller.refreshQuest('q-1');
+        expect(controller.findById('q-1')!.allies, hasLength(2));
+        when(() => mockRepository.fetchQuests()).thenAnswer(
+          (_) async => [quest(status: QuestStatus.completed, progress: 0.8)],
+        );
+
+        await controller.loadQuests();
+
+        final refreshed = controller.findById('q-1')!;
+        expect(refreshed.allies.map((a) => a.userId), ['ally-1', 'ally-2']);
+        expect(refreshed.resultId, 'result-1');
+        expect(refreshed.status, QuestStatus.completed);
+        expect(refreshed.progress, 0.8);
+      },
+    );
+
+    test(
+      'resume waits for the list before refetching authoritative detail',
+      () async {
+        final summaries = Completer<List<QuestModel>>();
+        controller.quests.add(quest());
+        when(
+          () => mockRepository.fetchQuests(),
+        ).thenAnswer((_) => summaries.future);
+        when(
+          () => mockRepository.fetchQuest('q-1'),
+        ).thenAnswer((_) async => quest(allies: acceptedAllies, progress: 0.9));
+
+        final resuming = controller.refreshAfterResume(questId: 'q-1');
+        verifyNever(() => mockRepository.fetchQuest(any()));
+        summaries.complete([quest(progress: 0.5)]);
+        await resuming;
+
+        expect(controller.findById('q-1')!.allies, hasLength(2));
+        expect(controller.findById('q-1')!.progress, 0.9);
+        verifyInOrder([
+          () => mockRepository.fetchQuests(),
+          () => mockRepository.fetchQuest('q-1'),
+        ]);
+      },
+    );
+
+    test(
+      'an in-flight list cannot discard detail fetched while it was pending',
+      () async {
+        final summaries = Completer<List<QuestModel>>();
+        when(
+          () => mockRepository.fetchQuests(),
+        ).thenAnswer((_) => summaries.future);
+        when(() => mockRepository.fetchQuest('q-1')).thenAnswer(
+          (_) async => quest(allies: acceptedAllies, resultId: 'result-1'),
+        );
+        final loading = controller.loadQuests();
+        await controller.refreshQuest('q-1');
+        summaries.complete([quest(progress: 0.7)]);
+        await loading;
+
+        expect(controller.findById('q-1')!.allies, hasLength(2));
+        expect(controller.findById('q-1')!.resultId, 'result-1');
+        expect(controller.findById('q-1')!.progress, 0.7);
+      },
+    );
+
+    test('resume without an open quest refreshes only the list', () async {
+      when(
+        () => mockRepository.fetchQuests(),
+      ).thenAnswer((_) async => [quest()]);
+      await controller.refreshAfterResume();
+      expect(controller.quests, hasLength(1));
+      verifyNever(() => mockRepository.fetchQuest(any()));
+    });
+
+    test(
+      'authoritative detail refresh removes genuinely removed allies and result',
+      () async {
+        controller.quests.add(
+          quest(allies: acceptedAllies, resultId: 'result-1'),
+        );
+        when(() => mockRepository.fetchQuest('q-1')).thenAnswer(
+          (_) async => quest(status: QuestStatus.paused, progress: 0.6),
+        );
+
+        await controller.refreshQuest('q-1');
+
+        expect(controller.findById('q-1')!.allies, isEmpty);
+        expect(controller.findById('q-1')!.resultId, isNull);
+        expect(controller.findById('q-1')!.status, QuestStatus.paused);
+        expect(controller.findById('q-1')!.progress, 0.6);
+      },
+    );
   });
 
   group('QuestListController.loadQuests', () {

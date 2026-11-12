@@ -85,15 +85,18 @@ void main() {
   }
 
   group('FocusTimerController.onInit', () {
-    test('starts idle with no elapsed time when there is no pending draft', () async {
-      final controller = buildController();
-      controller.onInit();
-      await Future.delayed(Duration.zero);
+    test(
+      'starts idle with no elapsed time when there is no pending draft',
+      () async {
+        final controller = buildController();
+        controller.onInit();
+        await Future.delayed(Duration.zero);
 
-      expect(controller.state.value, FocusTimerState.idle);
-      expect(controller.elapsed.value, Duration.zero);
-      controller.onClose();
-    });
+        expect(controller.state.value, FocusTimerState.idle);
+        expect(controller.elapsed.value, Duration.zero);
+        controller.onClose();
+      },
+    );
 
     test('restores a pending draft as a finished session', () async {
       when(() => mockDraftStore.read('q-1')).thenAnswer(
@@ -131,20 +134,23 @@ void main() {
       controller.onClose();
     });
 
-    test('pause stops the ticker and keeps the accumulated elapsed time', () async {
-      final controller = buildController();
-      await controller.start();
-      await Future.delayed(const Duration(milliseconds: 30));
+    test(
+      'pause stops the ticker and keeps the accumulated elapsed time',
+      () async {
+        final controller = buildController();
+        await controller.start();
+        await Future.delayed(const Duration(milliseconds: 30));
 
-      controller.pause();
-      final pausedElapsed = controller.elapsed.value;
-      await Future.delayed(const Duration(milliseconds: 30));
+        controller.pause();
+        final pausedElapsed = controller.elapsed.value;
+        await Future.delayed(const Duration(milliseconds: 30));
 
-      expect(controller.state.value, FocusTimerState.paused);
-      expect(controller.elapsed.value, pausedElapsed);
-      verify(() => mockPresence.pause()).called(1);
-      controller.onClose();
-    });
+        expect(controller.state.value, FocusTimerState.paused);
+        expect(controller.elapsed.value, pausedElapsed);
+        verify(() => mockPresence.pause()).called(1);
+        controller.onClose();
+      },
+    );
 
     test('resume continues ticking from where it paused', () async {
       final controller = buildController();
@@ -162,38 +168,57 @@ void main() {
       controller.onClose();
     });
 
-    test('plays the chime once per crossing of the chime interval', () async {
+    testWidgets('plays the chime once per crossing of the chime interval', (
+      tester,
+    ) async {
       final controller = buildController();
-      await controller.start();
+      try {
+        await controller.start();
 
-      await Future.delayed(const Duration(milliseconds: 55));
-      controller.pause();
+        // Pump the fake clock across exact boundaries: host load cannot
+        // skip periodic callbacks or make the assertion race real time.
+        await tester.pump(const Duration(milliseconds: 19));
+        verifyNever(() => mockChime.play());
+        await tester.pump(const Duration(milliseconds: 1));
+        verify(() => mockChime.play()).called(1);
 
-      // ~55ms of ticking at a 5ms tick / 20ms chime interval should cross
-      // the chime at least twice (20ms, 40ms) without re-firing every tick.
-      verify(() => mockChime.play()).called(greaterThanOrEqualTo(2));
-      controller.onClose();
+        await tester.pump(const Duration(milliseconds: 19));
+        verifyNever(() => mockChime.play());
+        await tester.pump(const Duration(milliseconds: 1));
+        verify(() => mockChime.play()).called(1);
+        expect(controller.elapsed.value, const Duration(milliseconds: 40));
+
+        controller.pause();
+        await tester.pump(const Duration(milliseconds: 100));
+        verifyNever(() => mockChime.play());
+        expect(controller.elapsed.value, const Duration(milliseconds: 40));
+      } finally {
+        controller.onClose();
+      }
     });
   });
 
   group('FocusTimerController.finish', () {
-    test('stops the ticker, persists a draft, and never touches the repository', () async {
-      final controller = buildController();
-      await controller.start();
-      await Future.delayed(const Duration(milliseconds: 20));
+    test(
+      'stops the ticker, persists a draft, and never touches the repository',
+      () async {
+        final controller = buildController();
+        await controller.start();
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      await controller.finish();
-      final finishedElapsed = controller.elapsed.value;
-      await Future.delayed(const Duration(milliseconds: 20));
+        await controller.finish();
+        final finishedElapsed = controller.elapsed.value;
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(controller.state.value, FocusTimerState.finished);
-      expect(controller.elapsed.value, finishedElapsed); // ticker is stopped
-      expect(controller.startedAt, isNotNull);
-      expect(controller.endedAt, isNotNull);
-      verify(() => mockDraftStore.save('q-1', any())).called(1);
-      verify(() => mockPresence.finish()).called(1);
-      controller.onClose();
-    });
+        expect(controller.state.value, FocusTimerState.finished);
+        expect(controller.elapsed.value, finishedElapsed); // ticker is stopped
+        expect(controller.startedAt, isNotNull);
+        expect(controller.endedAt, isNotNull);
+        verify(() => mockDraftStore.save('q-1', any())).called(1);
+        verify(() => mockPresence.finish()).called(1);
+        controller.onClose();
+      },
+    );
 
     test('is a no-op when the timer was never started', () async {
       final controller = buildController();

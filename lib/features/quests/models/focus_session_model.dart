@@ -30,7 +30,10 @@ class FocusSession {
 /// newest first, plus today's total minutes (informational only — there is
 /// no enforced per-quest minute goal).
 class FocusSessionHistory {
-  const FocusSessionHistory({required this.sessions, required this.todayMinutes});
+  const FocusSessionHistory({
+    required this.sessions,
+    required this.todayMinutes,
+  });
 
   final List<FocusSession> sessions;
   final int todayMinutes;

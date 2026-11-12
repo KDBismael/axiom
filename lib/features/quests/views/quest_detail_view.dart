@@ -18,6 +18,7 @@ import '../../social/models/ally.dart';
 import '../../social/models/user_search_result.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
+import '../utils/check_in_availability.dart';
 import '../models/quest_deletion_request.dart';
 import '../models/quest_group_progress.dart';
 import '../models/quest_model.dart';
@@ -214,6 +215,18 @@ class _QuestDetailBody extends GetView<QuestListController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _StatusPill(status: quest.status, label: _statusLabel),
+          if (quest.resultId != null &&
+              (quest.status == QuestStatus.completed ||
+                  quest.status == QuestStatus.failed))
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: AppButton(
+                label: 'Voir le bilan',
+                leadingIcon: Icons.assignment_outlined,
+                onPressed: () =>
+                    Get.toNamed(AppRoutes.questResult, arguments: quest.id),
+              ),
+            ),
           const SizedBox(height: 16),
           Text(
             quest.title,
@@ -336,39 +349,7 @@ class _QuestDetailBody extends GetView<QuestListController> {
                 QuestPauseRequestStatus.pending;
             return Column(
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: AppPressable(
-                    color: canAct
-                        ? AppColors.volt
-                        : AppColors.surfaceContainerHighest,
-                    shadowColor: canAct
-                        ? AppColors.voltShadow
-                        : const Color(0xFF0A0A0C),
-                    shadowThickness: 5,
-                    borderRadius: BorderRadius.circular(16),
-                    enabled: canAct,
-                    onTap: () => Get.toNamed(
-                      AppRoutes.questValidation,
-                      arguments: quest.id,
-                    ),
-                    child: Center(
-                      child: Text(
-                        'VALIDER AVEC PREUVE',
-                        style: TextStyle(
-                          fontFamily: 'Unbounded',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          letterSpacing: 0.06 * 14,
-                          color: canAct
-                              ? AppColors.onPrimary
-                              : AppColors.outlineFaint,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _ValidateButton(quest: quest, canAct: canAct),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -1090,7 +1071,7 @@ class _InviteAlliesSheetState extends State<_InviteAlliesSheet> {
             }),
             const SizedBox(height: 12),
             Text(
-              'En acceptant, cette personne rejoindra votre quête et deviendra votre alliée.',
+              'En acceptant, cette personne rejoindra ta quête et deviendra ton alliée.',
               style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
             ),
             ...[
@@ -1527,7 +1508,7 @@ class _InviteGroupMembersSheetState extends State<_InviteGroupMembersSheet> {
             }),
             const SizedBox(height: 12),
             Text(
-              'En acceptant, cette personne rejoindra votre quête collective avec sa propre quête et validera les vôtres.',
+              'En acceptant, cette personne rejoindra ta quête collective avec sa propre quête et examinera tes preuves.',
               style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
             ),
             ...[
@@ -1561,7 +1542,7 @@ class _DeleteQuestSheet extends StatelessWidget {
         .toList();
     final (body, buttonLabel) = switch (accepted.length) {
       0 when quest.hasStake => (
-        'Votre mise vous sera remboursée immédiatement.',
+        'Ta mise te sera remboursée immédiatement.',
         'SUPPRIMER LA QUÊTE',
       ),
       0 => (
@@ -2092,7 +2073,7 @@ class _CheckInHistory extends StatelessWidget {
         final checkIns = snapshot.data!;
         if (checkIns.isEmpty) {
           return Text(
-            'Aucun check-in pour le moment.',
+            'Aucun pointage pour le moment.',
             style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           );
         }
@@ -2385,6 +2366,11 @@ class _RulesGrid extends StatelessWidget {
     final periodUnitPlural = quest.frequency == QuestFrequency.daily
         ? 'jours'
         : 'semaines';
+    final missedPeriods = toleratedMissedPeriods(
+      frequency: quest.frequency,
+      durationDays: quest.durationDays,
+      successThresholdPercent: quest.successThresholdPercent,
+    );
     final rules = [
       (
         'Fréquence',
@@ -2395,11 +2381,13 @@ class _RulesGrid extends StatelessWidget {
       ('Objectif', '${quest.targetPerPeriod}× par $periodUnit'),
       (
         'Absences tolérées',
-        '${toleratedMissedPeriods(frequency: quest.frequency, durationDays: quest.durationDays, successThresholdPercent: quest.successThresholdPercent)} '
-            '$periodUnitPlural',
+        '$missedPeriods ${missedPeriods == 1 ? periodUnit : periodUnitPlural}',
       ),
       ('Échéance', _shortFrenchDate(quest.deadline)),
-      ('Rattrapage', '${quest.gracePeriodDays} jours'),
+      (
+        'Rattrapage',
+        '${quest.gracePeriodDays} ${quest.gracePeriodDays == 1 ? 'jour' : 'jours'}',
+      ),
       ('Preuve', quest.requiresProof ? 'Obligatoire' : 'Facultative'),
     ];
     return Container(
@@ -2593,6 +2581,85 @@ class _AddAllyChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The detail screen's main action. Reads the quest's check-ins so it can
+/// say "VALIDÉ AUJOURD'HUI" instead of offering a validation the
+/// next screen would refuse anyway.
+class _ValidateButton extends StatefulWidget {
+  const _ValidateButton({required this.quest, required this.canAct});
+
+  final QuestModel quest;
+  final bool canAct;
+
+  @override
+  State<_ValidateButton> createState() => _ValidateButtonState();
+}
+
+class _ValidateButtonState extends State<_ValidateButton> {
+  late Future<List<CheckIn>> _checkIns = _load();
+
+  Future<List<CheckIn>> _load() =>
+      Get.find<QuestListController>().fetchCheckIns(widget.quest.id);
+
+  @override
+  void didUpdateWidget(_ValidateButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new QuestModel (e.g. after validating) may mean a new check-in.
+    if (!identical(oldWidget.quest, widget.quest)) _checkIns = _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<CheckIn>>(
+      future: _checkIns,
+      builder: (context, snapshot) {
+        final done =
+            snapshot.hasData &&
+            checkInAvailability(widget.quest, snapshot.data!, DateTime.now()) ==
+                CheckInAvailability.periodComplete;
+        final enabled = widget.canAct && !done;
+        final label = done
+            ? (widget.quest.frequency == QuestFrequency.daily
+                  ? "VALIDÉ AUJOURD'HUI ✓"
+                  : 'OBJECTIF DE LA SEMAINE ATTEINT ✓')
+            : (widget.quest.requiresProof ? 'VALIDER AVEC PREUVE' : 'VALIDER');
+        return SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: AppPressable(
+            color: enabled ? AppColors.volt : AppColors.surfaceContainerHighest,
+            shadowColor: enabled
+                ? AppColors.voltShadow
+                : const Color(0xFF0A0A0C),
+            shadowThickness: 5,
+            borderRadius: BorderRadius.circular(16),
+            enabled: enabled,
+            onTap: () => Get.toNamed(
+              AppRoutes.questValidation,
+              arguments: widget.quest.id,
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Unbounded',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  letterSpacing: 0.06 * 14,
+                  color: done
+                      ? AppColors.volt
+                      : enabled
+                      ? AppColors.onPrimary
+                      : AppColors.outlineFaint,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

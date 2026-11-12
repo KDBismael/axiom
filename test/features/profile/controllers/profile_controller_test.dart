@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:axiom/features/auth/models/user_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mocktail/mocktail.dart';
@@ -112,6 +113,62 @@ void main() {
       expect(user!.firstName, 'Jean');
       expect(user.email, 'jean@axiom.com');
     });
+
+    test('keeps the onboarding completion when syncing the user', () async {
+      final done = DateTime.utc(2026, 11, 7, 18);
+      final auth = Get.find<AuthController>();
+      auth.user.value = User(
+        id: baseProfile.id,
+        email: baseProfile.email,
+        firstName: 'Ancien',
+        lastName: baseProfile.lastName,
+        role: baseProfile.role,
+        createdAt: baseProfile.createdAt,
+        updatedAt: baseProfile.updatedAt,
+        onboardingCompletedAt: done,
+      );
+      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+
+      await controller.loadProfile();
+
+      expect(auth.user.value!.firstName, 'Jean');
+      expect(auth.user.value!.onboardingCompletedAt, done);
+    });
+  });
+
+  group('ProfileController.save phone check', () {
+    test('refuses a number of the wrong length for its country', () async {
+      when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
+      await controller.loadProfile();
+      controller.country.value = xofZoneCountries.first; // CI: 10 digits
+      controller.phoneController.text = '0701';
+
+      await controller.save();
+
+      verifyNever(() => mockRepository.updateMe(any()));
+      expect(controller.errorMessage.value, contains('10 chiffres'));
+    });
+  });
+
+  group('ProfileController.deleteAccount', () {
+    test('returns true when the backend deleted the account', () async {
+      when(() => mockRepository.deleteAccount()).thenAnswer((_) async {});
+
+      expect(await controller.deleteAccount(), isTrue);
+      expect(controller.errorMessage.value, isNull);
+    });
+
+    test('surfaces the backend refusal (e.g. a running staked quest)', () async {
+      when(() => mockRepository.deleteAccount()).thenThrow(
+        ProfileException('Tu as une quête avec mise en cours.'),
+      );
+
+      expect(await controller.deleteAccount(), isFalse);
+      expect(
+        controller.errorMessage.value,
+        'Tu as une quête avec mise en cours.',
+      );
+    });
   });
 
   group('ProfileController.save', () {
@@ -161,13 +218,14 @@ void main() {
       },
     );
 
-    test('recomposes the phone when only the country changes', () async {
+    test('recomposes the phone with the new country dial code', () async {
       when(() => mockRepository.getMe()).thenAnswer((_) async => baseProfile);
       await controller.loadProfile();
 
       controller.country.value = xofZoneCountries.firstWhere(
         (c) => c.dialCode == '+221',
       );
+      controller.phoneController.text = '771234567';
       when(
         () => mockRepository.updateMe(any()),
       ).thenAnswer((_) async => baseProfile);
@@ -177,7 +235,7 @@ void main() {
       final captured =
           verify(() => mockRepository.updateMe(captureAny())).captured.single
               as Map<String, dynamic>;
-      expect(captured, {'phone': '+2210700000000'});
+      expect(captured, {'phone': '+221771234567'});
     });
 
     test(

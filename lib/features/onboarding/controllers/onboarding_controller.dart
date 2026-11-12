@@ -37,6 +37,21 @@ class OnboardingController extends GetxController {
     }
   }
 
+  /// Android back: previous slide. Returns false on the first slide so
+  /// the caller lets the system handle it.
+  Future<bool> goBack() async {
+    if (currentPage.value == 0) return false;
+    currentPage.value -= 1;
+    if (pageController.hasClients) {
+      await pageController.animateToPage(
+        currentPage.value,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+    return true;
+  }
+
   /// Persists onboarding completion; the caller navigates afterward.
   Future<void> complete() => _onboardingService.markCompleted();
 

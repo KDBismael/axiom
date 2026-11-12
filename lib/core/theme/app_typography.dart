@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Typography tokens for the "Ndeli — Arène" design system: Unbounded for
 /// display/headline/CTA text, Geist for body copy, Geist Mono for the small
@@ -14,21 +13,24 @@ class AppTypography {
   static const _geist = 'Geist';
   static const _geistMono = 'Geist Mono';
 
-  static TextStyle get displayLg => GoogleFonts.unbounded(
+  static TextStyle get displayLg => const TextStyle(
+        fontFamily: 'Unbounded',
         fontSize: 56,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.02 * 56,
         height: 1.1,
       );
 
-  static TextStyle get headlineMd => GoogleFonts.unbounded(
+  static TextStyle get headlineMd => const TextStyle(
+        fontFamily: 'Unbounded',
         fontSize: 28,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.01 * 28,
         height: 1.1,
       );
 
-  static TextStyle get titleLg => GoogleFonts.unbounded(
+  static TextStyle get titleLg => const TextStyle(
+        fontFamily: 'Unbounded',
         fontSize: 22,
         fontWeight: FontWeight.w700,
       );

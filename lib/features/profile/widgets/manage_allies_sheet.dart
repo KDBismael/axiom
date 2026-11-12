@@ -48,7 +48,7 @@ class _ManageAlliesSheetState extends State<ManageAlliesSheet> {
       builder: (context) => AlertDialog(
         title: const Text('Retirer cet allié ?'),
         content: Text(
-          '${ally.firstName} ${ally.lastName} ne fera plus partie de vos alliés.',
+          '${ally.firstName} ${ally.lastName} ne fera plus partie de tes alliés.',
         ),
         actions: [
           TextButton(
@@ -71,7 +71,7 @@ class _ManageAlliesSheetState extends State<ManageAlliesSheet> {
       );
       return;
     }
-    _showSnack('${ally.firstName} a été retiré de vos alliés.');
+    _showSnack('${ally.firstName} a été retiré de tes alliés.');
   }
 
   @override

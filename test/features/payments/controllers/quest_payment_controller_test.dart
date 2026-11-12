@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:axiom/features/payments/controllers/quest_payment_controller.dart';
@@ -76,21 +77,50 @@ void main() {
   });
 
   group('QuestPaymentController.onInit', () {
-    test('does not auto-trigger payment - waits for the user to confirm the fees/total first', () async {
-      controller.onInit();
-      await Future.delayed(Duration.zero);
+    test(
+      'does not auto-trigger payment - waits for the user to confirm the fees/total first',
+      () async {
+        controller.onInit();
+        await Future.delayed(Duration.zero);
 
-      verifyNever(
-        () => mockRepository.initiateStakePayment(
-          any(),
-          phoneNumber: any(named: 'phoneNumber'),
-        ),
-      );
-      expect(controller.transaction.value, isNull);
-    });
+        verifyNever(
+          () => mockRepository.initiateStakePayment(
+            any(),
+            phoneNumber: any(named: 'phoneNumber'),
+          ),
+        );
+        expect(controller.transaction.value, isNull);
+      },
+    );
   });
 
   group('QuestPaymentController.pay', () {
+    test(
+      'does not initiate or open checkout twice during a double tap',
+      () async {
+        final pending = Completer<StakeTransaction>();
+        when(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+          ),
+        ).thenAnswer((_) => pending.future);
+        final first = controller.pay();
+        final second = controller.pay();
+        await second;
+        verify(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+          ),
+        ).called(1);
+        expect(controller.isLoading.value, isTrue);
+        pending.complete(transaction);
+        await first;
+        verify(() => mockUrlOpener.open(transaction.paymentUrl!)).called(1);
+        controller.stopPolling();
+      },
+    );
     test('stores the transaction and opens the payment URL', () async {
       when(
         () => mockRepository.initiateStakePayment(
@@ -189,40 +219,43 @@ void main() {
       },
     );
 
-    test('stops polling early and reports failure once the transaction fails - without waiting for the full timeout', () async {
-      when(
-        () => mockRepository.initiateStakePayment(
+    test(
+      'stops polling early and reports failure once the transaction fails - without waiting for the full timeout',
+      () async {
+        when(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+          ),
+        ).thenAnswer((_) async => transaction);
+        when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
+        when(
+          () => mockQuestList.findById('q-1'),
+        ).thenReturn(_quest(status: QuestStatus.pendingPayment));
+        when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
+          (_) async =>
+              const StakeTransaction(transactionId: 'tx-1', status: 'failed'),
+        );
+
+        final shortController = QuestPaymentController(
+          mockRepository,
+          mockQuestList,
+          mockUrlOpener,
           'q-1',
-          phoneNumber: any(named: 'phoneNumber'),
-        ),
-      ).thenAnswer((_) async => transaction);
-      when(() => mockQuestList.refreshQuest('q-1')).thenAnswer((_) async {});
-      when(
-        () => mockQuestList.findById('q-1'),
-      ).thenReturn(_quest(status: QuestStatus.pendingPayment));
-      when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
-        (_) async =>
-            const StakeTransaction(transactionId: 'tx-1', status: 'failed'),
-      );
+          pollInterval: const Duration(milliseconds: 5),
+          maxPollAttempts: 40, // would take far longer than this test waits
+        );
 
-      final shortController = QuestPaymentController(
-        mockRepository,
-        mockQuestList,
-        mockUrlOpener,
-        'q-1',
-        pollInterval: const Duration(milliseconds: 5),
-        maxPollAttempts: 40, // would take far longer than this test waits
-      );
+        await shortController.pay();
+        await Future.delayed(const Duration(milliseconds: 30));
 
-      await shortController.pay();
-      await Future.delayed(const Duration(milliseconds: 30));
-
-      expect(shortController.isPolling.value, isFalse);
-      expect(shortController.paymentFailed.value, isTrue);
-      expect(shortController.paymentSucceeded.value, isFalse);
-      expect(shortController.paymentTimedOut.value, isFalse);
-      shortController.onClose();
-    });
+        expect(shortController.isPolling.value, isFalse);
+        expect(shortController.paymentFailed.value, isTrue);
+        expect(shortController.paymentSucceeded.value, isFalse);
+        expect(shortController.paymentTimedOut.value, isFalse);
+        shortController.onClose();
+      },
+    );
 
     test('a manual check stops polling early on success', () async {
       when(
@@ -296,82 +329,93 @@ void main() {
       topUpController.onClose();
     });
 
-    test('forwards the top-up amount and funds distribution to the repository', () async {
-      when(
-        () => mockRepository.initiateStakePayment(
-          'q-1',
-          phoneNumber: any(named: 'phoneNumber'),
-          additionalAmountXof: 1500,
-          fundsDistribution: FundsDistribution.charity,
-        ),
-      ).thenAnswer((_) async => transaction);
+    test(
+      'forwards the top-up amount and funds distribution to the repository',
+      () async {
+        when(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+            additionalAmountXof: 1500,
+            fundsDistribution: FundsDistribution.charity,
+          ),
+        ).thenAnswer((_) async => transaction);
 
-      await topUpController.pay();
+        await topUpController.pay();
 
-      verify(
-        () => mockRepository.initiateStakePayment(
-          'q-1',
-          phoneNumber: null,
-          additionalAmountXof: 1500,
-          fundsDistribution: FundsDistribution.charity,
-        ),
-      ).called(1);
-    });
+        verify(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: null,
+            additionalAmountXof: 1500,
+            fundsDistribution: FundsDistribution.charity,
+          ),
+        ).called(1);
+      },
+    );
 
-    test('detects success by polling the transaction, not the quest status', () async {
-      when(
-        () => mockRepository.initiateStakePayment(
-          'q-1',
-          phoneNumber: any(named: 'phoneNumber'),
-          additionalAmountXof: any(named: 'additionalAmountXof'),
-          fundsDistribution: any(named: 'fundsDistribution'),
-        ),
-      ).thenAnswer((_) async => transaction);
-      // The quest never leaves 'active' — that's the whole point of a
-      // top-up, so success must come from the transaction's own status.
-      when(
-        () => mockQuestList.findById('q-1'),
-      ).thenReturn(_quest(status: QuestStatus.active));
-      var pollCount = 0;
-      when(() => mockRepository.getTransaction('tx-1')).thenAnswer((_) async {
-        pollCount++;
-        return StakeTransaction(
-          transactionId: 'tx-1',
-          status: pollCount < 2 ? 'pending' : 'completed',
+    test(
+      'detects success by polling the transaction, not the quest status',
+      () async {
+        when(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+            additionalAmountXof: any(named: 'additionalAmountXof'),
+            fundsDistribution: any(named: 'fundsDistribution'),
+          ),
+        ).thenAnswer((_) async => transaction);
+        // The quest never leaves 'active' — that's the whole point of a
+        // top-up, so success must come from the transaction's own status.
+        when(
+          () => mockQuestList.findById('q-1'),
+        ).thenReturn(_quest(status: QuestStatus.active));
+        var pollCount = 0;
+        when(() => mockRepository.getTransaction('tx-1')).thenAnswer((_) async {
+          pollCount++;
+          return StakeTransaction(
+            transactionId: 'tx-1',
+            status: pollCount < 2 ? 'pending' : 'completed',
+          );
+        });
+
+        await topUpController.pay();
+        await Future.delayed(const Duration(milliseconds: 80));
+
+        expect(topUpController.isPolling.value, isFalse);
+        expect(topUpController.paymentSucceeded.value, isTrue);
+      },
+    );
+
+    test(
+      'stops polling early and reports failure once the transaction fails',
+      () async {
+        when(
+          () => mockRepository.initiateStakePayment(
+            'q-1',
+            phoneNumber: any(named: 'phoneNumber'),
+            additionalAmountXof: any(named: 'additionalAmountXof'),
+            fundsDistribution: any(named: 'fundsDistribution'),
+          ),
+        ).thenAnswer((_) async => transaction);
+        when(
+          () => mockQuestList.findById('q-1'),
+        ).thenReturn(_quest(status: QuestStatus.active));
+        when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
+          (_) async => const StakeTransaction(
+            transactionId: 'tx-1',
+            status: 'cancelled',
+          ),
         );
-      });
 
-      await topUpController.pay();
-      await Future.delayed(const Duration(milliseconds: 80));
+        await topUpController.pay();
+        await Future.delayed(const Duration(milliseconds: 30));
 
-      expect(topUpController.isPolling.value, isFalse);
-      expect(topUpController.paymentSucceeded.value, isTrue);
-    });
-
-    test('stops polling early and reports failure once the transaction fails', () async {
-      when(
-        () => mockRepository.initiateStakePayment(
-          'q-1',
-          phoneNumber: any(named: 'phoneNumber'),
-          additionalAmountXof: any(named: 'additionalAmountXof'),
-          fundsDistribution: any(named: 'fundsDistribution'),
-        ),
-      ).thenAnswer((_) async => transaction);
-      when(
-        () => mockQuestList.findById('q-1'),
-      ).thenReturn(_quest(status: QuestStatus.active));
-      when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
-        (_) async =>
-            const StakeTransaction(transactionId: 'tx-1', status: 'cancelled'),
-      );
-
-      await topUpController.pay();
-      await Future.delayed(const Duration(milliseconds: 30));
-
-      expect(topUpController.isPolling.value, isFalse);
-      expect(topUpController.paymentFailed.value, isTrue);
-      expect(topUpController.paymentSucceeded.value, isFalse);
-    });
+        expect(topUpController.isPolling.value, isFalse);
+        expect(topUpController.paymentFailed.value, isTrue);
+        expect(topUpController.paymentSucceeded.value, isFalse);
+      },
+    );
 
     test('times out if the transaction never completes', () async {
       when(
@@ -386,10 +430,8 @@ void main() {
         () => mockQuestList.findById('q-1'),
       ).thenReturn(_quest(status: QuestStatus.active));
       when(() => mockRepository.getTransaction('tx-1')).thenAnswer(
-        (_) async => const StakeTransaction(
-          transactionId: 'tx-1',
-          status: 'pending',
-        ),
+        (_) async =>
+            const StakeTransaction(transactionId: 'tx-1', status: 'pending'),
       );
 
       final shortTopUpController = QuestPaymentController(

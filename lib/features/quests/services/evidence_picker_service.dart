@@ -68,7 +68,9 @@ class EvidencePickerService {
       }
       final sizeBytes = await file.length();
       if (sizeBytes > maxEvidenceImageSizeBytes) {
-        throw const EvidencePickerException('Photo trop volumineuse (max 5 Mo).');
+        throw const EvidencePickerException(
+          'Photo trop volumineuse (max 5 Mo).',
+        );
       }
       picked.add(
         PickedEvidence(

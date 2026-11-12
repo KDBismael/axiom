@@ -59,6 +59,7 @@ class QuestPaymentController extends GetxController {
   int _pollAttempts = 0;
 
   Future<void> pay({String? phoneNumber}) async {
+    if (isLoading.value) return;
     isLoading.value = true;
     errorMessage.value = null;
     paymentSucceeded.value = false;
@@ -94,7 +95,8 @@ class QuestPaymentController extends GetxController {
     _pollAttempts++;
     await _questList.refreshQuest(questId);
     final refreshed = await _refreshTransaction();
-    if (refreshed != null && _terminalFailureStatuses.contains(refreshed.status)) {
+    if (refreshed != null &&
+        _terminalFailureStatuses.contains(refreshed.status)) {
       paymentFailed.value = true;
       stopPolling();
       return;
@@ -125,9 +127,7 @@ class QuestPaymentController extends GetxController {
     final current = transaction.value;
     if (current == null) return null;
     try {
-      final refreshed = await _repository.getTransaction(
-        current.transactionId,
-      );
+      final refreshed = await _repository.getTransaction(current.transactionId);
       transaction.value = refreshed;
       return refreshed;
     } on PaymentException {

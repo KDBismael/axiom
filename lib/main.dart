@@ -125,15 +125,14 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
     }
     if (Get.isRegistered<QuestListController>()) {
       final quests = Get.find<QuestListController>();
-      quests
-        ..loadQuests()
-        ..loadPendingAllyInvitations();
-      final currentQuestId = Get.currentRoute == AppRoutes.questDetail
-          ? Get.arguments
-          : null;
-      if (currentQuestId is String) {
-        quests.refreshQuest(currentQuestId);
-      }
+      final showingQuest =
+          Get.currentRoute == AppRoutes.questDetail ||
+          Get.currentRoute == AppRoutes.questValidation;
+      final currentQuestId = showingQuest ? Get.arguments : null;
+      quests.refreshAfterResume(
+        questId: currentQuestId is String ? currentQuestId : null,
+      );
+      quests.loadPendingAllyInvitations();
     }
     if (Get.isRegistered<RankController>()) {
       Get.find<RankController>().loadAll();
@@ -178,6 +177,11 @@ class _AxiomAppState extends State<AxiomApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       initialBinding: InitialBinding(),
+      // GetX links a lazily-created controller to whatever route is on top
+      // when it's first looked up — a dialog or bottom sheet included — and
+      // deletes it when that route closes ("X not found" red screens).
+      // keepFactory keeps the factory so the next lookup rebuilds it.
+      smartManagement: SmartManagement.keepFactory,
       initialRoute: widget.initialRoute,
       getPages: AppPages.pages,
       builder: (context, child) =>

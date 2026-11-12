@@ -112,17 +112,14 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                           color: AppColors.surfaceContainerLow,
                           borderRadius: AppRadii.structuralRadius,
                           border: const Border(
-                            left: BorderSide(
-                              color: AppColors.volt,
-                              width: 4,
-                            ),
+                            left: BorderSide(color: AppColors.volt, width: 4),
                           ),
                         ),
                         child: Text(
-                          "En acceptant, cette quête devient la vôtre : vous vous "
-                          "engagez à réaliser l'habitude vous-même. "
-                          "${invitation.creatorName.isNotEmpty ? invitation.creatorName : 'La personne qui vous l\'offre'} "
-                          "deviendra votre allié de responsabilité.",
+                          "En acceptant, cette quête devient la tienne : tu t'"
+                          "engages à réaliser l'habitude toi-même. "
+                          "${invitation.creatorName.isNotEmpty ? invitation.creatorName : 'La personne qui te l\'offre'} "
+                          "deviendra ton allié pour t'encourager.",
                           style: AppTypography.bodyMd.copyWith(
                             color: AppColors.primary,
                             height: 1.6,
@@ -185,8 +182,8 @@ class QuestOwnerInvitationView extends GetView<QuestOwnerInvitationController> {
                     ),
                     child: Text(
                       invitation.status == QuestOwnerInvitationStatus.accepted
-                          ? 'Vous avez accepté cette quête.'
-                          : 'Vous avez refusé cette offre.',
+                          ? 'Tu as accepté cette quête.'
+                          : 'Tu as refusé cette offre.',
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyMd.copyWith(
                         color:

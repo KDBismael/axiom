@@ -3,6 +3,27 @@ import 'package:axiom/features/notifications/services/notification_navigation_se
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'new result notifications open the dedicated page; legacy ones keep quest detail',
+    () {
+      for (final type in ['quest_completed', 'quest_failed']) {
+        final target = notificationTarget(type, {
+          'questId': 'q-1',
+          'resultId': 'r-1',
+        });
+        expect(target.route, AppRoutes.questResult);
+        expect(target.arguments, 'q-1');
+        expect(
+          notificationTarget(type, {'questId': 'q-1'}).route,
+          AppRoutes.questDetail,
+        );
+        expect(
+          notificationTarget(type, {'resultId': 'r-1'}).route,
+          AppRoutes.notifications,
+        );
+      }
+    },
+  );
   test('routes every contextual notification family', () {
     expect(
       notificationTarget('validation_requested', {'evidenceId': 'e-1'}).route,
@@ -56,6 +77,13 @@ void main() {
     );
     expect(
       notificationTarget('quest_deletion_requested', {
+        'questId': 'q-1',
+        'requestId': 'r-1',
+      }).route,
+      AppRoutes.questDeletionVote,
+    );
+    expect(
+      notificationTarget('quest_deletion_vote_reminder', {
         'questId': 'q-1',
         'requestId': 'r-1',
       }).route,

@@ -35,6 +35,14 @@ class ProfileRepository {
     return Profile.fromJson(response.body as Map<String, dynamic>);
   }
 
+  /// Deletes (anonymizes) the signed-in account — `DELETE /profile/me`.
+  Future<void> deleteAccount() async {
+    final response = await _client.delete('/profile/me');
+    if (!response.isOk) {
+      throw ProfileException(_extractMessage(response.body));
+    }
+  }
+
   Future<String> uploadAvatar(PickedAvatar picked) async {
     final formData = FormData({
       'file': MultipartFile(

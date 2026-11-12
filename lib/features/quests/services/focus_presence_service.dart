@@ -82,7 +82,7 @@ class DefaultFocusPresenceService implements FocusPresenceService {
           channelId: _androidChannelId,
           channelName: 'Minuteur de focus',
           channelDescription:
-              'Affiche votre session de focus en cours, même hors de l’app.',
+              'Affiche ta session de concentration en cours, même hors de l’app.',
           onlyAlertOnce: true,
         ),
         iosNotificationOptions: const IOSNotificationOptions(),
@@ -120,9 +120,7 @@ class DefaultFocusPresenceService implements FocusPresenceService {
       try {
         await FlutterForegroundTask.updateService(
           notificationTitle: _questTitle ?? '',
-          notificationText: paused
-              ? 'En pause'
-              : 'Session de focus en cours…',
+          notificationText: paused ? 'En pause' : 'Session de focus en cours…',
         );
       } catch (e) {
         debugPrint('FocusPresenceService.update (Android) failed: $e');

@@ -16,6 +16,17 @@ void main() {
       expect(request.votes.total, 2);
     });
 
+    test('parses the vote deadline when present', () {
+      final request = QuestDeletionRequest.fromJson({
+        'id': 'req-1',
+        'status': 'pending',
+        'votes': {'approved': 0, 'total': 1},
+        'expiresAt': '2026-11-14T10:00:00.000Z',
+      });
+
+      expect(request.expiresAt, DateTime.utc(2026, 11, 14, 10));
+    });
+
     test('parses approved and rejected statuses', () {
       final approved = QuestDeletionRequest.fromJson({
         'id': 'req-1',

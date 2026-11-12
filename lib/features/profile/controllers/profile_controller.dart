@@ -84,6 +84,13 @@ class ProfileController extends GetxController {
 
     final changes = _buildChanges(current);
     if (changes.isEmpty || isSaving.value) return;
+    final phoneDigits = phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (phoneDigits.isNotEmpty && !country.value.isValidLocalNumber(phoneDigits)) {
+      errorMessage.value =
+          'Un numéro (${country.value.name}) compte '
+          '${country.value.localLength} chiffres, ex. ${country.value.example}.';
+      return;
+    }
 
     isSaving.value = true;
     errorMessage.value = null;
@@ -108,7 +115,7 @@ class ProfileController extends GetxController {
     }
     final phone = phoneController.text.isEmpty
         ? null
-        : '${country.value.dialCode}${phoneController.text}';
+        : '${country.value.dialCode}${phoneController.text.replaceAll(RegExp(r'[^0-9]'), '')}';
     if (phone != current.phone) changes['phone'] = phone;
     if (language.value != current.language) {
       changes['language'] = language.value;
@@ -135,6 +142,19 @@ class ProfileController extends GetxController {
     final phoneParts = splitPhoneNumber(current.phone);
     country.value = phoneParts.country;
     phoneController.text = phoneParts.localNumber;
+  }
+
+  /// Deletes the account. False with [errorMessage] set when the backend
+  /// refuses (e.g. a staked quest is still running).
+  Future<bool> deleteAccount() async {
+    errorMessage.value = null;
+    try {
+      await _repository.deleteAccount();
+      return true;
+    } on ProfileException catch (e) {
+      if (!_disposed) errorMessage.value = e.message;
+      return false;
+    }
   }
 
   Future<void> pickAndUploadAvatar() async {
@@ -184,7 +204,8 @@ class ProfileController extends GetxController {
     notificationsEnabled.value = result.notificationsEnabled;
     privacyLevel.value = result.privacyLevel;
 
-    Get.find<AuthController>().user.value = User(
+    final auth = Get.find<AuthController>();
+    auth.user.value = User(
       id: result.id,
       email: result.email,
       firstName: result.firstName,
@@ -194,6 +215,10 @@ class ProfileController extends GetxController {
       role: result.role,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
+      // Not part of the editable profile: carry it over, or the guided
+      // tour would think onboarding never happened.
+      onboardingCompletedAt:
+          result.onboardingCompletedAt ?? auth.user.value?.onboardingCompletedAt,
     );
   }
 }

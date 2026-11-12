@@ -176,9 +176,9 @@ void main() {
 
       await pumpCelebration(tester, requiresProof: false, result: result);
 
-      expect(find.text('Combo ×12'), findsOneWidget);
+      expect(find.text('Série : 12 semaines'), findsOneWidget);
       expect(
-        find.text('Check-in enregistré. Continue comme ça.'),
+        find.text('Validation enregistrée. Continue comme ça !'),
         findsOneWidget,
       );
       expect(find.textContaining('PTS'), findsNothing);
@@ -228,7 +228,7 @@ void main() {
 
       // The fixture quest in pumpCelebration() is weekly, so the partial-
       // period label reads "cette semaine", not "aujourd'hui".
-      expect(find.textContaining('Combo'), findsNothing);
+      expect(find.textContaining('Série :'), findsNothing);
       expect(find.text('1/2 cette semaine'), findsOneWidget);
     },
   );

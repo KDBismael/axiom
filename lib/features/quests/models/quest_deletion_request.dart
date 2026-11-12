@@ -28,11 +28,16 @@ class QuestDeletionRequest {
     required this.id,
     required this.status,
     required this.votes,
+    this.expiresAt,
   });
 
   final String id;
   final QuestDeletionRequestStatus status;
   final QuestDeletionVoteTally votes;
+
+  /// When a still-pending request is auto-approved: allies' silence past
+  /// this date counts as approval.
+  final DateTime? expiresAt;
 
   factory QuestDeletionRequest.fromJson(Map<String, dynamic> json) {
     return QuestDeletionRequest(
@@ -41,6 +46,9 @@ class QuestDeletionRequest {
       votes: QuestDeletionVoteTally.fromJson(
         json['votes'] as Map<String, dynamic>,
       ),
+      expiresAt: json['expiresAt'] == null
+          ? null
+          : DateTime.parse(json['expiresAt'] as String),
     );
   }
 }

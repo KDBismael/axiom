@@ -1,10 +1,12 @@
 import 'package:get/get.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../onboarding/controllers/guided_tour_controller.dart';
 import '../../profile/controllers/profile_controller.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../profile/services/avatar_picker_service.dart';
 import '../../quests/controllers/quest_list_controller.dart';
 import '../../quests/repositories/quest_repository.dart';
-import '../../quests/services/evidence_picker_service.dart';
+import '../../quests/bindings/evidence_picker_binding.dart';
 import '../../social/controllers/allies_controller.dart';
 import '../../social/controllers/validations_controller.dart';
 import '../../social/repositories/social_repository.dart';
@@ -24,7 +26,7 @@ class ShellBinding extends Bindings {
     Get.lazyPut<QuestListController>(() => QuestListController(Get.find()));
     Get.lazyPut<PaymentRepository>(() => PaymentRepository(Get.find()));
     Get.lazyPut<UrlOpener>(() => UrlOpener());
-    Get.lazyPut<EvidencePickerService>(() => EvidencePickerService());
+    EvidencePickerBinding().dependencies();
     if (!Get.isRegistered<SocialRepository>()) {
       Get.lazyPut<SocialRepository>(
         () => SocialRepository(Get.find()),
@@ -67,8 +69,24 @@ class ShellBinding extends Bindings {
     Get.lazyPut<NotificationController>(
       () => NotificationController(Get.find()),
     );
+    {
+      // Permanent: a lazyPut is deleted with whichever route first looked
+      // it up (e.g. the notification dialog), which crashed the tour.
+      // Replaced on every shell entry (each login) so it never holds the
+      // previous session's QuestListController.
+      if (Get.isRegistered<GuidedTourController>()) {
+        Get.delete<GuidedTourController>(force: true);
+      }
+      Get.put<GuidedTourController>(
+        GuidedTourController(currentUser: Get.find<AuthController>().user),
+        permanent: true,
+      );
+    }
     if (!Get.isRegistered<RankRepository>()) {
-      Get.lazyPut<RankRepository>(() => RankRepository(Get.find()), fenix: true);
+      Get.lazyPut<RankRepository>(
+        () => RankRepository(Get.find()),
+        fenix: true,
+      );
     }
     if (!Get.isRegistered<RankController>()) {
       Get.put<RankController>(RankController(Get.find()), permanent: true);

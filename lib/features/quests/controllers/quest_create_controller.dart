@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/utils/idempotency_key.dart';
 import '../models/quest_model.dart';
 import 'quest_list_controller.dart';
 import '../../payments/services/payment_feature_config.dart';
@@ -47,6 +48,25 @@ class QuestCreateController extends GetxController {
     _ => true,
   };
   bool get paymentsEnabled => _paymentConfig.isEnabled;
+
+  /// Why "CONTINUER" is disabled, shown under the button; null when it
+  /// isn't.
+  String? get blockedReason {
+    if (currentStep.value != 1) return null;
+    if (!canProceedFromTitle) return 'Ajoute un titre pour continuer.';
+    if (createForSomeoneElse.value && !canProceedFromInvitee) {
+      return 'Choisis la personne à qui offrir la quête.';
+    }
+    if (descriptionText.value.trim().isEmpty) {
+      return "Explique pourquoi c'est important pour continuer.";
+    }
+    return null;
+  }
+
+  /// Something typed that leaving would throw away.
+  bool get hasDraft =>
+      titleText.value.trim().isNotEmpty ||
+      descriptionText.value.trim().isNotEmpty;
 
   final currentStep = 0.obs;
 
@@ -154,6 +174,11 @@ class QuestCreateController extends GetxController {
   final isSubmitting = false.obs;
   final errorMessage = RxnString();
 
+  /// One key per creation form, sent with every submit attempt: if a
+  /// request reached the backend but its response was lost, the retry
+  /// gets the same quest back instead of creating a duplicate.
+  final String creationKey = newIdempotencyKey();
+
   /// The quest just created by [submit]; the view reads this to decide
   /// whether to navigate to the payment screen (staked quest, still
   /// `pending_payment`) or simply pop back (no stake).
@@ -171,9 +196,17 @@ class QuestCreateController extends GetxController {
   /// Same mirroring as [titleText], for the stake amount.
   final stakeText = ''.obs;
 
-  bool get canProceedFromTitle => titleText.value.trim().isNotEmpty;
-  bool get canProceedFromDetails =>
-      canProceedFromTitle && descriptionText.value.trim().isNotEmpty;
+  bool get canProceedFromTitle {
+    final title = titleText.value.trim();
+    return title.isNotEmpty && title.runes.length <= 120;
+  }
+
+  bool get canProceedFromDetails {
+    final description = descriptionText.value.trim();
+    return canProceedFromTitle &&
+        description.isNotEmpty &&
+        description.runes.length <= 2000;
+  }
 
   bool get canProceedFromInvitee => selectedInviteeId.value != null;
 
@@ -218,7 +251,13 @@ class QuestCreateController extends GetxController {
 
   /// Submits the quest to the backend. Returns true on success; on
   /// failure, [errorMessage] carries the backend's French message.
+  ///
+  /// Idempotent: once a quest has been created, or while a request is in
+  /// flight, further calls never hit the API again — repeated taps on
+  /// "LANCER LA QUÊTE" must not create duplicate quests.
   Future<bool> submit() async {
+    if (createdQuest.value != null) return true;
+    if (isSubmitting.value) return false;
     if (!canProceedFromTitle) {
       errorMessage.value = 'Le titre est obligatoire.';
       return false;
@@ -249,7 +288,10 @@ class QuestCreateController extends GetxController {
           if (selectedAllyIds.isNotEmpty)
             'memberUserIds': selectedAllyIds.toList(),
         };
-        final created = await _listController.createQuestGroup(payload);
+        final created = await _listController.createQuestGroup(
+          payload,
+          idempotencyKey: creationKey,
+        );
         if (created == null) {
           errorMessage.value = _listController.errorMessage.value;
           return false;
@@ -283,7 +325,10 @@ class QuestCreateController extends GetxController {
           'inviteeId': selectedInviteeId.value,
       };
 
-      final created = await _listController.createQuest(payload);
+      final created = await _listController.createQuest(
+        payload,
+        idempotencyKey: creationKey,
+      );
       if (created == null) {
         errorMessage.value = _listController.errorMessage.value;
         return false;

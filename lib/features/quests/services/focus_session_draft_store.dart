@@ -40,9 +40,7 @@ class FocusSessionDraftStore {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyFor(questId));
     if (raw == null) return null;
-    return FocusSessionDraft.fromJson(
-      jsonDecode(raw) as Map<String, dynamic>,
-    );
+    return FocusSessionDraft.fromJson(jsonDecode(raw) as Map<String, dynamic>);
   }
 
   Future<void> clear(String questId) async {

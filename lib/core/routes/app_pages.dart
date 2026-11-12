@@ -1,7 +1,11 @@
 import 'package:get/get.dart';
+import '../api/api_client.dart';
+import '../../features/quests/views/quest_result_view.dart';
+import '../../features/quests/controllers/quest_result_controller.dart';
 import '../../features/auth/views/auth_view.dart';
 import '../../features/notifications/views/notifications_view.dart';
 import '../../features/onboarding/controllers/onboarding_controller.dart';
+import '../../features/onboarding/views/first_quest_launched_view.dart';
 import '../../features/onboarding/views/onboarding_view.dart';
 import '../../features/quests/controllers/quest_ally_invitation_controller.dart';
 import '../../features/quests/controllers/quest_owner_invitation_controller.dart';
@@ -53,6 +57,25 @@ class AppPages {
       binding: ShellBinding(),
       middlewares: [AuthMiddleware()],
     ),
+    GetPage(
+      name: AppRoutes.questResult,
+      page: () => const QuestResultView(),
+      middlewares: [AuthMiddleware()],
+      binding: BindingsBuilder(() {
+        // A notification can land here directly after login, before Home.
+        if (!Get.isRegistered<QuestRepository>()) {
+          Get.lazyPut<QuestRepository>(
+            () => QuestRepository(Get.find<ApiClient>()),
+          );
+        }
+        Get.lazyPut<QuestResultController>(
+          () => QuestResultController(
+            Get.find<QuestRepository>(),
+            Get.arguments as String,
+          ),
+        );
+      }),
+    ),
     GetPage(name: AppRoutes.questDetail, page: () => const QuestDetailView()),
     GetPage(
       name: AppRoutes.questValidation,
@@ -77,6 +100,10 @@ class AppPages {
           Get.lazyPut<AlliesController>(() => AlliesController(Get.find()));
         }
       }),
+    ),
+    GetPage(
+      name: AppRoutes.firstQuestLaunched,
+      page: () => const FirstQuestLaunchedView(),
     ),
     GetPage(
       name: AppRoutes.questCreate,

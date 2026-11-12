@@ -21,6 +21,7 @@ class Profile {
     required this.language,
     required this.notificationsEnabled,
     required this.privacyLevel,
+    this.onboardingCompletedAt,
     this.phone,
     this.avatarUrl,
   });
@@ -37,6 +38,7 @@ class Profile {
   final DateTime updatedAt;
   final bool notificationsEnabled;
   final ProfilePrivacyLevel privacyLevel;
+  final DateTime? onboardingCompletedAt;
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
@@ -52,6 +54,9 @@ class Profile {
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       notificationsEnabled: json['notificationsEnabled'] as bool,
       privacyLevel: ProfilePrivacyLevel.fromJson(json['privacyLevel'] as String),
+      onboardingCompletedAt: json['onboardingCompletedAt'] == null
+          ? null
+          : DateTime.parse(json['onboardingCompletedAt'] as String),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -20,6 +21,18 @@ class _FakeBackend {
   final HttpServer server;
   int refreshCalls = 0;
   int protectedCalls = 0;
+  final uploadBodies = <String>[];
+  final uploadAuth = <String?>[];
+  final uploadBoundaries = <String?>[];
+  bool synchronizeFirst401s = false;
+  int _staleArrivals = 0;
+  final _first401s = Completer<void>();
+
+  Future<void> _beforeUnauthorized() async {
+    if (!synchronizeFirst401s) return;
+    if (++_staleArrivals == 2) _first401s.complete();
+    await _first401s.future;
+  }
 
   /// When false, every /auth/refresh call fails (simulating a revoked or
   /// invalid refresh token).
@@ -61,6 +74,26 @@ class _FakeBackend {
         return;
       }
 
+      if (request.uri.path == '/upload-protected') {
+        uploadBodies.add(
+          await request.cast<List<int>>().transform(utf8.decoder).join(),
+        );
+        final auth = request.headers.value('authorization');
+        uploadAuth.add(auth);
+        uploadBoundaries.add(
+          request.headers.contentType?.parameters['boundary'],
+        );
+        if (auth != null && auth.startsWith('Bearer fresh-access-')) {
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({'id': 'file-qa'}));
+        } else {
+          await _beforeUnauthorized();
+          request.response.statusCode = 401;
+        }
+        await request.response.close();
+        return;
+      }
+
       if (request.uri.path == '/protected') {
         protectedCalls++;
         final auth = request.headers.value('authorization');
@@ -68,6 +101,7 @@ class _FakeBackend {
           request.response.statusCode = 200;
           request.response.write('ok');
         } else {
+          await _beforeUnauthorized();
           request.response.statusCode = 401;
         }
         await request.response.close();
@@ -79,8 +113,7 @@ class _FakeBackend {
     });
   }
 
-  String get baseUrl =>
-      'http://${server.address.address}:${server.port}';
+  String get baseUrl => 'http://${server.address.address}:${server.port}';
 
   Future<void> close() => server.close(force: true);
 }
@@ -103,26 +136,33 @@ void main() {
   setUp(() async {
     backend = await _FakeBackend.start();
     mockStorage = MockFlutterSecureStorage();
-    when(() => mockStorage.read(key: 'access_token'))
-        .thenAnswer((_) async => 'stale-access');
-    when(() => mockStorage.read(key: 'refresh_token'))
-        .thenAnswer((_) async => 'stale-refresh');
-    when(() => mockStorage.write(
-          key: any(named: 'key'),
-          value: any(named: 'value'),
-        )).thenAnswer((invocation) async {
+    when(
+      () => mockStorage.read(key: 'access_token'),
+    ).thenAnswer((_) async => 'stale-access');
+    when(
+      () => mockStorage.read(key: 'refresh_token'),
+    ).thenAnswer((_) async => 'stale-refresh');
+    when(
+      () => mockStorage.write(
+        key: any(named: 'key'),
+        value: any(named: 'value'),
+      ),
+    ).thenAnswer((invocation) async {
       final key = invocation.namedArguments[#key] as String;
       final value = invocation.namedArguments[#value] as String;
       if (key == 'access_token') {
-        when(() => mockStorage.read(key: 'access_token'))
-            .thenAnswer((_) async => value);
+        when(
+          () => mockStorage.read(key: 'access_token'),
+        ).thenAnswer((_) async => value);
       } else if (key == 'refresh_token') {
-        when(() => mockStorage.read(key: 'refresh_token'))
-            .thenAnswer((_) async => value);
+        when(
+          () => mockStorage.read(key: 'refresh_token'),
+        ).thenAnswer((_) async => value);
       }
     });
-    when(() => mockStorage.delete(key: any(named: 'key')))
-        .thenAnswer((_) async {});
+    when(
+      () => mockStorage.delete(key: any(named: 'key')),
+    ).thenAnswer((_) async {});
 
     tokenStorage = TokenStorage(storage: mockStorage);
     apiClient = ApiClient(tokenStorage: tokenStorage);
@@ -131,20 +171,61 @@ void main() {
   });
 
   tearDown(() async {
+    apiClient.dispose();
     await backend.close();
   });
 
+  test('concurrent 401s share a single /auth/refresh call', () async {
+    final results = await Future.wait([
+      apiClient.get<dynamic>('/protected'),
+      apiClient.get<dynamic>('/protected'),
+      apiClient.get<dynamic>('/protected'),
+    ]);
+
+    expect(results.every((r) => r.isOk), isTrue);
+    expect(backend.refreshCalls, 1);
+  });
+
   test(
-    'concurrent 401s share a single /auth/refresh call',
+    'multipart and JSON 401s share one rotating refresh and retry the complete file',
     () async {
+      backend.synchronizeFirst401s = true;
       final results = await Future.wait([
         apiClient.get<dynamic>('/protected'),
-        apiClient.get<dynamic>('/protected'),
-        apiClient.get<dynamic>('/protected'),
+        apiClient.post<dynamic>(
+          '/upload-protected',
+          FormData({
+            'file': MultipartFile([65, 66, 67], filename: 'proof.txt'),
+            'purpose': 'quest_evidence',
+          }),
+        ),
       ]);
-
-      expect(results.every((r) => r.isOk), isTrue);
+      expect(
+        results.every((response) => response.isOk),
+        isTrue,
+        reason: results
+            .map((r) => '${r.statusCode}: ${r.statusText}')
+            .join(' | '),
+      );
       expect(backend.refreshCalls, 1);
+      expect(backend.uploadAuth, [
+        'Bearer stale-access',
+        'Bearer fresh-access-1',
+      ]);
+      expect(backend.uploadBodies, hasLength(2));
+      for (var i = 0; i < backend.uploadBodies.length; i++) {
+        expect(backend.uploadBoundaries[i], isNotNull);
+        expect(
+          backend.uploadBodies[i],
+          contains('--${backend.uploadBoundaries[i]}\r\n'),
+        );
+      }
+      expect(
+        backend.uploadBodies.every(
+          (body) => body.contains('ABC') && body.contains('proof.txt'),
+        ),
+        isTrue,
+      );
     },
   );
 
@@ -181,8 +262,9 @@ void main() {
       await apiClient.get<dynamic>('/protected');
       expect(backend.refreshCalls, 1);
 
-      when(() => mockStorage.read(key: 'access_token'))
-          .thenAnswer((_) async => 'stale-again');
+      when(
+        () => mockStorage.read(key: 'access_token'),
+      ).thenAnswer((_) async => 'stale-again');
       backend.refreshSucceeds = false;
 
       await apiClient.get<dynamic>('/protected');

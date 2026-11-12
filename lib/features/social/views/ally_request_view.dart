@@ -81,7 +81,7 @@ class _AllyRequestViewState extends State<AllyRequestView> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Une alliance vous attend.',
+                'Une alliance t\'attend.',
                 style: AppTypography.displayLg.copyWith(
                   color: AppColors.primary,
                   fontSize: 40,
@@ -126,7 +126,7 @@ class _AllyRequestViewState extends State<AllyRequestView> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'souhaite devenir votre allié sur Ndeli.',
+                      'souhaite devenir ton allié sur Ndeli.',
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyMd.copyWith(
                         color: AppColors.outline,

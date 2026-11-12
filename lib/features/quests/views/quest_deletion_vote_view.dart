@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/utils/french_date.dart';
 import '../controllers/quest_deletion_vote_controller.dart';
 import '../models/quest_deletion_request.dart';
 
@@ -25,10 +26,15 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
                 children: [
                   IconButton(
                     onPressed: () => Get.back(),
-                    icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppColors.primary,
+                    ),
                     style: IconButton.styleFrom(
                       backgroundColor: AppColors.surfaceContainerLow,
-                      shape: RoundedRectangleBorder(borderRadius: AppRadii.interactiveRadius),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadii.interactiveRadius,
+                      ),
                     ),
                   ),
                 ],
@@ -38,15 +44,20 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 child: Obx(() {
-                  if (controller.isLoading.value && controller.request.value == null) {
-                    return const Center(child: CircularProgressIndicator(color: AppColors.volt));
+                  if (controller.isLoading.value &&
+                      controller.request.value == null) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.volt),
+                    );
                   }
                   final request = controller.request.value;
                   if (request == null) {
                     return Center(
                       child: Text(
                         controller.errorMessage.value ?? 'Demande introuvable.',
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.outline,
+                        ),
                       ),
                     );
                   }
@@ -87,9 +98,13 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
                               return Expanded(
                                 child: Container(
                                   height: 6,
-                                  margin: EdgeInsets.only(right: i == request.votes.total - 1 ? 0 : 4),
+                                  margin: EdgeInsets.only(
+                                    right: i == request.votes.total - 1 ? 0 : 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: filled ? AppColors.errorSoft : AppColors.surfaceContainerHighest,
+                                    color: filled
+                                        ? AppColors.errorSoft
+                                        : AppColors.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(3),
                                   ),
                                 ),
@@ -99,11 +114,19 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
                           const SizedBox(height: 12),
                           Text(
                             'Unanimité requise. Un seul refus fait échouer la quête et '
-                            'partage la mise entre les alliés.',
-                            style: TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.errorSoft.withValues(alpha: 0.85)),
+                            'partage la mise entre les alliés.'
+                            '${request.expiresAt == null ? '' : ' Sans réponse d\'ici le ${formatShortFrDate(request.expiresAt!.toLocal())}, la suppression sera acceptée.'}',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              color: AppColors.errorSoft.withValues(
+                                alpha: 0.85,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 20),
-                          if (request.status == QuestDeletionRequestStatus.pending)
+                          if (request.status ==
+                              QuestDeletionRequestStatus.pending)
                             Row(
                               children: [
                                 Expanded(
@@ -114,7 +137,9 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
                                     onPressed: controller.isVoting.value
                                         ? null
                                         : () async {
-                                            final ok = await controller.vote(approve: false);
+                                            final ok = await controller.vote(
+                                              approve: false,
+                                            );
                                             if (ok) Get.back();
                                           },
                                   ),
@@ -127,7 +152,9 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
                                     onPressed: controller.isVoting.value
                                         ? null
                                         : () async {
-                                            final ok = await controller.vote(approve: true);
+                                            final ok = await controller.vote(
+                                              approve: true,
+                                            );
                                             if (ok) Get.back();
                                           },
                                   ),
@@ -137,7 +164,9 @@ class QuestDeletionVoteView extends GetView<QuestDeletionVoteController> {
                           else
                             Text(
                               'Cette demande a déjà été traitée.',
-                              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                              style: AppTypography.bodyMd.copyWith(
+                                color: AppColors.outline,
+                              ),
                             ),
                         ],
                       ),

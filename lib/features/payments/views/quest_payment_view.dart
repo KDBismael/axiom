@@ -411,7 +411,7 @@ class _WaitingState extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "Si vous avez déjà payé, patientez quelques secondes ou vérifiez manuellement.",
+          "Si tu as déjà payé, patiente quelques secondes ou vérifie manuellement.",
           textAlign: TextAlign.center,
           style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
         ),
@@ -454,7 +454,7 @@ class _PendingState extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "Wave n'a pas encore confirmé ce paiement. Vous serez notifié dès que ce sera fait.",
+          "Wave n'a pas encore confirmé ce paiement. Tu seras prévenu dès que ce sera fait.",
           textAlign: TextAlign.center,
           style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
         ),
@@ -503,7 +503,7 @@ class _FailedState extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "Wave n'a pas confirmé ce paiement. Vous pouvez réessayer.",
+          "Wave n'a pas confirmé ce paiement. Tu peux réessayer.",
           textAlign: TextAlign.center,
           style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
         ),
@@ -621,7 +621,7 @@ class _SuccessState extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Votre quête est maintenant active.',
+          'Ta quête est maintenant active.',
           style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
         ),
         const SizedBox(height: 32),

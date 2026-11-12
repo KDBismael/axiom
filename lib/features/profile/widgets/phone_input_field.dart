@@ -41,20 +41,32 @@ class PhoneInputField extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                     child: Text(
                       'PAYS',
-                      style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                      style: AppTypography.labelMd.copyWith(
+                        color: AppColors.outline,
+                      ),
                     ),
                   ),
                   for (final option in xofZoneCountries)
                     ListTile(
                       title: Text(
                         '${option.name} (${option.dialCode})',
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.primary,
+                        ),
                       ),
                       trailing: option == country.value
                           ? const Icon(Icons.check, color: AppColors.volt)
                           : null,
                       onTap: () {
                         country.value = option;
+                        // Keep what's typed within the new country's
+                        // national number length.
+                        if (controller.text.length > option.localLength) {
+                          controller.text = controller.text.substring(
+                            0,
+                            option.localLength,
+                          );
+                        }
                         Navigator.of(sheetContext).pop();
                       },
                     ),
@@ -73,7 +85,10 @@ class PhoneInputField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.labelMd.copyWith(color: AppColors.outline)),
+        Text(
+          label,
+          style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+        ),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,10 +109,16 @@ class PhoneInputField extends StatelessWidget {
                     children: [
                       Text(
                         country.value.dialCode,
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.arrow_drop_down, color: AppColors.outline, size: 20),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        color: AppColors.outline,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -105,26 +126,41 @@ class PhoneInputField extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextField(
-                controller: controller,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: AppTypography.bodyMd.copyWith(color: AppColors.primary),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.surfaceContainerLowest,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadii.interactiveRadius,
-                    borderSide: BorderSide(color: AppColors.outlineVariant15),
+              child: Obx(
+                () => TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(country.value.localLength),
+                  ],
+                  style: AppTypography.bodyMd.copyWith(
+                    color: AppColors.primary,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: AppRadii.interactiveRadius,
-                    borderSide: BorderSide(color: AppColors.outlineVariant15),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                    borderSide: BorderSide(color: AppColors.volt),
+                  decoration: InputDecoration(
+                    hintText: country.value.example,
+                    hintStyle: AppTypography.bodyMd.copyWith(
+                      color: AppColors.outlineFaint,
+                    ),
+                    filled: true,
+                    fillColor: AppColors.surfaceContainerLowest,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadii.interactiveRadius,
+                      borderSide: BorderSide(color: AppColors.outlineVariant15),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadii.interactiveRadius,
+                      borderSide: BorderSide(color: AppColors.outlineVariant15),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      borderSide: BorderSide(color: AppColors.volt),
+                    ),
                   ),
                 ),
               ),

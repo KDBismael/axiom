@@ -58,7 +58,7 @@ class InvitationAllyView extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'En acceptant, vous devenez allié de responsabilité : vous pourrez être '
+                      'En acceptant, tu deviens allié : tu pourras être '
                       'sollicité pour valider les preuves de réussite de vos quêtes partagées.',
                       style: AppTypography.bodyMd.copyWith(
                         color: AppColors.primary,

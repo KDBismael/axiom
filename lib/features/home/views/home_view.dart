@@ -14,12 +14,17 @@ import '../../../core/widgets/navigation/glass_chrome.dart';
 import '../../../core/widgets/progress/segmented_progress.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../notifications/controllers/notification_controller.dart';
+import '../../onboarding/controllers/guided_tour_controller.dart';
+import '../../onboarding/widgets/first_quest_sheet.dart';
+import '../../onboarding/widgets/guided_tour_host.dart';
+import '../../onboarding/widgets/guided_tour_keys.dart';
 import '../../profile/widgets/authenticated_avatar_image.dart';
 import '../../quests/controllers/quest_list_controller.dart';
 import '../../quests/models/check_in_model.dart';
 import '../../quests/models/quest_model.dart';
 import '../../quests/utils/check_in_availability.dart';
 import '../../quests/utils/quest_kind.dart';
+import '../../quests/utils/streak_summary.dart';
 import '../../rank/controllers/rank_controller.dart';
 import '../../shell/controllers/shell_controller.dart';
 import '../../social/controllers/validations_controller.dart';
@@ -37,6 +42,10 @@ class HomeView extends GetView<QuestListController> {
     final topInset = MediaQuery.of(context).padding.top;
     return Stack(
       children: [
+        // Positioned on purpose: a non-positioned child would make the
+        // Stack size itself to this zero-size host, collapsing the page.
+        if (Get.isRegistered<GuidedTourController>())
+          const Positioned(left: 0, top: 0, child: GuidedTourHost()),
         Positioned(
           top: 0,
           left: 0,
@@ -79,7 +88,8 @@ class HomeView extends GetView<QuestListController> {
                             if (rank == null) return const SizedBox.shrink();
                             return AppRankProgressCard(
                               rank: rank,
-                              onTap: () => Get.find<ShellController>().changeTab(2),
+                              onTap: () =>
+                                  Get.find<ShellController>().changeTab(2),
                             );
                           }),
                         ),
@@ -115,11 +125,17 @@ class HomeView extends GetView<QuestListController> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  for (final quest in controller.activeQuests) ...[
-                    _HomeQuestCard(quest: quest),
+                  for (final (i, quest) in controller.activeQuests.indexed) ...[
+                    KeyedSubtree(
+                      key: i == 0 ? GuidedTourKeys.firstQuestCard : null,
+                      child: _HomeQuestCard(quest: quest),
+                    ),
                     const SizedBox(height: 16),
                   ],
-                  _NewQuestButton(),
+                  KeyedSubtree(
+                    key: GuidedTourKeys.newQuestButton,
+                    child: _NewQuestButton(),
+                  ),
                   const SizedBox(height: 24),
                   Text(
                     'CLASSEMENT DES ALLIÉS',
@@ -265,10 +281,7 @@ class _StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bestStreak = controller.activeQuests.fold<int>(
-      0,
-      (best, q) => q.streakDays > best ? q.streakDays : best,
-    );
+    final streak = bestStreak(controller.activeQuests);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -310,7 +323,7 @@ class _StreakCard extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Text(
-                '$bestStreak',
+                '${streak.count}',
                 style: const TextStyle(
                   fontFamily: 'Unbounded',
                   fontWeight: FontWeight.w800,
@@ -323,7 +336,7 @@ class _StreakCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'jours sans rupture',
+            streak.label,
             style: TextStyle(fontSize: 12, color: AppColors.streakCaptionEmber),
           ),
         ],
@@ -411,7 +424,7 @@ class _TotalAtStakeCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                controller.riskLevel,
+                'RISQUE ${controller.riskLevel}',
                 style: AppTypography.labelMd.copyWith(
                   color: AppColors.emberLight,
                   fontSize: 11,
@@ -500,7 +513,19 @@ class _NewQuestButton extends StatelessWidget {
       width: double.infinity,
       height: 58,
       child: OutlinedButton(
-        onPressed: () => Get.toNamed(AppRoutes.questCreate),
+        onPressed: () {
+          // During the guided tour's first step, offer the templates
+          // instead of the full wizard.
+          final touring =
+              Get.isRegistered<GuidedTourController>() &&
+              Get.find<GuidedTourController>().step.value ==
+                  GuidedTourStep.createQuest;
+          if (touring) {
+            showFirstQuestSheet(context);
+          } else {
+            Get.toNamed(AppRoutes.questCreate);
+          }
+        },
         style: OutlinedButton.styleFrom(
           side: BorderSide(
             color: AppColors.outlineVariantStrong,
@@ -610,9 +635,7 @@ class _HomeQuestCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  quest.frequency == QuestFrequency.daily
-                      ? (quest.streakDays > 1 ? 'jours' : 'jour')
-                      : (quest.streakDays > 1 ? 'semaines' : 'semaine'),
+                  streakUnit(quest.frequency, quest.streakDays),
                   style: const TextStyle(
                     fontSize: 12.5,
                     color: AppColors.outline,

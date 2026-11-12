@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/config/legal_links.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../payments/services/url_opener.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_effects.dart';
 import '../../../core/theme/app_radii.dart';
@@ -38,6 +40,50 @@ class _ProfileViewState extends State<ProfileView> {
   Future<void> _logout() async {
     await Get.find<AuthController>().logout();
     Get.offAllNamed(AppRoutes.login);
+  }
+
+  Future<void> _openLink(String url) async {
+    final opener = Get.isRegistered<UrlOpener>() ? Get.find<UrlOpener>() : UrlOpener();
+    if (!await opener.open(url)) {
+      Get.snackbar('Lien indisponible', 'Ouvre $url dans ton navigateur.');
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(ProfileController controller) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer ton compte ?'),
+        content: const Text(
+          'Ton nom, ton e-mail, ton téléphone et ta photo seront effacés, '
+          'tes alliances retirées et tes quêtes en cours annulées. '
+          'Les historiques de paiement sont conservés comme la loi l\'exige. '
+          'Cette action est définitive.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Supprimer définitivement'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!await controller.deleteAccount()) {
+      Get.snackbar(
+        'Suppression impossible',
+        controller.errorMessage.value ?? 'Réessaie dans un instant.',
+      );
+      return;
+    }
+    await Get.find<AuthController>().logout();
+    Get.offAllNamed(AppRoutes.login);
+    Get.snackbar('Compte supprimé', 'Ton compte a bien été supprimé.');
   }
 
   Future<void> _handleSave(ProfileController controller) async {
@@ -174,29 +220,40 @@ class _ProfileViewState extends State<ProfileView> {
                                   builder: (_) => const ManageAlliesSheet(),
                                 ),
                               ),
-                              // Langue / Confidentialité — disabled for now, may come back later.
-                              // Divider(height: 1, color: AppColors.outlineVariant15),
-                              // Obx(
-                              //   () => _SegmentedSettingRow(
-                              //     label: 'Langue',
-                              //     options: const {'fr': 'Français', 'en': 'English'},
-                              //     current: controller.language.value,
-                              //     onSelected: (value) => controller.language.value = value,
-                              //   ),
-                              // ),
-                              // Divider(height: 1, color: AppColors.outlineVariant15),
-                              // Obx(
-                              //   () => _SegmentedSettingRow(
-                              //     label: 'Confidentialité',
-                              //     options: const {
-                              //       'standard': 'Standard',
-                              //       'private': 'Privé',
-                              //     },
-                              //     current: controller.privacyLevel.value.toJson(),
-                              //     onSelected: (value) => controller.privacyLevel.value =
-                              //         ProfilePrivacyLevel.fromJson(value),
-                              //   ),
-                              // ),
+                              Divider(height: 1, color: AppColors.outlineVariant15),
+                              Obx(
+                                () => SwitchListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  activeThumbColor: AppColors.volt,
+                                  title: const Text(
+                                    'Profil privé',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  subtitle: const Text(
+                                    'Ton profil n’apparaît plus dans la recherche.',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: AppColors.outline,
+                                    ),
+                                  ),
+                                  value: controller.privacyLevel.value ==
+                                      ProfilePrivacyLevel.private,
+                                  onChanged: controller.profile.value == null ||
+                                          controller.isSaving.value
+                                      ? null
+                                      : (isPrivate) =>
+                                          controller.privacyLevel.value =
+                                              isPrivate
+                                                  ? ProfilePrivacyLevel.private
+                                                  : ProfilePrivacyLevel.standard,
+                                ),
+                              ),
                               Divider(height: 1, color: AppColors.outlineVariant15),
                               Obx(
                                 () => _NotificationsToggleRow(
@@ -219,7 +276,16 @@ class _ProfileViewState extends State<ProfileView> {
                             ),
                           );
                         }),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
+                        _LinkRow(
+                          label: "Conditions d'utilisation",
+                          onTap: () => _openLink(LegalLinks.terms),
+                        ),
+                        _LinkRow(
+                          label: 'Politique de confidentialité',
+                          onTap: () => _openLink(LegalLinks.privacy),
+                        ),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -235,6 +301,16 @@ class _ProfileViewState extends State<ProfileView> {
                             child: const Text(
                               'Se déconnecter',
                               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => _confirmDeleteAccount(controller),
+                            child: const Text(
+                              'Supprimer mon compte',
+                              style: TextStyle(fontSize: 13, color: AppColors.errorSoft),
                             ),
                           ),
                         ),
@@ -334,6 +410,34 @@ class _SegmentedSettingRow extends StatelessWidget {
   }
 }
 */
+
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: AppColors.outline),
+              ),
+            ),
+            const Icon(Icons.open_in_new, size: 16, color: AppColors.outlineVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _NotificationsToggleRow extends StatelessWidget {
   const _NotificationsToggleRow({required this.value, required this.onChanged});
@@ -713,7 +817,7 @@ class _RankHeroCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'RANG ${rank.rankLabel.toUpperCase()} · '
-                        '${rank.isMaxRank ? "MAXIMUM" : "${rank.pointsToNextSubLevel} PTS VERS ${rank.nextMilestoneLabel.toUpperCase()}"}',
+                        '${rank.isMaxRank ? "MAXIMUM" : "ENCORE ${rank.pointsToNextSubLevel} POINTS POUR ${rank.nextMilestoneLabel.toUpperCase()}"}',
                         style: const TextStyle(
                           fontFamily: 'Geist Mono',
                           fontSize: 12,
@@ -765,13 +869,19 @@ class _ProfileStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final questController = Get.find<QuestListController>();
+    // IntrinsicHeight + stretch: the three tiles share one height even
+    // when a label wraps on a narrow screen.
     return Obx(
-      () => Row(
+      () => IntrinsicHeight(
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: _StatTile(
               value: '${questController.activeQuests.length}',
-              label: 'quêtes actives',
+              label: questController.activeQuests.length > 1
+                  ? 'quêtes actives'
+                  : 'quête active',
             ),
           ),
           const SizedBox(width: 8),
@@ -790,6 +900,7 @@ class _ProfileStatsRow extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

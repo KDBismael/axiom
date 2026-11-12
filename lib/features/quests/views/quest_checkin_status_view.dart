@@ -11,6 +11,7 @@ import '../../rank/controllers/rank_controller.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/check_in_model.dart';
 import '../models/quest_model.dart';
+import '../utils/streak_summary.dart';
 
 /// The "Celebration" screen — shown immediately after every check-in
 /// submission (mockup's `isDone` state). Points are never awarded by the
@@ -113,6 +114,7 @@ class _QuestCheckinStatusViewState extends State<QuestCheckinStatusView> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
                 AppButton(
                   label: 'CONTINUER',
                   onPressed: () => Get.offAllNamed(AppRoutes.home),
@@ -146,7 +148,8 @@ class _CelebrationText extends StatelessWidget {
     final String title;
     if (periodComplete) {
       eyebrow = 'SÉRIE PROLONGÉE · +1';
-      title = 'Combo ×${result.streakDays}';
+      title =
+          'Série : ${result.streakDays} ${streakUnit(frequency, result.streakDays)}';
     } else {
       eyebrow = 'POINTAGE ENREGISTRÉ';
       title =
@@ -156,7 +159,7 @@ class _CelebrationText extends StatelessWidget {
 
     final String message;
     if (!requiresProof) {
-      message = 'Check-in enregistré. Continue comme ça.';
+      message = 'Validation enregistrée. Continue comme ça !';
     } else if (result.evidence?.status == EvidenceStatus.approved) {
       message = 'Preuve approuvée automatiquement.';
     } else {
@@ -281,8 +284,9 @@ class _RankCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               rank.isMaxRank
-                  ? '${rank.totalPoints} pts acquis · rang maximum'
-                  : '${rank.totalPoints} pts acquis · ${rank.nextMilestoneLabel} à ${rank.nextMilestonePoints} pts',
+                  ? '${rank.totalPoints} points · rang maximum'
+                  : '${rank.totalPoints} points · ${rank.nextMilestoneLabel} à ${rank.nextMilestonePoints} points\n'
+                        '+20 quand un allié valide ta preuve · +50 par palier de série',
               style: const TextStyle(
                 fontFamily: 'Geist',
                 fontSize: 12,

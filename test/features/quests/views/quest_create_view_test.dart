@@ -84,7 +84,7 @@ void main() {
     when(
       () => mockRepository.fetchMyPauseRequests(),
     ).thenAnswer((_) async => []);
-    when(() => mockRepository.createQuest(any())).thenAnswer(
+    when(() => mockRepository.createQuest(any(), idempotencyKey: any(named: 'idempotencyKey'))).thenAnswer(
       (invocation) async => createdQuest(
         invocation.positionalArguments.single as Map<String, dynamic>,
       ),
@@ -307,7 +307,7 @@ void main() {
       when(
         () => mockRepository.fetchMyPauseRequests(),
       ).thenAnswer((_) async => []);
-      when(() => mockRepository.createQuest(any())).thenAnswer(
+      when(() => mockRepository.createQuest(any(), idempotencyKey: any(named: 'idempotencyKey'))).thenAnswer(
         (invocation) async => createdQuest(
           invocation.positionalArguments.single as Map<String, dynamic>,
         ),
@@ -513,7 +513,7 @@ void main() {
     when(
       () => questRepository.fetchMyPauseRequests(),
     ).thenAnswer((_) async => []);
-    when(() => questRepository.createQuest(any())).thenAnswer(
+    when(() => questRepository.createQuest(any(), idempotencyKey: any(named: 'idempotencyKey'))).thenAnswer(
       (invocation) async => createdQuest(
         invocation.positionalArguments.single as Map<String, dynamic>,
       ),

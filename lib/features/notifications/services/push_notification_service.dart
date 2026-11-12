@@ -4,9 +4,12 @@ import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../onboarding/controllers/guided_tour_controller.dart';
 import '../../quests/controllers/quest_list_controller.dart';
 import '../../social/controllers/allies_controller.dart';
 import '../controllers/notification_controller.dart';
@@ -154,15 +157,17 @@ class PushNotificationService extends GetxService {
     }
   }
 
+  static const _permissionAskedKey = 'push_permission_asked';
+  bool _asking = false;
+
   Future<void> registerCurrentDevice() async {
     if (!_authController.isAuthenticated) return;
     try {
-      final settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+      final current = await _messaging.getNotificationSettings();
+      if (current.authorizationStatus != AuthorizationStatus.authorized &&
+          current.authorizationStatus != AuthorizationStatus.provisional) {
+        if (!await _askPermissionOnce()) return;
+      }
       final token = await _messaging.getToken();
       if (token == null) return;
       if (kDebugMode) debugPrint('Ndeli FCM token: $token');
@@ -173,6 +178,66 @@ class PushNotificationService extends GetxService {
       });
     } catch (_) {
       // Push is optional and must never block authentication or app startup.
+    }
+  }
+
+  /// Asks for the notification permission at most once per install, and
+  /// only after explaining why in French — this runs on every change of
+  /// the signed-in user, which used to re-prompt after a refusal.
+  Future<bool> _askPermissionOnce() async {
+    if (_asking) return false;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_permissionAskedKey) ?? false) return false;
+    // At startup (before runApp) there's no screen to explain on yet:
+    // the next user refresh after launch asks instead.
+    if (Get.overlayContext == null) return false;
+    _asking = true;
+    try {
+      // Right after signup the dashboard is still building its
+      // controllers; let it settle before putting a dialog on top.
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      if (Get.isDialogOpen ?? false) return false;
+      // The guided tour's spotlight overlay would sit on top of the dialog
+      // and swallow its taps: wait — GuidedTourController.finish() asks
+      // again once the tour is over or skipped.
+      if (Get.isRegistered<GuidedTourController>()) {
+        final step = Get.find<GuidedTourController>().step.value;
+        if (step != GuidedTourStep.idle && step != GuidedTourStep.done) {
+          return false;
+        }
+      }
+      await prefs.setBool(_permissionAskedKey, true);
+      final wants = await Get.dialog<bool>(
+        AlertDialog(
+          title: const Text('Reste au courant'),
+          content: const Text(
+            'Ndeli te prévient quand un allié valide ta preuve, quand une '
+            "échéance approche ou quand on t'invite à une quête. Tu pourras "
+            'changer ça à tout moment dans les réglages.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text('Plus tard'),
+            ),
+            TextButton(
+              onPressed: () => Get.back(result: true),
+              child: const Text('Activer'),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+      if (wants != true) return false;
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+    } finally {
+      _asking = false;
     }
   }
 

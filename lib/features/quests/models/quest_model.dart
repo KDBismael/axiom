@@ -195,6 +195,7 @@ class QuestModel {
     this.fundsDistribution,
     this.allies = const [],
     this.groupId,
+    this.resultId,
   });
 
   final String id;
@@ -237,6 +238,7 @@ class QuestModel {
   /// row with identical rules, linked by this id. Use it to fetch the
   /// group's aggregated member progress (`GET /quests/groups/:groupId/progress`).
   final String? groupId;
+  final String? resultId;
 
   bool get isCollective => groupId != null;
 
@@ -284,6 +286,7 @@ class QuestModel {
                 .map((a) => QuestAllyRef.fromJson(a as Map<String, dynamic>))
                 .toList(),
       groupId: json['groupId'] as String?,
+      resultId: json['resultId'] as String?,
     );
   }
 
@@ -296,7 +299,12 @@ class QuestModel {
     throw ArgumentError('Expected a number or numeric string, got: $value');
   }
 
-  QuestModel copyWith({double? progress, int? streakDays}) {
+  QuestModel copyWith({
+    double? progress,
+    int? streakDays,
+    List<QuestAllyRef>? allies,
+    String? resultId,
+  }) {
     return QuestModel(
       id: id,
       title: title,
@@ -317,8 +325,9 @@ class QuestModel {
       progress: progress ?? this.progress,
       streakDays: streakDays ?? this.streakDays,
       creatorId: creatorId,
-      allies: allies,
+      allies: allies ?? this.allies,
       groupId: groupId,
+      resultId: resultId ?? this.resultId,
     );
   }
 }

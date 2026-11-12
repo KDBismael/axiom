@@ -24,13 +24,14 @@ const _typeLabels = {
   'quest_ally_invite_received': 'Invitation en tant qu\'allié',
   'quest_ally_invite_accepted': 'Invitation acceptée',
   'quest_deletion_requested': 'Suppression de quête demandée',
+  'quest_deletion_vote_reminder': 'Vote de suppression en attente',
   'quest_deletion_approved': 'Suppression approuvée',
   'quest_deletion_rejected': 'Suppression rejetée',
   'quest_group_invite_received': 'Invitation à une quête collective',
   'quest_group_member_joined': 'Un membre a rejoint la quête',
   'quest_group_invite_declined': 'Invitation refusée',
   'quest_pause_requested': 'Demande de pause à valider',
-  'quest_pause_decided': 'Verdict sur votre pause',
+  'quest_pause_decided': 'Verdict sur ta pause',
 };
 
 /// Category accent color per notification family — matches the "Ndeli —
@@ -43,12 +44,20 @@ Color _accentFor(String type) {
       type.startsWith('quest_owner_invite')) {
     return AppColors.violet;
   }
-  if (type == 'quest_completed' || type == 'validation_decided') return AppColors.volt;
-  if (type == 'quest_failed' || type.contains('rejected') || type == 'payment_failed') {
+  if (type == 'quest_completed' || type == 'validation_decided') {
+    return AppColors.volt;
+  }
+  if (type == 'quest_failed' ||
+      type.contains('rejected') ||
+      type == 'payment_failed') {
     return AppColors.error;
   }
-  if (type == 'quest_deadline_reminder' || type.contains('pause')) return AppColors.amber;
-  if (type.startsWith('payment_') || type.contains('payout') || type.contains('refund')) {
+  if (type == 'quest_deadline_reminder' || type.contains('pause')) {
+    return AppColors.amber;
+  }
+  if (type.startsWith('payment_') ||
+      type.contains('payout') ||
+      type.contains('refund')) {
     return AppColors.waveCyan;
   }
   return AppColors.outlineMuted;
@@ -88,19 +97,29 @@ class NotificationsView extends GetView<NotificationController> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppColors.primary,
+                    ),
                   ),
                   Expanded(
                     child: Text(
                       'Notifications',
-                      style: AppTypography.headlineMd.copyWith(color: AppColors.primary, fontSize: 18),
+                      style: AppTypography.headlineMd.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                   TextButton(
                     onPressed: controller.markAllRead,
                     child: Text(
                       'Tout lire',
-                      style: const TextStyle(fontFamily: 'Geist', color: AppColors.volt, fontSize: 13),
+                      style: const TextStyle(
+                        fontFamily: 'Geist',
+                        color: AppColors.volt,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ],
@@ -156,6 +175,8 @@ class _NotificationRow extends StatelessWidget {
   /// person's name, a validation decision, or a payment amount, depending
   /// on what that notification type's payload actually carries.
   String? get _detail {
+    final summary = notification.resultSummary;
+    if (summary != null) return summary;
     final payload = notification.payload;
     final questTitle =
         payload['questTitle'] as String? ?? payload['title'] as String?;
@@ -191,10 +212,14 @@ class _NotificationRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: notification.isUnread ? AppColors.surfaceContainer : AppColors.surfaceContainerLowest,
+          color: notification.isUnread
+              ? AppColors.surfaceContainer
+              : AppColors.surfaceContainerLowest,
           borderRadius: AppRadii.structuralRadius,
           border: Border.all(
-            color: notification.isUnread ? AppColors.outlineVariantStrong : AppColors.outlineVariant,
+            color: notification.isUnread
+                ? AppColors.outlineVariantStrong
+                : AppColors.outlineVariant,
           ),
         ),
         child: Row(
@@ -204,7 +229,14 @@ class _NotificationRow extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Transform.rotate(
                 angle: 0.7853981633974483,
-                child: Container(width: 10, height: 10, decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2))),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -216,13 +248,20 @@ class _NotificationRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          (_typeLabels[notification.type] ?? notification.type).toUpperCase(),
-                          style: AppTypography.labelMd.copyWith(color: accent, fontSize: 10.5),
+                          (_typeLabels[notification.type] ?? notification.type)
+                              .toUpperCase(),
+                          style: AppTypography.labelMd.copyWith(
+                            color: accent,
+                            fontSize: 10.5,
+                          ),
                         ),
                       ),
                       Text(
                         _relativeTime(notification.createdAt),
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.outlineFaint, fontSize: 12),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.outlineFaint,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -230,7 +269,10 @@ class _NotificationRow extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       detail,
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontSize: 14),
+                      style: AppTypography.bodyMd.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ],

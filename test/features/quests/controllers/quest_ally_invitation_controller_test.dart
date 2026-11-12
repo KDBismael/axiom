@@ -32,8 +32,9 @@ void main() {
 
   group('QuestAllyInvitationController.load', () {
     test('fetches and stores the invitation', () async {
-      when(() => mockRepository.fetchAllyInvitation('q-1'))
-          .thenAnswer((_) async => invitation);
+      when(
+        () => mockRepository.fetchAllyInvitation('q-1'),
+      ).thenAnswer((_) async => invitation);
 
       await controller.load();
 
@@ -42,8 +43,9 @@ void main() {
     });
 
     test('surfaces the backend French error on failure', () async {
-      when(() => mockRepository.fetchAllyInvitation('q-1'))
-          .thenThrow(QuestException('Invitation introuvable'));
+      when(
+        () => mockRepository.fetchAllyInvitation('q-1'),
+      ).thenThrow(QuestException('Invitation introuvable'));
 
       await controller.load();
 
@@ -54,33 +56,43 @@ void main() {
 
   group('QuestAllyInvitationController.respond', () {
     test('accepts and returns true', () async {
-      when(() => mockRepository.respondToAllyInvitation('q-1', accept: true))
-          .thenAnswer((_) async {});
+      when(
+        () => mockRepository.respondToAllyInvitation('q-1', accept: true),
+      ).thenAnswer((_) async {});
 
       final ok = await controller.respond(accept: true);
 
       expect(ok, isTrue);
-      verify(() => mockRepository.respondToAllyInvitation('q-1', accept: true)).called(1);
+      verify(
+        () => mockRepository.respondToAllyInvitation('q-1', accept: true),
+      ).called(1);
     });
 
     test('declines and returns true', () async {
-      when(() => mockRepository.respondToAllyInvitation('q-1', accept: false))
-          .thenAnswer((_) async {});
+      when(
+        () => mockRepository.respondToAllyInvitation('q-1', accept: false),
+      ).thenAnswer((_) async {});
 
       final ok = await controller.respond(accept: false);
 
       expect(ok, isTrue);
-      verify(() => mockRepository.respondToAllyInvitation('q-1', accept: false)).called(1);
+      verify(
+        () => mockRepository.respondToAllyInvitation('q-1', accept: false),
+      ).called(1);
     });
 
     test('surfaces the backend error and returns false on failure', () async {
-      when(() => mockRepository.respondToAllyInvitation('q-1', accept: true))
-          .thenThrow(QuestException('Cette invitation a déjà été traitée'));
+      when(
+        () => mockRepository.respondToAllyInvitation('q-1', accept: true),
+      ).thenThrow(QuestException('Cette invitation a déjà été traitée'));
 
       final ok = await controller.respond(accept: true);
 
       expect(ok, isFalse);
-      expect(controller.errorMessage.value, 'Cette invitation a déjà été traitée');
+      expect(
+        controller.errorMessage.value,
+        'Cette invitation a déjà été traitée',
+      );
     });
   });
 }

@@ -76,9 +76,7 @@ class QuestFocusTimerView extends StatelessWidget {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     final hours = d.inHours;
-    return hours > 0
-        ? '$hours:$minutes:$seconds'
-        : '$minutes:$seconds';
+    return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
   }
 }
 

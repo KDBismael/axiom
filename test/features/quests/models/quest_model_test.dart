@@ -24,6 +24,30 @@ void main() {
     'streakDays': 3,
   };
 
+  test('copyWith enriches list rows without changing their fresh state', () {
+    const allies = [
+      QuestAllyRef(
+        userId: 'ally-1',
+        firstName: 'Litteral',
+        lastName: '',
+        status: QuestAllyStatus.accepted,
+      ),
+    ];
+    final summary = QuestModel.fromJson(json);
+    final detail = summary.copyWith(allies: allies, resultId: 'result-1');
+    expect(summary.allies, isEmpty);
+    expect(detail.allies, allies);
+    expect(detail.resultId, 'result-1');
+    expect(detail.status, summary.status);
+    expect(detail.progress, summary.progress);
+    final updated = detail.copyWith(progress: 0.8, streakDays: 4);
+    expect(updated.allies, allies);
+    expect(updated.resultId, 'result-1');
+    expect(updated.progress, 0.8);
+    expect(updated.streakDays, 4);
+    expect(detail.copyWith(allies: []).allies, isEmpty);
+  });
+
   group('QuestModel.fromJson', () {
     test('parses the full backend shape', () {
       final quest = QuestModel.fromJson(json);
@@ -80,10 +104,13 @@ void main() {
       expect(quest.fundsDistribution, isNull);
     });
 
-    test('parses stakeAmountXof when the backend sends a Decimal-as-string', () {
-      final quest = QuestModel.fromJson({...json, 'stakeAmountXof': '5000'});
-      expect(quest.stakeAmountXof, 5000.0);
-    });
+    test(
+      'parses stakeAmountXof when the backend sends a Decimal-as-string',
+      () {
+        final quest = QuestModel.fromJson({...json, 'stakeAmountXof': '5000'});
+        expect(quest.stakeAmountXof, 5000.0);
+      },
+    );
 
     test('parses targetPerPeriod > 1', () {
       final quest = QuestModel.fromJson({...json, 'targetPerPeriod': 3});
@@ -131,25 +158,34 @@ void main() {
 
   group('QuestModel computed getters', () {
     test('isPendingPayment / isActive reflect status', () {
-      final pending = QuestModel.fromJson({...json, 'status': 'pending_payment'});
+      final pending = QuestModel.fromJson({
+        ...json,
+        'status': 'pending_payment',
+      });
       final active = QuestModel.fromJson({...json, 'status': 'active'});
       expect(pending.isPendingPayment, isTrue);
       expect(active.isPendingPayment, isFalse);
       expect(active.isActive, isTrue);
     });
 
-    test('isFinished is true for completed, failed, and cancelled quests only', () {
-      final completed = QuestModel.fromJson({...json, 'status': 'completed'});
-      final failed = QuestModel.fromJson({...json, 'status': 'failed'});
-      final cancelled = QuestModel.fromJson({...json, 'status': 'cancelled'});
-      final active = QuestModel.fromJson({...json, 'status': 'active'});
-      final pending = QuestModel.fromJson({...json, 'status': 'pending_payment'});
+    test(
+      'isFinished is true for completed, failed, and cancelled quests only',
+      () {
+        final completed = QuestModel.fromJson({...json, 'status': 'completed'});
+        final failed = QuestModel.fromJson({...json, 'status': 'failed'});
+        final cancelled = QuestModel.fromJson({...json, 'status': 'cancelled'});
+        final active = QuestModel.fromJson({...json, 'status': 'active'});
+        final pending = QuestModel.fromJson({
+          ...json,
+          'status': 'pending_payment',
+        });
 
-      expect(completed.isFinished, isTrue);
-      expect(failed.isFinished, isTrue);
-      expect(cancelled.isFinished, isTrue);
-      expect(active.isFinished, isFalse);
-      expect(pending.isFinished, isFalse);
-    });
+        expect(completed.isFinished, isTrue);
+        expect(failed.isFinished, isTrue);
+        expect(cancelled.isFinished, isTrue);
+        expect(active.isFinished, isFalse);
+        expect(pending.isFinished, isFalse);
+      },
+    );
   });
 }

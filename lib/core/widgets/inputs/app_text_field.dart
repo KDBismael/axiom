@@ -50,13 +50,17 @@ class _AppTextFieldState extends State<AppTextField> {
   Widget build(BuildContext context) {
     Widget? suffix = widget.suffix;
     if (widget.allowObscureToggle) {
-      suffix = IconButton(
-        icon: Icon(
-          _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-          color: AppColors.outlineMuted,
-          size: 20,
+      // Out of keyboard traversal: "suivant" must jump to the next field,
+      // not to this eye button (which closed the keyboard).
+      suffix = ExcludeFocus(
+        child: IconButton(
+          icon: Icon(
+            _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            color: AppColors.outlineMuted,
+            size: 20,
+          ),
+          onPressed: () => setState(() => _obscured = !_obscured),
         ),
-        onPressed: () => setState(() => _obscured = !_obscured),
       );
     }
 

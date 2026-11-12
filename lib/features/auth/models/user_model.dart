@@ -9,6 +9,7 @@ class User {
     required this.updatedAt,
     this.phone,
     this.avatarUrl,
+    this.onboardingCompletedAt,
   });
 
   final String id;
@@ -21,6 +22,22 @@ class User {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Null until the first-run guided tour is finished or skipped.
+  final DateTime? onboardingCompletedAt;
+
+  User copyWith({DateTime? onboardingCompletedAt}) => User(
+    id: id,
+    email: email,
+    firstName: firstName,
+    lastName: lastName,
+    role: role,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    phone: phone,
+    avatarUrl: avatarUrl,
+    onboardingCompletedAt: onboardingCompletedAt ?? this.onboardingCompletedAt,
+  );
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as String,
@@ -32,6 +49,9 @@ class User {
       role: json['role'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      onboardingCompletedAt: json['onboardingCompletedAt'] == null
+          ? null
+          : DateTime.parse(json['onboardingCompletedAt'] as String),
     );
   }
 }

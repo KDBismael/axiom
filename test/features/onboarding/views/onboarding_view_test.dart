@@ -33,7 +33,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.text('ENGAGEZ VOTRE ARGENT'), findsOneWidget);
+    expect(find.text('ENGAGE TON ARGENT'), findsOneWidget);
   });
 
   testWidgets('shows COMMENCER on the last slide', (tester) async {

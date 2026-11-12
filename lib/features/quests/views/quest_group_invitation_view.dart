@@ -8,8 +8,7 @@ import '../controllers/quest_group_invitation_controller.dart';
 import '../controllers/quest_list_controller.dart';
 import '../models/quest_model.dart';
 
-class QuestGroupInvitationView
-    extends GetView<QuestGroupInvitationController> {
+class QuestGroupInvitationView extends GetView<QuestGroupInvitationController> {
   const QuestGroupInvitationView({super.key});
 
   @override
@@ -112,17 +111,14 @@ class QuestGroupInvitationView
                           color: AppColors.surfaceContainerLow,
                           borderRadius: AppRadii.structuralRadius,
                           border: const Border(
-                            left: BorderSide(
-                              color: AppColors.volt,
-                              width: 4,
-                            ),
+                            left: BorderSide(color: AppColors.volt, width: 4),
                           ),
                         ),
                         child: const Text(
-                          "En acceptant, vous obtenez votre propre quête avec "
-                          "les mêmes règles : vous validerez les preuves des "
-                          "autres membres, et eux les vôtres — jamais les "
-                          "vôtres vous-même.",
+                          "En acceptant, tu obtiens ta propre quête avec "
+                          "les mêmes règles : tu examineras les preuves des "
+                          "autres membres, et eux les tiennes — jamais les "
+                          "tiennes toi-même.",
                           style: TextStyle(
                             color: AppColors.primary,
                             height: 1.6,
@@ -139,7 +135,8 @@ class QuestGroupInvitationView
                       const SizedBox(height: 8),
                       _InfoRow(
                         label: 'Durée',
-                        value: '${invitation.durationDays} jours',
+                        value:
+                            '${invitation.durationDays} ${invitation.durationDays == 1 ? 'jour' : 'jours'}',
                       ),
                       const SizedBox(height: 8),
                       _InfoRow(
@@ -182,8 +179,8 @@ class QuestGroupInvitationView
                     ),
                     child: Text(
                       invitation.status == QuestGroupInvitationStatus.accepted
-                          ? 'Vous avez rejoint cette quête collective.'
-                          : 'Vous avez refusé cette invitation.',
+                          ? 'Tu as rejoint cette quête collective.'
+                          : 'Tu as refusé cette invitation.',
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyMd.copyWith(
                         color:

@@ -18,6 +18,7 @@ import '../services/evidence_picker_service.dart';
 import '../services/focus_session_draft_store.dart';
 import '../utils/period_progress.dart';
 import '../utils/check_in_availability.dart';
+import '../utils/check_in_mode.dart';
 
 class QuestValidationView extends GetView<QuestListController> {
   const QuestValidationView({super.key});
@@ -108,7 +109,11 @@ class _ValidationBodyState extends State<_ValidationBody> {
   PickedEvidence? _pickedVideo;
   final List<PickedEvidence> _pickedPhotos = [];
   bool _submitting = false;
+  bool _submitted = false;
   bool _loadingHistory = true;
+  // The list endpoint omits allies, so the check-in mode is only known
+  // once the quest detail has been fetched.
+  bool _loadingDetail = true;
   int _currentPeriodCount = 0;
   String? _error;
   FocusSessionDraft? _focusDraft;
@@ -124,7 +129,28 @@ class _ValidationBodyState extends State<_ValidationBody> {
     super.initState();
     _loadHistory();
     _loadFocusDraft();
+    _loadDetail();
+    // The submit label ("VALIDER SANS PREUVE" vs "ENVOYER LA PREUVE")
+    // follows what's typed.
+    _descriptionController.addListener(_onDescriptionChanged);
   }
+
+  void _onDescriptionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadDetail() async {
+    await Get.find<QuestListController>().refreshQuest(widget.quest.id);
+    if (mounted) setState(() => _loadingDetail = false);
+  }
+
+  CheckInMode get _mode => checkInModeFor(widget.quest);
+
+  bool get _hasAttachedProof => switch (_evidenceType) {
+    _EvidenceType.photo => _pickedPhotos.isNotEmpty,
+    _EvidenceType.video => _pickedVideo != null,
+    _EvidenceType.text => _descriptionController.text.trim().isNotEmpty,
+  };
 
   Future<void> _loadHistory() async {
     final checkIns = await Get.find<QuestListController>().fetchCheckIns(
@@ -213,18 +239,17 @@ class _ValidationBodyState extends State<_ValidationBody> {
   }
 
   Future<void> _submit() async {
-    final hasProof = _evidenceType == _EvidenceType.video
-        ? _pickedVideo != null
-        : _pickedPhotos.isNotEmpty;
-    if (widget.quest.requiresProof &&
-        _evidenceType != _EvidenceType.text &&
-        !hasProof) {
-      setState(() => _error = 'Une preuve est requise pour cette quête.');
-      return;
-    }
-    if (_evidenceType == _EvidenceType.text &&
-        _descriptionController.text.trim().isEmpty) {
-      setState(() => _error = 'Veuillez décrire votre exécution.');
+    if (_submitting || _submitted) return;
+    final mode = _mode;
+    if (mode == CheckInMode.proofRequiredNoAlly) return;
+    // No reviewer → never send a proof (the backend would refuse it).
+    final sendProof = mode != CheckInMode.selfCheckIn && _hasAttachedProof;
+    if (mode == CheckInMode.proofRequired && !_hasAttachedProof) {
+      setState(
+        () => _error = _evidenceType == _EvidenceType.text
+            ? 'Décris ce que tu as accompli.'
+            : 'Une preuve est requise pour cette quête.',
+      );
       return;
     }
 
@@ -237,7 +262,9 @@ class _ValidationBodyState extends State<_ValidationBody> {
     try {
       String? fileId;
       List<String>? fileIds;
-      if (_evidenceType == _EvidenceType.video && _pickedVideo != null) {
+      if (!sendProof) {
+        // Plain check-in: nothing uploaded, no proof attached.
+      } else if (_evidenceType == _EvidenceType.video && _pickedVideo != null) {
         fileId = await controller.uploadEvidenceFile(_pickedVideo!);
       } else if (_evidenceType == _EvidenceType.photo &&
           _pickedPhotos.isNotEmpty) {
@@ -255,19 +282,15 @@ class _ValidationBodyState extends State<_ValidationBody> {
 
       final result = await controller.checkIn(
         widget.quest.id,
-        proofType:
-            (fileId != null ||
-                fileIds != null ||
-                _evidenceType == _EvidenceType.text)
-            ? proofType
-            : null,
+        proofType: sendProof ? proofType : null,
         fileId: fileId,
         fileIds: fileIds,
-        textContent: _evidenceType == _EvidenceType.text
+        textContent: sendProof && _evidenceType == _EvidenceType.text
             ? _descriptionController.text.trim()
             : null,
         description:
-            _evidenceType != _EvidenceType.text &&
+            sendProof &&
+                _evidenceType != _EvidenceType.text &&
                 _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
             : null,
@@ -281,6 +304,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
         return;
       }
 
+      _submitted = true;
       if (_focusDraft != null) {
         await Get.find<FocusSessionDraftStore>().clear(widget.quest.id);
         // The timer controller is kept alive (tagged + permanent) across
@@ -323,18 +347,29 @@ class _ValidationBodyState extends State<_ValidationBody> {
         .where((n) => n.isNotEmpty)
         .toList();
     if (names.isEmpty) return null;
-    if (names.length == 1) return '${names.first} validera ta preuve.';
-    return '${names.join(' ou ')} validera ta preuve. Le premier à décider l\'emporte.';
+    if (names.length == 1) return '${names.first} examinera ta preuve.';
+    return '${names.join(' ou ')} examinera ta preuve. Le premier à décider l\'emporte.';
   }
 
   @override
   Widget build(BuildContext context) {
+    final mode = _mode;
     final canSubmit =
         !_submitting &&
+        !_submitted &&
         !_loadingHistory &&
+        !_loadingDetail &&
         !_periodComplete &&
-        !_deadlinePassed;
+        !_deadlinePassed &&
+        mode != CheckInMode.proofRequiredNoAlly;
     final validatorMessage = _validatorMessage;
+    final weekly = widget.quest.frequency == QuestFrequency.weekly;
+    final submitLabel = switch (mode) {
+      CheckInMode.selfCheckIn => 'VALIDER',
+      CheckInMode.proofOptional when !_hasAttachedProof =>
+        'VALIDER SANS PREUVE',
+      _ => 'ENVOYER LA PREUVE',
+    };
 
     return Column(
       children: [
@@ -349,7 +384,10 @@ class _ValidationBodyState extends State<_ValidationBody> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'VALIDER AVEC PREUVE',
+                      mode == CheckInMode.proofRequired ||
+                              mode == CheckInMode.proofRequiredNoAlly
+                          ? 'VALIDER AVEC PREUVE'
+                          : 'VALIDER',
                       style: TextStyle(
                         fontFamily: 'Geist Mono',
                         fontSize: 11,
@@ -382,7 +420,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
               children: [
                 if (_focusDraft != null) ...[
                   Text(
-                    'Session de focus : '
+                    'Séance de concentration : '
                     '${_focusDraft!.endedAt.difference(_focusDraft!.startedAt).inMinutes} min',
                     style: const TextStyle(fontSize: 13, color: AppColors.volt),
                   ),
@@ -397,8 +435,8 @@ class _ValidationBodyState extends State<_ValidationBody> {
                 ] else if (!_loadingHistory && _periodComplete) ...[
                   Text(
                     widget.quest.frequency == QuestFrequency.daily
-                        ? "Vous avez déjà validé aujourd'hui."
-                        : 'Vous avez déjà validé cette semaine.',
+                        ? "Tu as déjà validé aujourd'hui."
+                        : 'Tu as déjà validé cette semaine.',
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.error,
@@ -417,56 +455,95 @@ class _ValidationBodyState extends State<_ValidationBody> {
                   ),
                   const SizedBox(height: 16),
                 ],
-                _EvidenceTypeSegmented(
-                  value: _evidenceType,
-                  onChanged: (type) => setState(() {
-                    _evidenceType = type;
-                    if (type != _EvidenceType.photo) _pickedPhotos.clear();
-                    if (type != _EvidenceType.video) _pickedVideo = null;
-                  }),
-                ),
-                if (_evidenceType == _EvidenceType.photo) ...[
-                  const SizedBox(height: 16),
-                  _PhotoSlotsGrid(
-                    photos: _pickedPhotos,
-                    onRemove: _removePhoto,
-                    onAddTap: _pickPhotosFromGallery,
+                if (mode == CheckInMode.selfCheckIn) ...[
+                  _ValidatorInfoBanner(
+                    text: weekly
+                        ? 'Touche « VALIDER » pour compter cette séance. Pas besoin '
+                              'de preuve tant qu\'aucun allié ne suit cette quête.'
+                        : 'Touche « VALIDER » pour cocher ta journée. Pas besoin '
+                              'de preuve tant qu\'aucun allié ne suit cette quête.',
                   ),
-                  const SizedBox(height: 8),
-                  _PickerButtonsRow(
-                    primaryLabel: 'Appareil photo',
-                    onPrimary: _pickedPhotos.length >= _maxPhotos
-                        ? null
-                        : _pickPhotoFromCamera,
-                    onGallery: _pickedPhotos.length >= _maxPhotos
-                        ? null
-                        : _pickPhotosFromGallery,
+                ] else if (mode == CheckInMode.proofRequiredNoAlly) ...[
+                  const _ValidatorInfoBanner(
+                    text:
+                        'Cette quête demande une preuve vérifiée par un allié. '
+                        'Invite un allié depuis la fiche de la quête : tu pourras '
+                        'valider dès qu\'il aura accepté.',
                   ),
-                ] else if (_evidenceType == _EvidenceType.video) ...[
-                  const SizedBox(height: 16),
-                  if (_pickedVideo == null)
-                    _PickerButtonsRow(
-                      primaryLabel: 'Caméra',
-                      onPrimary: () => _pickVideoFrom(ImageSource.camera),
-                      onGallery: () => _pickVideoFrom(ImageSource.gallery),
-                    )
-                  else
-                    _VideoSelectedCard(
-                      video: _pickedVideo!,
-                      onRemove: () => setState(() => _pickedVideo = null),
+                ] else ...[
+                  if (mode == CheckInMode.proofOptional) ...[
+                    Text(
+                      'PREUVE FACULTATIVE · tu peux aussi valider sans rien joindre',
+                      style: TextStyle(
+                        fontFamily: 'Geist Mono',
+                        fontSize: 10.5,
+                        letterSpacing: 0.08 * 10.5,
+                        color: AppColors.outlineMuted,
+                      ),
                     ),
+                    const SizedBox(height: 10),
+                  ],
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      'Seuls toi et les alliés de cette quête voient ta preuve.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.outline,
+                      ),
+                    ),
+                  ),
+                  _EvidenceTypeSegmented(
+                    value: _evidenceType,
+                    onChanged: (type) => setState(() {
+                      _evidenceType = type;
+                      if (type != _EvidenceType.photo) _pickedPhotos.clear();
+                      if (type != _EvidenceType.video) _pickedVideo = null;
+                    }),
+                  ),
+                  if (_evidenceType == _EvidenceType.photo) ...[
+                    const SizedBox(height: 16),
+                    _PhotoSlotsGrid(
+                      photos: _pickedPhotos,
+                      onRemove: _removePhoto,
+                      onAddTap: _pickPhotosFromGallery,
+                    ),
+                    const SizedBox(height: 8),
+                    _PickerButtonsRow(
+                      primaryLabel: 'Appareil photo',
+                      onPrimary: _pickedPhotos.length >= _maxPhotos
+                          ? null
+                          : _pickPhotoFromCamera,
+                      onGallery: _pickedPhotos.length >= _maxPhotos
+                          ? null
+                          : _pickPhotosFromGallery,
+                    ),
+                  ] else if (_evidenceType == _EvidenceType.video) ...[
+                    const SizedBox(height: 16),
+                    if (_pickedVideo == null)
+                      _PickerButtonsRow(
+                        primaryLabel: 'Caméra',
+                        onPrimary: () => _pickVideoFrom(ImageSource.camera),
+                        onGallery: () => _pickVideoFrom(ImageSource.gallery),
+                      )
+                    else
+                      _VideoSelectedCard(
+                        video: _pickedVideo!,
+                        onRemove: () => setState(() => _pickedVideo = null),
+                      ),
+                  ],
+                  const SizedBox(height: 16),
+                  _CommentField(
+                    label: _evidenceType == _EvidenceType.text
+                        ? 'TA PREUVE'
+                        : 'COMMENTAIRE (OPTIONNEL)',
+                    hint: _evidenceType == _EvidenceType.text
+                        ? 'Décris ce que tu as accompli…'
+                        : 'Ex. ce que tu as fait, où, combien',
+                    controller: _descriptionController,
+                    singleLine: _evidenceType != _EvidenceType.text,
+                  ),
                 ],
-                const SizedBox(height: 16),
-                _CommentField(
-                  label: _evidenceType == _EvidenceType.text
-                      ? 'VOTRE PREUVE'
-                      : 'COMMENTAIRE (OPTIONNEL)',
-                  hint: _evidenceType == _EvidenceType.text
-                      ? 'Décrivez ce que vous avez accompli...'
-                      : 'Ex. 5,3 km, parc de Hann',
-                  controller: _descriptionController,
-                  singleLine: _evidenceType != _EvidenceType.text,
-                ),
                 if (validatorMessage != null) ...[
                   const SizedBox(height: 16),
                   _ValidatorInfoBanner(text: validatorMessage),
@@ -514,7 +591,7 @@ class _ValidationBodyState extends State<_ValidationBody> {
                         ),
                       )
                     : Text(
-                        'ENVOYER LA PREUVE',
+                        submitLabel,
                         style: TextStyle(
                           fontFamily: 'Unbounded',
                           fontWeight: FontWeight.w700,

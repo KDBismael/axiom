@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:axiom/features/quests/controllers/quest_deletion_vote_controller.dart';
@@ -23,8 +24,9 @@ void main() {
 
   group('QuestDeletionVoteController.load', () {
     test('fetches and stores the request tally', () async {
-      when(() => mockRepository.fetchDeletionRequest('q-1'))
-          .thenAnswer((_) async => pendingRequest);
+      when(
+        () => mockRepository.fetchDeletionRequest('q-1'),
+      ).thenAnswer((_) async => pendingRequest);
 
       await controller.load();
 
@@ -32,8 +34,9 @@ void main() {
     });
 
     test('surfaces the backend error on failure', () async {
-      when(() => mockRepository.fetchDeletionRequest('q-1'))
-          .thenThrow(QuestException('Demande introuvable'));
+      when(
+        () => mockRepository.fetchDeletionRequest('q-1'),
+      ).thenThrow(QuestException('Demande introuvable'));
 
       await controller.load();
 
@@ -42,19 +45,46 @@ void main() {
   });
 
   group('QuestDeletionVoteController.vote', () {
+    test('ignores a second vote while the first request is pending', () async {
+      final pending = Completer<void>();
+      when(
+        () =>
+            mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true),
+      ).thenAnswer((_) => pending.future);
+      final first = controller.vote(approve: true);
+      final second = controller.vote(approve: true);
+      expect(await second, isFalse);
+      verify(
+        () =>
+            mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true),
+      ).called(1);
+      expect(controller.isVoting.value, isTrue);
+      pending.complete();
+      expect(await first, isTrue);
+    });
     test('casts an approve vote and returns true', () async {
-      when(() => mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true))
-          .thenAnswer((_) async {});
+      when(
+        () =>
+            mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true),
+      ).thenAnswer((_) async {});
 
       final ok = await controller.vote(approve: true);
 
       expect(ok, isTrue);
-      verify(() => mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true)).called(1);
+      verify(
+        () =>
+            mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true),
+      ).called(1);
     });
 
     test('casts a reject vote and returns true', () async {
-      when(() => mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: false))
-          .thenAnswer((_) async {});
+      when(
+        () => mockRepository.voteOnDeletionRequest(
+          'q-1',
+          'req-1',
+          approve: false,
+        ),
+      ).thenAnswer((_) async {});
 
       final ok = await controller.vote(approve: false);
 
@@ -62,13 +92,18 @@ void main() {
     });
 
     test('surfaces the duplicate-vote error and returns false', () async {
-      when(() => mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true))
-          .thenThrow(QuestException('Vous avez déjà voté sur cette demande'));
+      when(
+        () =>
+            mockRepository.voteOnDeletionRequest('q-1', 'req-1', approve: true),
+      ).thenThrow(QuestException('Vous avez déjà voté sur cette demande'));
 
       final ok = await controller.vote(approve: true);
 
       expect(ok, isFalse);
-      expect(controller.errorMessage.value, 'Vous avez déjà voté sur cette demande');
+      expect(
+        controller.errorMessage.value,
+        'Vous avez déjà voté sur cette demande',
+      );
     });
   });
 }

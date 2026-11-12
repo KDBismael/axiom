@@ -35,10 +35,15 @@ class QuestDeletionVoteController extends GetxController {
   /// Returns true once the vote is cast (whether the request resolved or is
   /// still awaiting other allies) so the view can pop.
   Future<bool> vote({required bool approve}) async {
+    if (isVoting.value) return false;
     isVoting.value = true;
     errorMessage.value = null;
     try {
-      await _repository.voteOnDeletionRequest(questId, requestId, approve: approve);
+      await _repository.voteOnDeletionRequest(
+        questId,
+        requestId,
+        approve: approve,
+      );
       return true;
     } on QuestException catch (e) {
       errorMessage.value = e.message;

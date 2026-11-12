@@ -1,8 +1,10 @@
 abstract class AppRoutes {
   static const home = '/home';
   static const questDetail = '/quest-detail';
+  static const questResult = '/quest-result';
   static const questCreate = '/quest-create';
   static const onboarding = '/onboarding';
+  static const firstQuestLaunched = '/first-quest-launched';
   static const login = '/login';
   static const questValidation = '/quest-validation';
   static const questCheckinStatus = '/quest-checkin-status';
